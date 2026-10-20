@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zettel AI</title>
+    
+    <!-- Material 3 (Tailwind CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Иконки -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Настройка тем (Material You) -->
+    <style>
+        :root {
+            --md-surface: #FEF7FF;
+            --md-surface-variant: #E7E0EC;
+            --md-primary: #6750A4;
+            --md-on-primary: #FFFFFF;
+            --md-on-surface: #1D1B20;
+            --md-outline: #79747E;
+            background-color: var(--md-surface);
+            color: var(--md-on-surface);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --md-surface: #141218;
+                --md-surface-variant: #49454F;
+                --md-primary: #D0BCFF;
+                --md-on-primary: #381E72;
+                --md-on-surface: #E6E0E9;
+                --md-outline: #938F99;
+            }
+        }
+        body { margin: 0; height: 100vh; display: flex; overflow: hidden; }
+        .bg-surface { background-color: var(--md-surface); }
+        .bg-surface-variant { background-color: var(--md-surface-variant); }
+        .bg-primary { background-color: var(--md-primary); color: var(--md-on-primary); }
+        .text-primary { color: var(--md-primary); }
+        .text-outline { color: var(--md-outline); }
+        .border-outline { border-color: var(--md-outline); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 10px; }
+    </style>
+
+    <!-- PWA Манифест -->
+    <link rel="manifest" href="manifest.json">
+</head>
+<body class="bg-surface text-[var(--md-on-surface)]">
+
+    <!-- ЛЕВАЯ ПАНЕЛЬ -->
+    <aside class="w-64 border-r border-[var(--md-outline)] opacity-90 flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3;">
+        <div class="p-4 flex justify-between items-center opacity-100">
+            <span class="font-bold text-lg text-primary">Zettel AI</span>
+            <i data-lucide="settings" class="w-5 h-5 cursor-pointer text-outline"></i>
+        </div>
+        <div class="p-4 flex-1 overflow-y-auto opacity-100">
+            <button class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90">
+                <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
+            </button>
+            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Папки</div>
+            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer">
+                <i data-lucide="file-text" class="w-4 h-4 text-outline"></i> Входящие
+            </div>
+            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer">
+                <i data-lucide="hash" class="w-4 h-4 text-outline"></i> #проект_Х
+            </div>
+        </div>
+    </aside>
+
+    <!-- ЦЕНТР (Редактор) -->
+    <main class="flex-1 flex flex-col min-w-0 bg-surface">
+        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between md:justify-end" style="border-bottom-width: 1px; opacity: 0.5;">
+            <i data-lucide="menu" class="w-6 h-6 md:hidden cursor-pointer"></i>
+            <i data-lucide="search" class="w-5 h-5 cursor-pointer text-outline"></i>
+        </header>
+        <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
+            <h1 class="text-3xl font-bold mb-6 text-outline opacity-50">Заголовок заметки...</h1>
+            <p class="text-lg leading-relaxed mb-6">
+                Здесь будет наш Markdown-редактор. Мы напишем мысль, а затем добавим чип промпта.
+            </p>
+            <div class="inline-flex items-center gap-2 p-2 rounded-xl border border-[var(--md-outline)] bg-[var(--md-surface-variant)]" style="opacity: 0.8;">
+                <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i>
+                <span class="text-sm font-medium text-primary">Идея</span>
+                <span class="text-xs text-outline border-l border-[var(--md-outline)] pl-2 ml-1">← кликните, чтобы спросить ИИ</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ (ИИ) -->
+    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2;">
+        <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2" style="border-bottom-width: 1px;">
+            <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
+        </div>
+        <div class="flex-1 p-4 text-sm text-outline italic flex items-center justify-center text-center">
+            Нажмите на чип, чтобы запустить ассистента.
+        </div>
+    </aside>
+
+    <!-- Инициализация иконок и регистрация PWA -->
+    <script>
+        lucide.createIcons();
+        
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js');
+            });
+        }
+    </script>
+</body>
+</html>
