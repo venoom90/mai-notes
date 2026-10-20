@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zettel AI</title>
     
+    <!-- Иконка сайта (эмодзи) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+
     <!-- Material 3 (Tailwind CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Иконки -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Настройка тем (Material You) -->
     <style>
         :root {
             --md-surface: #FEF7FF;
@@ -44,12 +46,10 @@
         ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 10px; }
     </style>
 
-    <!-- PWA Манифест -->
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- ЛЕВАЯ ПАНЕЛЬ -->
     <aside class="w-64 border-r border-[var(--md-outline)] opacity-90 flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3;">
         <div class="p-4 flex justify-between items-center opacity-100">
             <span class="font-bold text-lg text-primary">Zettel AI</span>
@@ -69,7 +69,6 @@
         </div>
     </aside>
 
-    <!-- ЦЕНТР (Редактор) -->
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
         <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between md:justify-end" style="border-bottom-width: 1px; opacity: 0.5;">
             <i data-lucide="menu" class="w-6 h-6 md:hidden cursor-pointer"></i>
@@ -88,7 +87,6 @@
         </div>
     </main>
 
-    <!-- ПРАВАЯ ПАНЕЛЬ (ИИ) -->
     <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2;">
         <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2" style="border-bottom-width: 1px;">
             <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
@@ -98,13 +96,19 @@
         </div>
     </aside>
 
-    <!-- Инициализация иконок и регистрация PWA -->
     <script>
         lucide.createIcons();
         
+        // Регистрация Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js');
+                navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('SW registered with scope:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('SW registration failed:', error);
+                });
             });
         }
     </script>
