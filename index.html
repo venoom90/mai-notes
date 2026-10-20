@@ -5,12 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zettel AI</title>
     
-    <!-- Иконка сайта (эмодзи) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
-
-    <!-- Material 3 (Tailwind CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Иконки -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
@@ -45,80 +41,57 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 10px; }
 
-        /* Стили для полей ввода */
-        input, textarea {
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--md-on-surface);
-            width: 100%;
-            font-family: inherit;
-        }
-        input::placeholder, textarea::placeholder {
-            color: var(--md-outline);
-            opacity: 0.5;
-        }
-        textarea {
-            resize: none;
-            height: calc(100vh - 200px); /* Занимает оставшееся место */
-            line-height: 1.6;
-        }
-    </style>
+        input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
+        input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
+        textarea { resize: none; height: calc(100vh - 200px); line-height: 1.6; }
 
+        /* Стили для активной заметки в списке */
+        .note-item.active { background-color: var(--md-primary); color: var(--md-on-primary); }
+        .note-item.active .note-date { color: rgba(255,255,255,0.7); }
+    </style>
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
     <!-- ЛЕВАЯ ПАНЕЛЬ -->
-    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3; border-right-width: 1px;">
+    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="border-right-width: 1px; background-color: rgba(231, 224, 236, 0.3);">
         <div class="p-4 flex justify-between items-center">
             <span class="font-bold text-lg text-primary">Zettel AI</span>
             <i data-lucide="settings" class="w-5 h-5 cursor-pointer text-outline"></i>
         </div>
-        <div class="p-4 flex-1 overflow-y-auto">
-            <button class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90 transition-opacity">
+        <div class="p-4 flex-1 overflow-y-auto flex flex-col">
+            <button id="btn-new-note" class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
-            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Папки</div>
             
-            <!-- Активная папка "Входящие" -->
-            <div class="flex items-center gap-3 p-2 text-sm bg-black/5 rounded-lg cursor-pointer font-medium text-primary">
-                <i data-lucide="file-text" class="w-4 h-4"></i> Входящие
-            </div>
-            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer text-outline">
-                <i data-lucide="hash" class="w-4 h-4"></i> #проект_Х
+            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Все заметки</div>
+            
+            <!-- Сюда скрипт будет добавлять заметки -->
+            <div id="notes-list" class="space-y-1 overflow-y-auto flex-1">
+                <!-- Пример: -->
+                <!-- <div class="note-item p-3 rounded-lg cursor-pointer hover:bg-black/5">...</div> -->
             </div>
         </div>
     </aside>
 
     <!-- ЦЕНТР (Редактор) -->
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
-        <!-- Шапка редактора -->
-        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between md:justify-end" style="border-bottom-width: 1px; opacity: 0.5;">
+        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between" style="border-bottom-width: 1px;">
             <i data-lucide="menu" class="w-6 h-6 md:hidden cursor-pointer"></i>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-4">
                 <span id="save-status" class="text-xs text-outline italic">Готово</span>
-                <i data-lucide="search" class="w-5 h-5 cursor-pointer text-outline"></i>
+                <i data-lucide="trash-2" id="btn-delete" class="w-5 h-5 cursor-pointer text-outline hover:text-red-500 transition-colors" title="Удалить заметку"></i>
             </div>
         </header>
 
-        <!-- Зона ввода текста -->
         <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
-            <input 
-                id="note-title" 
-                type="text" 
-                placeholder="Заголовок заметки..." 
-                class="text-3xl font-bold mb-6"
-            >
-            <textarea 
-                id="note-content" 
-                placeholder="Начните печатать свою мысль здесь... (поддерживается Markdown)"
-            ></textarea>
+            <input id="note-title" type="text" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6">
+            <textarea id="note-content" placeholder="Начните печатать свою мысль здесь..."></textarea>
         </div>
     </main>
 
     <!-- ПРАВАЯ ПАНЕЛЬ (ИИ) -->
-    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2; border-left-width: 1px;">
+    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="border-left-width: 1px; background-color: rgba(231, 224, 236, 0.2);">
         <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2" style="border-bottom-width: 1px;">
             <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
         </div>
@@ -128,51 +101,142 @@
     </aside>
 
     <script>
-        // Инициализация иконок
         lucide.createIcons();
-        
-        // Регистрация Service Worker
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js');
-            });
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
         }
 
-        // --- ЛОГИКА СОХРАНЕНИЯ ТЕКСТА ---
+        // --- ЛОГИКА РАБОТЫ С ЗАМЕТКАМИ ---
+        const btnNew = document.getElementById('btn-new-note');
+        const btnDelete = document.getElementById('btn-delete');
+        const notesListEl = document.getElementById('notes-list');
         const titleInput = document.getElementById('note-title');
         const contentInput = document.getElementById('note-content');
         const statusText = document.getElementById('save-status');
 
-        // 1. Загружаем сохраненные данные при открытии
-        titleInput.value = localStorage.getItem('zettel_title') || '';
-        contentInput.value = localStorage.getItem('zettel_content') || '';
+        // Загружаем заметки из памяти или создаем первую, если пусто
+        let notes = JSON.parse(localStorage.getItem('zettel_notes')) || [];
+        let currentNoteId = localStorage.getItem('zettel_current_id') || null;
 
-        // 2. Функция автосохранения (с задержкой, чтобы не сохранять каждую букву)
+        // Если заметок нет, создаем приветственную
+        if (notes.length === 0) {
+            const defaultNote = {
+                id: Date.now().toString(),
+                title: 'Моя первая заметка',
+                content: 'Здесь будет наш Markdown-редактор. Мы напишем мысль, а затем добавим чип промпта.',
+                date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+            };
+            notes.push(defaultNote);
+            currentNoteId = defaultNote.id;
+            saveToStorage();
+        }
+
+        // Функция сохранения всего массива
+        function saveToStorage() {
+            localStorage.setItem('zettel_notes', JSON.stringify(notes));
+            localStorage.setItem('zettel_current_id', currentNoteId);
+        }
+
+        // Отрисовка списка заметок
+        function renderList() {
+            notesListEl.innerHTML = '';
+            // Сортируем по ID (по убыванию, новые сверху)
+            const sortedNotes = [...notes].sort((a, b) => b.id - a.id);
+
+            sortedNotes.forEach(note => {
+                const isActive = note.id === currentNoteId ? 'active' : '';
+                const noteTitle = note.title || 'Без названия';
+                const dateStr = note.date || '';
+
+                const div = document.createElement('div');
+                div.className = `note-item p-3 rounded-lg cursor-pointer transition-colors ${isActive ? 'active' : 'hover:bg-black/5'}`;
+                div.innerHTML = `
+                    <div class="font-medium text-sm truncate">${noteTitle}</div>
+                    <div class="note-date text-xs text-outline mt-1">${dateStr}</div>
+                `;
+                // Обработчик клика по заметке
+                div.onclick = () => {
+                    currentNoteId = note.id;
+                    saveToStorage();
+                    loadCurrentNote();
+                    renderList(); // Перерисовываем, чтобы подсветить активную
+                };
+                notesListEl.appendChild(div);
+            });
+        }
+
+        // Загрузка текущей заметки в редактор
+        function loadCurrentNote() {
+            const note = notes.find(n => n.id === currentNoteId);
+            if (note) {
+                titleInput.value = note.title || '';
+                contentInput.value = note.content || '';
+            } else if (notes.length > 0) {
+                // Если текущая удалена, открываем первую
+                currentNoteId = notes[0].id;
+                loadCurrentNote();
+            }
+        }
+
+        // Автосохранение при вводе
         let saveTimeout;
-        
-        function autoSave() {
+        function handleInput() {
             statusText.innerText = 'Сохранение...';
             statusText.style.color = 'var(--md-primary)';
             
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
-                localStorage.setItem('zettel_title', titleInput.value);
-                localStorage.setItem('zettel_content', contentInput.value);
-                
-                statusText.innerText = 'Сохранено в память';
+                const note = notes.find(n => n.id === currentNoteId);
+                if (note) {
+                    note.title = titleInput.value;
+                    note.content = contentInput.value;
+                    saveToStorage();
+                    renderList(); // Обновляем заголовок в списке
+                }
+                statusText.innerText = 'Сохранено';
                 statusText.style.color = 'var(--md-outline)';
-            }, 500); // Сохраняем через 0.5 секунды после окончания печати
+            }, 500);
         }
 
-        // 3. Слушаем ввод текста
-        titleInput.addEventListener('input', autoSave);
-        contentInput.addEventListener('input', autoSave);
+        titleInput.addEventListener('input', handleInput);
+        contentInput.addEventListener('input', handleInput);
 
-        // Автоматическая подстройка высоты textarea под текст
-        contentInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
+        // Создание новой заметки
+        btnNew.onclick = () => {
+            const newNote = {
+                id: Date.now().toString(),
+                title: '',
+                content: '',
+                date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+            };
+            notes.push(newNote);
+            currentNoteId = newNote.id;
+            saveToStorage();
+            loadCurrentNote();
+            renderList();
+            titleInput.focus(); // Ставим курсор в заголовок
+        };
+
+        // Удаление заметки
+        btnDelete.onclick = () => {
+            if (confirm('Вы уверены, что хотите удалить эту заметку?')) {
+                notes = notes.filter(n => n.id !== currentNoteId);
+                currentNoteId = notes.length > 0 ? notes[0].id : null;
+                saveToStorage();
+                
+                if (notes.length === 0) {
+                    btnNew.click(); // Если удалили всё, создаем новую
+                } else {
+                    loadCurrentNote();
+                    renderList();
+                }
+            }
+        };
+
+        // Инициализация при запуске
+        renderList();
+        loadCurrentNote();
+
     </script>
 </body>
 </html>
