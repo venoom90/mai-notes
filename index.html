@@ -44,50 +44,81 @@
         .border-outline { border-color: var(--md-outline); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 10px; }
+
+        /* Стили для полей ввода */
+        input, textarea {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--md-on-surface);
+            width: 100%;
+            font-family: inherit;
+        }
+        input::placeholder, textarea::placeholder {
+            color: var(--md-outline);
+            opacity: 0.5;
+        }
+        textarea {
+            resize: none;
+            height: calc(100vh - 200px); /* Занимает оставшееся место */
+            line-height: 1.6;
+        }
     </style>
 
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <aside class="w-64 border-r border-[var(--md-outline)] opacity-90 flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3;">
-        <div class="p-4 flex justify-between items-center opacity-100">
+    <!-- ЛЕВАЯ ПАНЕЛЬ -->
+    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3; border-right-width: 1px;">
+        <div class="p-4 flex justify-between items-center">
             <span class="font-bold text-lg text-primary">Zettel AI</span>
             <i data-lucide="settings" class="w-5 h-5 cursor-pointer text-outline"></i>
         </div>
-        <div class="p-4 flex-1 overflow-y-auto opacity-100">
-            <button class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90">
+        <div class="p-4 flex-1 overflow-y-auto">
+            <button class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90 transition-opacity">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
             <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Папки</div>
-            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer">
-                <i data-lucide="file-text" class="w-4 h-4 text-outline"></i> Входящие
+            
+            <!-- Активная папка "Входящие" -->
+            <div class="flex items-center gap-3 p-2 text-sm bg-black/5 rounded-lg cursor-pointer font-medium text-primary">
+                <i data-lucide="file-text" class="w-4 h-4"></i> Входящие
             </div>
-            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer">
-                <i data-lucide="hash" class="w-4 h-4 text-outline"></i> #проект_Х
+            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer text-outline">
+                <i data-lucide="hash" class="w-4 h-4"></i> #проект_Х
             </div>
         </div>
     </aside>
 
+    <!-- ЦЕНТР (Редактор) -->
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
+        <!-- Шапка редактора -->
         <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between md:justify-end" style="border-bottom-width: 1px; opacity: 0.5;">
             <i data-lucide="menu" class="w-6 h-6 md:hidden cursor-pointer"></i>
-            <i data-lucide="search" class="w-5 h-5 cursor-pointer text-outline"></i>
-        </header>
-        <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
-            <h1 class="text-3xl font-bold mb-6 text-outline opacity-50">Заголовок заметки...</h1>
-            <p class="text-lg leading-relaxed mb-6">
-                Здесь будет наш Markdown-редактор. Мы напишем мысль, а затем добавим чип промпта.
-            </p>
-            <div class="inline-flex items-center gap-2 p-2 rounded-xl border border-[var(--md-outline)] bg-[var(--md-surface-variant)]" style="opacity: 0.8;">
-                <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i>
-                <span class="text-sm font-medium text-primary">Идея</span>
-                <span class="text-xs text-outline border-l border-[var(--md-outline)] pl-2 ml-1">← кликните, чтобы спросить ИИ</span>
+            <div class="flex items-center gap-3">
+                <span id="save-status" class="text-xs text-outline italic">Готово</span>
+                <i data-lucide="search" class="w-5 h-5 cursor-pointer text-outline"></i>
             </div>
+        </header>
+
+        <!-- Зона ввода текста -->
+        <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
+            <input 
+                id="note-title" 
+                type="text" 
+                placeholder="Заголовок заметки..." 
+                class="text-3xl font-bold mb-6"
+            >
+            <textarea 
+                id="note-content" 
+                placeholder="Начните печатать свою мысль здесь... (поддерживается Markdown)"
+            ></textarea>
         </div>
     </main>
 
-    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2;">
+    <!-- ПРАВАЯ ПАНЕЛЬ (ИИ) -->
+    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2; border-left-width: 1px;">
         <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2" style="border-bottom-width: 1px;">
             <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
         </div>
@@ -97,20 +128,51 @@
     </aside>
 
     <script>
+        // Инициализация иконок
         lucide.createIcons();
         
         // Регистрация Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                .then(registration => {
-                    console.log('SW registered with scope:', registration.scope);
-                })
-                .catch(error => {
-                    console.error('SW registration failed:', error);
-                });
+                navigator.serviceWorker.register('./sw.js');
             });
         }
+
+        // --- ЛОГИКА СОХРАНЕНИЯ ТЕКСТА ---
+        const titleInput = document.getElementById('note-title');
+        const contentInput = document.getElementById('note-content');
+        const statusText = document.getElementById('save-status');
+
+        // 1. Загружаем сохраненные данные при открытии
+        titleInput.value = localStorage.getItem('zettel_title') || '';
+        contentInput.value = localStorage.getItem('zettel_content') || '';
+
+        // 2. Функция автосохранения (с задержкой, чтобы не сохранять каждую букву)
+        let saveTimeout;
+        
+        function autoSave() {
+            statusText.innerText = 'Сохранение...';
+            statusText.style.color = 'var(--md-primary)';
+            
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                localStorage.setItem('zettel_title', titleInput.value);
+                localStorage.setItem('zettel_content', contentInput.value);
+                
+                statusText.innerText = 'Сохранено в память';
+                statusText.style.color = 'var(--md-outline)';
+            }, 500); // Сохраняем через 0.5 секунды после окончания печати
+        }
+
+        // 3. Слушаем ввод текста
+        titleInput.addEventListener('input', autoSave);
+        contentInput.addEventListener('input', autoSave);
+
+        // Автоматическая подстройка высоты textarea под текст
+        contentInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
     </script>
 </body>
 </html>
