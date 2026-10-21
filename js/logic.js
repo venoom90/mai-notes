@@ -1,7 +1,8 @@
 import { state, els } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, findNoteByTitle, syncNoteTags, getFolderById, sortedFolders, folderNotesCount } from './utils.js';
 import { persistNotes, persistFolders } from './storage.js';
-import { renderAll, renderTags, updateActiveNoteInList, renderSaveStatus, renderBreadcrumbs, updateAIPanel, renderEditor, exitPreviewMode } from './render.js';
+// Убрали exitPreviewMode из импорта render.js
+import { renderAll, renderTags, updateActiveNoteInList, renderSaveStatus, renderBreadcrumbs, updateAIPanel, renderEditor } from './render.js';
 
 export function openLeftPanel() {
     if (state.leftPanelOpen || window.innerWidth >= 768) return;
@@ -167,4 +168,15 @@ export function schedulePreview(noteIdAtBlur) {
         if (active === els.contentInput || active === els.btnPreview || (active && els.preview.contains(active))) return;
         enterPreviewMode(false);
     }, 50);
+}
+
+export function exitPreviewMode() {
+    if (state.editorMode !== 'preview') return;
+    state.editorMode = 'edit';
+    renderEditor();
+    try {
+        els.contentInput.focus();
+        const len = els.contentInput.value.length;
+        els.contentInput.setSelectionRange(len, len);
+    } catch (_) {}
 }

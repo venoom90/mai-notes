@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mai-cache-v11';
+const CACHE_NAME = 'mai-cache-v12';
 const ASSETS = [
   './', './index.html', './manifest.json',
   './js/state.js', './js/utils.js', './js/storage.js',
@@ -7,37 +7,21 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => Promise.all(
-        cacheNames.map((name) => {
-          if (name !== CACHE_NAME) return caches.delete(name);
-          return undefined;
-        })
-      ))
-      .then(() => self.clients.claim())
+    caches.keys().then((names) => Promise.all(
+      names.map((name) => name !== CACHE_NAME ? caches.delete(name) : undefined)
+    )).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match(event.request, { ignoreSearch: true })
-          .then((cached) => cached || caches.match('./index.html'))
-      )
-    );
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request, { ignoreSearch: true }).then(c => c || caches.match('./index.html'))));
     return;
   }
-
-  event.respondWith(
-    caches.match(event.request, { ignoreSearch: true })
-      .then((cached) => cached || fetch(event.request))
-  );
+  event.respondWith(caches.match(event.request, { ignoreSearch: true }).then(c => c || fetch(event.request)));
 });
