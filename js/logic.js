@@ -3,8 +3,6 @@ import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderB
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
-// ... (остальной код openLeftPanel, scheduleSave, onEdit, createNote, selectNote и т.д. до insertPickedItem)
-
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.remove('hidden'); }
 export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.add('hidden'); }
 export function toggleLeftPanel() { state.leftPanelOpen ? closeLeftPanel() : openLeftPanel(); }
@@ -319,7 +317,20 @@ export function insertPickedItem(value) {
     closePicker();
 }
 
-// --- V1.8.0 EXPORT / IMPORT ---
+// --- V1.8.1 EXPORT / IMPORT (FIXED) ---
+
+function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8') {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    // КРИТИЧЕСКИ ВАЖНО: добавляем элемент в DOM, иначе браузер может проигнорировать клик
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
 export function shareNoteFile(noteId) {
     const note = getNoteById(noteId);
@@ -327,23 +338,23 @@ export function shareNoteFile(noteId) {
     const folder = getFolderById(note.folderId);
     const folderName = folder ? folder.name : 'Входящие';
     const md = generateMarkdown(note, folderName);
+    const fileName = `${noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_')}.md`;
     
-    const file = new File([md], `${noteTitle(note)}.md`, { type: 'text/markdown' });
+    const file = new File([md], fileName, { type: 'text/markdown' });
     
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({
             files: [file],
             title: noteTitle(note),
             text: 'Заметка из MAi'
-        }).catch(err => console.warn('Share failed:', err));
+        }).catch(err => {
+            console.warn('Share failed or cancelled:', err);
+            // Если системное меню не открылось или произошла ошибка, делаем скачивание
+            downloadFile(md, fileName);
+        });
     } else {
-        // Fallback: просто скачиваем
-        const blob = new Blob([md], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${noteTitle(note)}.md`;
-        a.click();
-        URL.revokeObjectURL(url);
+        // Если API Share недоступно, просто скачиваем
+        downloadFile(md, fileName);
     }
     closeActionMenu();
 }
@@ -356,19 +367,16 @@ export async function exportAllData() {
     
     const zip = new JSZip();
     
-    // 1. Сохраняем настройки (фильтры, папки)
     const settings = {
         folders: state.folders,
         filters: state.savedFilters
     };
     zip.file('mai_settings.json', JSON.stringify(settings, null, 2));
     
-    // 2. Сохраняем заметки в папки
     state.notes.forEach(note => {
         const folder = getFolderById(note.folderId);
         const folderName = folder ? folder.name.replace(/[\/\\:*?"<>|]/g, '_') : 'Входящие';
         const md = generateMarkdown(note, folderName);
-        // Безопасное имя файла
         const safeTitle = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').slice(0, 50); 
         zip.file(`${folderName}/${safeTitle}_${note.id.slice(0,4)}.md`, md);
     });
@@ -377,12 +385,16 @@ export async function exportAllData() {
         const blob = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
+        a.href = url;
+        a.download = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
+        // КРИТИЧЕСКИ ВАЖНО: добавляем в DOM
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
         console.error(e);
-        window.alert('Ошибка при создании архива.');
+        window.alert('Ошибка при создании архива: ' + e.message);
     }
 }
 
@@ -396,7 +408,6 @@ export async function handleImportFiles(files) {
             try {
                 const zip = await JSZip.loadAsync(file);
                 
-                // Восстанавливаем настройки, если есть
                 const settingsFile = zip.file('mai_settings.json');
                 if (settingsFile) {
                     const text = await settingsFile.async('string');
@@ -415,22 +426,18 @@ export async function handleImportFiles(files) {
                     }
                 }
 
-                // Читаем md файлы
                 const promises = [];
                 zip.forEach((relativePath, zipEntry) => {
                     if (zipEntry.name.endsWith('.md')) {
                         promises.push(zipEntry.async('string').then(text => {
-                            // Ищем папку по имени директории из ZIP
                             const dirName = relativePath.split('/')[0];
                             let folder = state.folders.find(f => f.name === dirName);
                             if (!folder) {
-                                // Создаем новую папку если нет
                                 folder = { id: genId(), name: dirName || 'Входящие', updatedAt: Date.now() };
                                 state.folders.push(folder);
                             }
                             const { note } = parseMarkdown(text, folder.id);
                             
-                            // Слияние: если ID уже есть, обновляем, если нет - добавляем
                             const existingIdx = state.notes.findIndex(n => n.id === note.id);
                             if (existingIdx >= 0) {
                                 state.notes[existingIdx] = note;
@@ -448,7 +455,6 @@ export async function handleImportFiles(files) {
             }
         } 
         else if (file.name.endsWith('.md')) {
-            // Одиночный md файл
             const text = await file.text();
             const { note } = parseMarkdown(text, state.activeFolderId || 'inbox');
             const existingIdx = state.notes.findIndex(n => n.id === note.id);
@@ -465,5 +471,5 @@ export async function handleImportFiles(files) {
     } else {
         window.alert('Не найдено подходящих файлов для импорта.');
     }
-    els.importFileInput.value = ''; // Reset
+    els.importFileInput.value = ''; 
 }
