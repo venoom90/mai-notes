@@ -1,7 +1,9 @@
-import { state, els } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts } from './utils.js';
+import { state, els, FILTERS_KEY } from './state.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
+
+// ... (остальной код openLeftPanel, scheduleSave, onEdit, createNote, selectNote и т.д. до insertPickedItem)
 
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.remove('hidden'); }
 export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.add('hidden'); }
@@ -124,10 +126,7 @@ export function insertChipAtCursor(promptName) {
 
 export function insertFormatting(type) {
     if (state.editorMode === 'preview') return;
-    if (type === 'tag' || type === 'context') {
-        openPicker(type);
-        return;
-    }
+    if (type === 'tag' || type === 'context') { openPicker(type); return; }
     
     const ta = els.contentInput;
     const start = ta.selectionStart; const end = ta.selectionEnd; const val = ta.value; const sel = val.substring(start, end);
@@ -149,7 +148,6 @@ export function togglePreviewMode() {
     }
 }
 
-// --- ACTION MENU ---
 export function openActionMenu(noteId) {
     const note = getNoteById(noteId); if (!note) return;
     state.actionMenuNoteId = noteId; state.actionMenuMode = 'main';
@@ -206,7 +204,6 @@ export function moveNoteFromMenu(folderId) {
     persistNotes(); closeActionMenu(); renderAll();
 }
 
-// --- SEARCH ---
 export function openSearch() {
     state.searchOpen = true; els.searchModal.classList.remove('hidden');
     els.searchInput.value = ''; els.btnClearSearch.classList.add('hidden');
@@ -219,7 +216,6 @@ export function handleSearchInput(e) {
     renderSearchResults(q);
 }
 
-// --- SMART FILTERS ---
 export function openFilterModal() {
     state.draftFilter = [];
     els.filterNameInput.value = '';
@@ -282,7 +278,6 @@ export function saveFilter() {
     closeFilterModal(); renderAll();
 }
 
-// --- PICKER LOGIC ---
 export function openPicker(type) {
     state.pickerType = type;
     els.pickerTitle.textContent = type === 'tag' ? 'Выбрать тег' : 'Выбрать контекст';
@@ -290,7 +285,6 @@ export function openPicker(type) {
     renderPickerList('');
     els.pickerBackdrop.classList.remove('hidden');
     setTimeout(() => els.pickerModal.classList.add('open'), 10);
-    // Фокус на инпут через задержку (чтобы не вылезала клавиатура сразу при открытии, если не нужно)
     setTimeout(() => els.pickerSearch.focus(), 300);
 }
 
@@ -300,9 +294,7 @@ export function closePicker() {
     setTimeout(() => { state.pickerType = null; }, 300);
 }
 
-export function handlePickerSearch(e) {
-    renderPickerList(e.target.value);
-}
+export function handlePickerSearch(e) { renderPickerList(e.target.value); }
 
 export function insertPickedItem(value) {
     if (!state.activeId || state.editorMode === 'preview') return;
@@ -325,4 +317,153 @@ export function insertPickedItem(value) {
     
     onEdit();
     closePicker();
+}
+
+// --- V1.8.0 EXPORT / IMPORT ---
+
+export function shareNoteFile(noteId) {
+    const note = getNoteById(noteId);
+    if (!note) return;
+    const folder = getFolderById(note.folderId);
+    const folderName = folder ? folder.name : 'Входящие';
+    const md = generateMarkdown(note, folderName);
+    
+    const file = new File([md], `${noteTitle(note)}.md`, { type: 'text/markdown' });
+    
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+            files: [file],
+            title: noteTitle(note),
+            text: 'Заметка из MAi'
+        }).catch(err => console.warn('Share failed:', err));
+    } else {
+        // Fallback: просто скачиваем
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${noteTitle(note)}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+    closeActionMenu();
+}
+
+export async function exportAllData() {
+    if (typeof JSZip === 'undefined') {
+        window.alert('Ошибка: Библиотека JSZip не загружена. Проверьте интернет.');
+        return;
+    }
+    
+    const zip = new JSZip();
+    
+    // 1. Сохраняем настройки (фильтры, папки)
+    const settings = {
+        folders: state.folders,
+        filters: state.savedFilters
+    };
+    zip.file('mai_settings.json', JSON.stringify(settings, null, 2));
+    
+    // 2. Сохраняем заметки в папки
+    state.notes.forEach(note => {
+        const folder = getFolderById(note.folderId);
+        const folderName = folder ? folder.name.replace(/[\/\\:*?"<>|]/g, '_') : 'Входящие';
+        const md = generateMarkdown(note, folderName);
+        // Безопасное имя файла
+        const safeTitle = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').slice(0, 50); 
+        zip.file(`${folderName}/${safeTitle}_${note.id.slice(0,4)}.md`, md);
+    });
+    
+    try {
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error(e);
+        window.alert('Ошибка при создании архива.');
+    }
+}
+
+export async function handleImportFiles(files) {
+    if (!files || files.length === 0) return;
+    let importedCount = 0;
+
+    for (const file of files) {
+        if (file.name.endsWith('.zip')) {
+            if (typeof JSZip === 'undefined') { window.alert('JSZip не загружен'); continue; }
+            try {
+                const zip = await JSZip.loadAsync(file);
+                
+                // Восстанавливаем настройки, если есть
+                const settingsFile = zip.file('mai_settings.json');
+                if (settingsFile) {
+                    const text = await settingsFile.async('string');
+                    const settings = JSON.parse(text);
+                    if (settings.folders) {
+                        settings.folders.forEach(f => {
+                            if (!state.folders.some(ex => ex.id === f.id || ex.name === f.name)) state.folders.push(f);
+                        });
+                        persistFolders();
+                    }
+                    if (settings.filters) {
+                        settings.filters.forEach(f => {
+                            if (!state.savedFilters.some(ex => ex.id === f.id)) state.savedFilters.push(f);
+                        });
+                        persistFilters();
+                    }
+                }
+
+                // Читаем md файлы
+                const promises = [];
+                zip.forEach((relativePath, zipEntry) => {
+                    if (zipEntry.name.endsWith('.md')) {
+                        promises.push(zipEntry.async('string').then(text => {
+                            // Ищем папку по имени директории из ZIP
+                            const dirName = relativePath.split('/')[0];
+                            let folder = state.folders.find(f => f.name === dirName);
+                            if (!folder) {
+                                // Создаем новую папку если нет
+                                folder = { id: genId(), name: dirName || 'Входящие', updatedAt: Date.now() };
+                                state.folders.push(folder);
+                            }
+                            const { note } = parseMarkdown(text, folder.id);
+                            
+                            // Слияние: если ID уже есть, обновляем, если нет - добавляем
+                            const existingIdx = state.notes.findIndex(n => n.id === note.id);
+                            if (existingIdx >= 0) {
+                                state.notes[existingIdx] = note;
+                            } else {
+                                state.notes.push(note);
+                            }
+                            importedCount++;
+                        }));
+                    }
+                });
+                await Promise.all(promises);
+
+            } catch (e) {
+                console.error('ZIP import error:', e);
+            }
+        } 
+        else if (file.name.endsWith('.md')) {
+            // Одиночный md файл
+            const text = await file.text();
+            const { note } = parseMarkdown(text, state.activeFolderId || 'inbox');
+            const existingIdx = state.notes.findIndex(n => n.id === note.id);
+            if (existingIdx >= 0) state.notes[existingIdx] = note;
+            else state.notes.push(note);
+            importedCount++;
+        }
+    }
+
+    if (importedCount > 0) {
+        persistNotes(); persistFolders();
+        renderAll();
+        window.alert(`Успешно импортировано файлов: ${importedCount}`);
+    } else {
+        window.alert('Не найдено подходящих файлов для импорта.');
+    }
+    els.importFileInput.value = ''; // Reset
 }

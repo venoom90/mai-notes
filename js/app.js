@@ -9,11 +9,11 @@ import {
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
     openSearch, closeSearch, handleSearchInput, insertFormatting,
     openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter,
-    openPicker, closePicker, handlePickerSearch, insertPickedItem
+    openPicker, closePicker, handlePickerSearch, insertPickedItem,
+    shareNoteFile, exportAllData, handleImportFiles
 } from './logic.js';
 
 function attachListeners() {
-    // --- SWIPE ---
     let touchStartX = 0, touchStartY = 0;
     els.mainContent.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
@@ -40,10 +40,7 @@ function attachListeners() {
     if (els.folderMoveSelect) {
         els.folderMoveSelect.addEventListener('change', (e) => {
             const note = getNoteById(state.activeId);
-            if(note) {
-                note.folderId = e.target.value; note.updatedAt = Date.now();
-                persistNotes(); renderAll();
-            }
+            if(note) { note.folderId = e.target.value; note.updatedAt = Date.now(); persistNotes(); renderAll(); }
         });
     }
 
@@ -53,7 +50,6 @@ function attachListeners() {
         renderAll();
     });
 
-    // --- SIDEBAR CLICKS ---
     els.foldersList.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-folder-action]');
         if (actionBtn) {
@@ -84,7 +80,6 @@ function attachListeners() {
         if (selBtn) applySavedFilter(selBtn.getAttribute('data-filter-select'));
     });
 
-    // --- MAIN VIEW CLICKS ---
     els.viewFolder.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-action-menu]');
         if (actionBtn) { e.preventDefault(); e.stopPropagation(); openActionMenu(actionBtn.getAttribute('data-action-menu')); return; }
@@ -92,7 +87,6 @@ function attachListeners() {
         if (card) selectNote(card.getAttribute('data-note-id'));
     });
 
-    // --- EDITOR ---
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.contentInput.addEventListener('blur', () => { scheduleSave(); });
@@ -151,7 +145,6 @@ function attachListeners() {
         });
     }
 
-    // --- ACTION SHEET ---
     els.actionSheetBackdrop.addEventListener('click', closeActionMenu);
     els.actionSheetMain.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action]');
@@ -161,6 +154,7 @@ function attachListeners() {
         else if (action === 'rename') renameNoteFromMenu();
         else if (action === 'move') setActionMenuMode('move');
         else if (action === 'delete') deleteNoteFromMenu();
+        else if (action === 'share') shareNoteFile(state.actionMenuNoteId);
     });
     els.btnSheetBack.addEventListener('click', () => setActionMenuMode('main'));
     els.sheetFoldersList.addEventListener('click', (e) => {
@@ -168,7 +162,6 @@ function attachListeners() {
         if (btn) moveNoteFromMenu(btn.getAttribute('data-sheet-move-to'));
     });
 
-    // --- SMART FILTER MODAL ---
     if (els.btnNewFilter) els.btnNewFilter.addEventListener('click', openFilterModal);
     els.btnCloseFilter.addEventListener('click', closeFilterModal);
     els.filterBackdrop.addEventListener('click', closeFilterModal);
@@ -191,7 +184,6 @@ function attachListeners() {
         if (e.target.classList.contains('rule-value')) updateFilterRule(idx, 'value', e.target.value);
     });
 
-    // --- PICKER ---
     els.pickerBackdrop.addEventListener('click', closePicker);
     els.btnClosePicker.addEventListener('click', closePicker);
     els.pickerSearch.addEventListener('input', handlePickerSearch);
@@ -200,7 +192,6 @@ function attachListeners() {
         if (btn) insertPickedItem(btn.getAttribute('data-pick-value'));
     });
 
-    // --- SEARCH ---
     if (els.btnDesktopSearch) els.btnDesktopSearch.addEventListener('click', openSearch);
     if (els.btnMobileSearch) els.btnMobileSearch.addEventListener('click', openSearch);
     els.btnCloseSearch.addEventListener('click', closeSearch);
@@ -211,7 +202,13 @@ function attachListeners() {
         if (btn) { closeSearch(); selectNote(btn.getAttribute('data-search-id')); }
     });
 
-    // --- KEYBOARD ---
+    // --- BACKUP LISTENERS ---
+    els.btnExportAll.addEventListener('click', exportAllData);
+    els.btnImportData.addEventListener('click', () => els.importFileInput.click());
+    els.importFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleImportFiles(Array.from(e.target.files));
+    });
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (els.pickerModal.classList.contains('open')) { e.preventDefault(); closePicker(); return; }

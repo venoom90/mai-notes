@@ -20,11 +20,7 @@ export function relativeTime(ts) {
     return new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }
 
-export function getNoteById(id) {
-    if (!id) return null;
-    return state.notes.find(n => n.id === id) || null;
-}
-
+export function getNoteById(id) { return id ? (state.notes.find(n => n.id === id) || null) : null; }
 export function findNoteByTitle(title) {
     if (!title) return null;
     const lower = title.toLowerCase();
@@ -36,15 +32,12 @@ export function isValidNote(n) {
 }
 
 export function sortedNotes() { return state.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt); }
-
 export function notesInFolder(folderId) { 
-    return state.notes
-        .filter(n => n.folderId === folderId)
-        .sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            return b.updatedAt - a.updatedAt;
-        });
+    return state.notes.filter(n => n.folderId === folderId).sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return b.updatedAt - a.updatedAt;
+    });
 }
 
 export function autoResizeTextarea() {
@@ -87,9 +80,7 @@ export function parseContextsFromContent(text) {
     const regex = /\[\[([^\]\n]+)\]\]/g;
     const set = new Set();
     let match;
-    while ((match = regex.exec(text)) !== null) {
-        set.add(match[1].trim());
-    }
+    while ((match = regex.exec(text)) !== null) { set.add(match[1].trim()); }
     return Array.from(set);
 }
 
@@ -133,4 +124,62 @@ export function updateIcons() {
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
         window.lucide.createIcons();
     }
+}
+
+// --- V1.8.0 Markdown Export/Import Utils ---
+
+export function generateMarkdown(note, folderName) {
+    const yaml = [
+        '---',
+        `id: "${note.id}"`,
+        `title: "${note.title.replace(/"/g, '\\"')}"`,
+        `folder: "${folderName.replace(/"/g, '\\"')}"`,
+        `pinned: ${!!note.isPinned}`,
+        `created: ${note.updatedAt}`,
+        `updated: ${note.updatedAt}`,
+        '---'
+    ].join('\n');
+    return `${yaml}\n\n# ${noteTitle(note)}\n\n${note.content}`;
+}
+
+export function parseMarkdown(text, defaultFolderId) {
+    const yamlRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+    const match = text.match(yamlRegex);
+    let meta = {};
+    let content = text;
+
+    if (match) {
+        const yamlText = match[1];
+        content = text.slice(match[0].length).trim();
+        yamlText.split('\n').forEach(line => {
+            const [key, ...rest] = line.split(':');
+            if (key && rest.length > 0) {
+                let val = rest.join(':').trim();
+                if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1).replace(/\\"/g, '"');
+                if (val === 'true') meta[key.trim()] = true;
+                else if (val === 'false') meta[key.trim()] = false;
+                else if (!isNaN(val) && val !== '') meta[key.trim()] = Number(val);
+                else meta[key.trim()] = val;
+            }
+        });
+    }
+
+    // Убираем первый H1 заголовок из контента, если он совпадает с title
+    const lines = content.split('\n');
+    if (lines[0].startsWith('# ')) {
+        lines.shift(); // Удаляем заголовок
+        content = lines.join('\n').trim();
+    }
+
+    const note = {
+        id: meta.id || genId(),
+        title: meta.title || (lines[0] ? lines[0].replace(/^#+\s*/, '') : 'Импортированная заметка'),
+        content: content,
+        updatedAt: meta.updated || Date.now(),
+        tags: [],
+        folderId: defaultFolderId,
+        isPinned: !!meta.pinned
+    };
+    syncNoteTags(note);
+    return { note, folderName: meta.folder };
 }

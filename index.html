@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
         :root {
@@ -84,7 +85,6 @@
         .note-card-preview { font-size: 0.9rem; color: var(--md-outline); opacity: 0.8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .note-card-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: auto; padding-top: 8px; }
         
-        /* Делаем кнопку 3-х точек компактнее и без белого фона */
         .note-card-actions { position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity 0.15s; background: transparent !important; box-shadow: none !important; }
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
@@ -119,7 +119,6 @@
             <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
         </div>
         <div class="px-4 pb-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
-            <!-- Скрываем на мобилках (hidden md:flex), так как есть FAB -->
             <button id="btn-new-note" type="button" class="hidden md:flex w-full items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
@@ -141,6 +140,17 @@
                 <button id="btn-new-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="filter" class="w-4 h-4 text-outline"></i></button>
             </div>
             <div id="filters-list" class="flex flex-col gap-1 mb-4"></div>
+
+            <!-- БЭКАП И ВОССТАНОВЛЕНИЕ -->
+            <div class="mt-auto pt-4 border-t border-[var(--md-outline)]/20">
+                <button id="btn-export-all" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-black/5 text-sm font-medium text-outline transition-colors">
+                    <i data-lucide="download" class="w-4 h-4"></i> Экспорт (ZIP)
+                </button>
+                <button id="btn-import-data" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-black/5 text-sm font-medium text-outline transition-colors">
+                    <i data-lucide="upload" class="w-4 h-4"></i> Импорт (.md / .zip)
+                </button>
+                <input type="file" id="import-file-input" accept=".zip,.md" multiple class="hidden">
+            </div>
         </div>
     </aside>
 
@@ -167,7 +177,6 @@
             </div>
         </header>
         
-        <!-- Добавляем pb-32, чтобы FAB не перекрывал контент -->
         <div class="flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
             <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-sm text-outline min-h-[32px]">
                 <div class="flex items-center gap-2 truncate min-w-0">
@@ -194,7 +203,6 @@
             <i data-lucide="plus" class="w-6 h-6"></i>
         </button>
 
-        <!-- Панель форматирования с разделителем -->
         <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-40 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold" data-format="bold">B</button>
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif" data-format="italic">I</button>
@@ -229,6 +237,9 @@
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="pin"><i data-lucide="pin" class="w-5 h-5 text-outline"></i><span id="pin-label">Закрепить</span></button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="rename"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i> Переименовать</button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="move"><i data-lucide="folder-input" class="w-5 h-5 text-outline"></i> Переместить</button>
+            <!-- Кнопка Поделиться (Экспорт заметки) -->
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="share"><i data-lucide="share-2" class="w-5 h-5 text-outline"></i> Поделиться (.md)</button>
+            
             <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-4"></div>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-red-500/10 text-red-600 rounded-xl" data-action="delete"><i data-lucide="trash-2" class="w-5 h-5"></i> Удалить</button>
         </div>
@@ -262,7 +273,7 @@
         </div>
     </div>
 
-    <!-- PICKER MODAL (ТЕГИ / КОНТЕКСТЫ) -->
+    <!-- PICKER MODAL -->
     <div id="picker-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[70vh]">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center">

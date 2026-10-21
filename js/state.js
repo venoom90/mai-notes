@@ -19,7 +19,7 @@ export const state = {
     actionMenuMode: 'main',
     searchOpen: false,
     draftFilter: [],
-    pickerType: null // 'tag' | 'context'
+    pickerType: null
 };
 
 export const PROMPTS = [
@@ -106,11 +106,15 @@ export const els = {
     btnSaveFilter: document.getElementById('btn-save-filter'),
     btnCloseFilter: document.getElementById('btn-close-filter'),
 
-    // Picker
     pickerBackdrop: document.getElementById('picker-backdrop'),
     pickerModal: document.getElementById('picker-modal'),
     pickerTitle: document.getElementById('picker-title'),
     pickerSearch: document.getElementById('picker-search'),
     pickerList: document.getElementById('picker-list'),
-    btnClosePicker: document.getElementById('btn-close-picker')
+    btnClosePicker: document.getElementById('btn-close-picker'),
+
+    // V1.8.0 Backup
+    btnExportAll: document.getElementById('btn-export-all'),
+    btnImportData: document.getElementById('btn-import-data'),
+    importFileInput: document.getElementById('import-file-input')
 };
