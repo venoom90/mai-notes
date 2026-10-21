@@ -156,6 +156,24 @@
         }
         .prompt-chip-palette-btn:hover { opacity: 0.8; }
 
+        /* === Tags & Wiki-links in preview === */
+        .tag-highlight {
+            display: inline-flex; align-items: center;
+            background: var(--md-surface-variant); color: var(--md-primary);
+            border-radius: 999px; padding: 0.1em 0.5em; font-size: 0.9em;
+            cursor: pointer; border: none; font-family: inherit;
+            margin: 0 0.1em; transition: opacity 0.15s;
+        }
+        .tag-highlight:hover { opacity: 0.8; }
+
+        .wiki-link {
+            color: var(--md-primary); text-decoration: underline; text-decoration-style: dotted;
+            cursor: pointer; background: none; border: none; padding: 0;
+            font-family: inherit; font-size: inherit; text-align: left;
+        }
+        .wiki-link:hover { text-decoration-style: solid; }
+        .wiki-link-broken { color: var(--md-outline); text-decoration: line-through; }
+
         /* === AI panel (aside) === */
         #ai-panel { display: none; flex-direction: column; }
         @media (min-width: 1024px) {
@@ -288,6 +306,23 @@
             </div>
         </header>
         <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
+            
+            <!-- NEW: Breadcrumbs & Move -->
+            <div id="breadcrumbs" class="flex items-center justify-between mb-3 text-sm text-outline relative min-h-[32px]">
+                <div class="flex items-center gap-1 truncate min-w-0">
+                    <i data-lucide="folder" class="w-4 h-4 flex-shrink-0"></i>
+                    <span id="breadcrumb-folder" class="truncate">Входящие</span>
+                    <span class="mx-1 text-outline/50">/</span>
+                    <span id="breadcrumb-title" class="truncate font-medium text-[var(--md-on-surface)]"></span>
+                </div>
+                <div class="relative flex-shrink-0 ml-2" id="move-container" style="display:none;">
+                    <button id="btn-move-note" type="button" class="flex items-center gap-1 px-2 py-1 rounded bg-[var(--md-surface-variant)] hover:opacity-80 text-xs font-medium text-primary">
+                        <i data-lucide="move" class="w-3.5 h-3.5"></i> Переместить
+                    </button>
+                    <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></select>
+                </div>
+            </div>
+
             <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
             <input id="note-title" type="text" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6">
             <textarea id="note-content" placeholder="Начните печатать свою мысль здесь..."></textarea>
@@ -375,7 +410,12 @@
             aiPromptTitle: document.getElementById('ai-prompt-title'),
             aiPromptDescription: document.getElementById('ai-prompt-description'),
             btnAiClose: document.getElementById('btn-ai-close'),
-            aiBackdrop: document.getElementById('ai-backdrop')
+            aiBackdrop: document.getElementById('ai-backdrop'),
+            // New
+            breadcrumbFolder: document.getElementById('breadcrumb-folder'),
+            breadcrumbTitle: document.getElementById('breadcrumb-title'),
+            moveContainer: document.getElementById('move-container'),
+            folderMoveSelect: document.getElementById('folder-move-select')
         };
 
         // === UTILS ===
@@ -407,6 +447,12 @@
         function getNoteById(id) {
             if (!id) return null;
             return state.notes.find(function (n) { return n.id === id; }) || null;
+        }
+
+        function findNoteByTitle(title) {
+            if (!title) return null;
+            const lower = title.toLowerCase();
+            return state.notes.find(function (n) { return noteTitle(n).toLowerCase() === lower; }) || null;
         }
 
         function isValidNote(n) {
@@ -486,10 +532,8 @@
 
         function syncNoteTags(note) {
             if (!note) return;
-            // Ищем теги И в заголовке, И в контенте
             const titleTags = parseTagsFromContent(note.title || '');
             const contentTags = parseTagsFromContent(note.content || '');
-            // Объединяем и убираем дубликаты
             const combined = new Set([...titleTags, ...contentTags]);
             note.tags = Array.from(combined);
         }
@@ -763,6 +807,7 @@
             persistFolders();
             renderFolders();
             renderNotesSectionLabel();
+            renderBreadcrumbs(); // Обновляем путь
         }
 
         function deleteFolder(id) {
@@ -813,6 +858,47 @@
 
             renderAll();
             closeLeftPanel();
+        }
+
+        // === BREADCRUMBS & MOVE ===
+        function renderBreadcrumbs() {
+            if (!els.breadcrumbFolder || !els.breadcrumbTitle) return;
+            const note = getNoteById(state.activeId);
+            const folder = getFolderById(state.activeFolderId);
+
+            els.breadcrumbFolder.textContent = folder ? folder.name : 'Входящие';
+
+            if (note) {
+                els.breadcrumbTitle.textContent = noteTitle(note);
+                if (els.moveContainer) els.moveContainer.style.display = 'block';
+                
+                // Заполняем селект папками
+                if (els.folderMoveSelect) {
+                    let html = '';
+                    sortedFolders().forEach(function(f) {
+                        html += `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`;
+                    });
+                    els.folderMoveSelect.innerHTML = html;
+                    els.folderMoveSelect.value = note.folderId;
+                }
+            } else {
+                els.breadcrumbTitle.textContent = '';
+                if (els.moveContainer) els.moveContainer.style.display = 'none';
+            }
+        }
+
+        function moveNoteToFolder(newFolderId) {
+            const note = getNoteById(state.activeId);
+            if (!note || note.folderId === newFolderId) return;
+
+            note.folderId = newFolderId;
+            note.updatedAt = Date.now();
+            
+            // Меняем активную папку, чтобы заметка не пропала из виду
+            state.activeFolderId = newFolderId;
+            
+            persistNotes();
+            renderAll();
         }
 
         // === PROMPTS ===
@@ -872,17 +958,20 @@
             autoResizeTextarea();
         }
 
-        // === CHIP PARSER ===
-        function renderPromptChipsInPreview() {
+        // === HIGHLIGHTS PARSER ===
+        function renderHighlightsInPreview() {
             if (!els.preview) return;
-            const regex = /\[!prompt:([^\]\n]+)\]/g;
+            
+            // Комбинированный Regex для Промптов, Wiki-links и Тегов
+            // 1: full prompt, 2: prompt name, 3: full wiki, 4: wiki name, 5: tag prefix, 6: tag name
+            const regex = /(\[!prompt:([^\]\n]+)\])|(\[\[([^\]\n]+)\]\])|(^|[^\p{L}\p{N}_])(#[\p{L}\p{N}_]+)/giu;
 
             const walker = document.createTreeWalker(
                 els.preview,
                 NodeFilter.SHOW_TEXT,
                 {
                     acceptNode: function (node) {
-                        if (node.parentElement && node.parentElement.closest('code, pre')) {
+                        if (node.parentElement && node.parentElement.closest('code, pre, a, button')) {
                             return NodeFilter.FILTER_REJECT;
                         }
                         regex.lastIndex = 0;
@@ -904,30 +993,61 @@
                 let lastIdx = 0;
                 let match;
                 regex.lastIndex = 0;
+                
                 while ((match = regex.exec(text)) !== null) {
+                    // Добавляем текст до совпадения
                     if (match.index > lastIdx) {
                         frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
                     }
-                    const rawName = match[1].trim();
-                    const prompt = getPromptByName(rawName);
 
-                    const chip = document.createElement('button');
-                    chip.type = 'button';
-                    chip.className = 'prompt-chip';
-                    chip.setAttribute('data-prompt-name', rawName);
-                    if (prompt) chip.setAttribute('data-prompt-id', prompt.id);
-
-                    if (prompt) {
-                        const iconEl = document.createElement('i');
-                        iconEl.setAttribute('data-lucide', prompt.icon);
-                        iconEl.className = 'w-3.5 h-3.5';
-                        chip.appendChild(iconEl);
+                    if (match[1]) { // Prompt
+                        const rawName = match[2].trim();
+                        const prompt = getPromptByName(rawName);
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.className = 'prompt-chip';
+                        chip.setAttribute('data-prompt-name', rawName);
+                        if (prompt) chip.setAttribute('data-prompt-id', prompt.id);
+                        if (prompt) {
+                            const iconEl = document.createElement('i');
+                            iconEl.setAttribute('data-lucide', prompt.icon);
+                            iconEl.className = 'w-3.5 h-3.5';
+                            chip.appendChild(iconEl);
+                        }
+                        const label = document.createElement('span');
+                        label.textContent = rawName;
+                        chip.appendChild(label);
+                        frag.appendChild(chip);
+                    } 
+                    else if (match[3]) { // Wiki-link
+                        const title = match[4].trim();
+                        const existingNote = findNoteByTitle(title);
+                        const wikiBtn = document.createElement('button');
+                        wikiBtn.type = 'button';
+                        
+                        if (existingNote) {
+                            wikiBtn.className = 'wiki-link';
+                            wikiBtn.setAttribute('data-target-id', existingNote.id);
+                        } else {
+                            wikiBtn.className = 'wiki-link wiki-link-broken';
+                            wikiBtn.setAttribute('data-new-title', title);
+                        }
+                        wikiBtn.textContent = title;
+                        frag.appendChild(wikiBtn);
                     }
-                    const label = document.createElement('span');
-                    label.textContent = rawName;
-                    chip.appendChild(label);
+                    else if (match[6]) { // Tag
+                        const prefix = match[5]; // пробел или скобка перед тегом
+                        if (prefix) frag.appendChild(document.createTextNode(prefix));
+                        
+                        const tag = match[6].slice(1); // без #
+                        const tagBtn = document.createElement('button');
+                        tagBtn.type = 'button';
+                        tagBtn.className = 'tag-highlight';
+                        tagBtn.setAttribute('data-tag', tag);
+                        tagBtn.textContent = '#' + tag;
+                        frag.appendChild(tagBtn);
+                    }
 
-                    frag.appendChild(chip);
                     lastIdx = match.index + match[0].length;
                 }
                 if (lastIdx < text.length) {
@@ -1006,7 +1126,7 @@
 
             if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') {
                 els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
-                renderPromptChipsInPreview();
+                renderHighlightsInPreview();
                 return;
             }
 
@@ -1021,11 +1141,11 @@
                 });
 
                 makeCheckboxesInteractive();
-                renderPromptChipsInPreview();
+                renderHighlightsInPreview();
             } catch (e) {
                 console.error('Markdown render error:', e);
                 els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
-                renderPromptChipsInPreview();
+                renderHighlightsInPreview();
             }
         }
 
@@ -1254,6 +1374,7 @@
                 updatePreviewButton();
                 renderChipPalette();
                 updateAIPanel();
+                renderBreadcrumbs();
                 return;
             }
 
@@ -1276,6 +1397,7 @@
             updatePreviewButton();
             renderChipPalette();
             updateAIPanel();
+            renderBreadcrumbs();
         }
 
         function renderSaveStatus() {
@@ -1349,6 +1471,23 @@
             try { els.titleInput.focus(); } catch (_) { /* noop */ }
         }
 
+        function createNoteFromWikiLink(title) {
+            const newNote = {
+                id: genId(),
+                title: title,
+                content: '',
+                updatedAt: Date.now(),
+                tags: [],
+                folderId: state.activeFolderId
+            };
+            state.notes.unshift(newNote);
+            state.activeId = newNote.id;
+            persistNotes();
+            renderAll();
+            exitPreviewMode();
+            try { els.contentInput.focus(); } catch (_) { /* noop */ }
+        }
+
         function selectNote(id) {
             if (id === state.activeId) {
                 if (state.editorMode === 'preview') exitPreviewMode();
@@ -1410,6 +1549,12 @@
                 if (state.activeId) deleteNote(state.activeId);
             });
 
+            if (els.folderMoveSelect) {
+                els.folderMoveSelect.addEventListener('change', function(e) {
+                    moveNoteToFolder(e.target.value);
+                });
+            }
+
             els.notesList.addEventListener('click', function (e) {
                 const btn = e.target.closest('[data-note-id]');
                 if (!btn) return;
@@ -1463,6 +1608,7 @@
                 const t = e.target;
                 if (!t || typeof t.closest !== 'function') return;
 
+                // 1. AI Prompt Chip
                 const chip = t.closest('[data-prompt-name]');
                 if (chip) {
                     e.preventDefault();
@@ -1472,6 +1618,34 @@
                     return;
                 }
 
+                // 2. Wiki-link (existing)
+                const wikiLink = t.closest('.wiki-link');
+                if (wikiLink && wikiLink.hasAttribute('data-target-id')) {
+                    e.preventDefault();
+                    selectNote(wikiLink.getAttribute('data-target-id'));
+                    return;
+                }
+
+                // 3. Wiki-link (broken)
+                const brokenWiki = t.closest('.wiki-link-broken');
+                if (brokenWiki) {
+                    e.preventDefault();
+                    const title = brokenWiki.getAttribute('data-new-title');
+                    if (window.confirm('Создать заметку «' + title + '»?')) {
+                        createNoteFromWikiLink(title);
+                    }
+                    return;
+                }
+
+                // 4. Tag Highlight
+                const tagHighlight = t.closest('.tag-highlight');
+                if (tagHighlight) {
+                    e.preventDefault();
+                    selectTag(tagHighlight.getAttribute('data-tag'));
+                    return;
+                }
+
+                // 5. Остальные клики (вне ссылок/кнопок) — выход в редактор
                 if (t.closest('a') || t.closest('input') || t.closest('button')) return;
                 exitPreviewMode();
             });
