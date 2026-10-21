@@ -1,19 +1,20 @@
 {
-  "id": "./",
+  "id": "/mai-notes/",
   "name": "MAi — Второй Мозг",
   "short_name": "MAi",
   "description": "Личный ассистент и база знаний",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/mai-notes/",
+  "scope": "/mai-notes/",
   "display": "standalone",
   "background_color": "#FAFAFA",
   "theme_color": "#FAFAFA",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icon.svg",
-      "sizes": "192x192",
+      "sizes": "48x48 72x72 96x96 144x144 192x192 512x512",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
