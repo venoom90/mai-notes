@@ -92,10 +92,22 @@ export function renderBreadcrumbs() {
 
 export function renderFolderView() {
     if (!els.viewFolder) return;
-    const notes = notesInFolder(state.activeFolderId);
-    
+
+    // V1.5.2 (fix): учитываем activeTag — глобальный фильтр по тегу (снапшот §5.4)
+    let notes;
+    if (state.activeTag) {
+        notes = state.notes
+            .filter(n => n.tags && n.tags.includes(state.activeTag))
+            .sort((a, b) => b.updatedAt - a.updatedAt);
+    } else {
+        notes = notesInFolder(state.activeFolderId);
+    }
+
     if (notes.length === 0) {
-        els.viewFolder.innerHTML = `<div class="col-span-full text-center text-outline italic py-10">В этой папке пока пусто.</div>`;
+        const emptyMsg = state.activeTag
+            ? `Нет заметок с тегом #${escapeHtml(state.activeTag)}.`
+            : 'В этой папке пока пусто.';
+        els.viewFolder.innerHTML = `<div class="col-span-full text-center text-outline italic py-10">${emptyMsg}</div>`;
         return;
     }
 

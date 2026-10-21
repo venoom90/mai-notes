@@ -141,14 +141,7 @@ export function enterPreviewMode(showMessage) {
 
 export function togglePreviewMode() { if (state.editorMode === 'preview') exitPreviewMode(); else enterPreviewMode(true); }
 
-export function schedulePreview(noteIdAtBlur) {
-    setTimeout(() => {
-        if (state.activeId !== noteIdAtBlur || state.editorMode === 'preview' || state.viewMode !== 'editor') return;
-        const active = document.activeElement;
-        if (active === els.contentInput || active === els.btnPreview || (active && els.preview.contains(active))) return;
-        enterPreviewMode(false);
-    }, 50);
-}
+// V1.5.2: schedulePreview удалён — preview активируется только кнопкой «Глаз» / Ctrl+Enter
 
 export function exitPreviewMode() {
     if (state.editorMode !== 'preview') return;

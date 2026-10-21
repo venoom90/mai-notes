@@ -1,11 +1,11 @@
 import { state, els } from './state.js';
-import { notesInFolder, autoResizeTextarea, syncNoteTags, getNoteById } from './utils.js';
+import { autoResizeTextarea, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, validateFolderRefs } from './storage.js';
 import { renderAll, updateAIPanel, renderSaveStatus, renderTags, updateActiveNoteInList } from './render.js';
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     clearTagFilter, selectTag, insertChipAtCursor, openPromptPanel, closePromptPanel, moveNoteToFolder, 
-    toggleLeftPanel, closeLeftPanel, exitPreviewMode, schedulePreview, onEdit, scheduleSave 
+    toggleLeftPanel, closeLeftPanel, exitPreviewMode, onEdit, scheduleSave 
 } from './logic.js';
 
 function attachListeners() {
@@ -70,7 +70,8 @@ function attachListeners() {
     els.titleInput.addEventListener('input', onEdit);
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.titleInput.addEventListener('blur', updateActiveNoteInList);
-    els.contentInput.addEventListener('blur', () => { updateActiveNoteInList(); schedulePreview(state.activeId); });
+    // V1.5.2: авто-preview по blur удалён — preview только через кнопку «Глаз» / Ctrl+Enter
+    els.contentInput.addEventListener('blur', () => { updateActiveNoteInList(); });
 
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
@@ -89,7 +90,8 @@ function attachListeners() {
         if (t.closest('.wiki-link-broken')) {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
             if (window.confirm(`Создать заметку «${title}»?`)) {
-                const newNote = { id: crypto.randomUUID(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId };
+                // V1.5.2 (fix): используем genId() с fallback вместо прямого crypto.randomUUID()
+                const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId };
                 state.notes.unshift(newNote); state.activeId = newNote.id; 
                 persistNotes(); renderAll(); exitPreviewMode();
             }
