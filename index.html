@@ -2,9 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MAi</title>
-    
+
     <!-- Иконка сайта (эмодзи) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
 
@@ -12,7 +12,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Иконки -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <style>
         :root {
             --md-surface: #FEF7FF;
@@ -50,38 +50,51 @@
             color: var(--md-on-surface); width: 100%; font-family: inherit;
         }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
-        textarea { resize: none; height: calc(100vh - 200px); line-height: 1.6; }
+        textarea {
+            resize: none;
+            min-height: 200px;
+            max-height: 60vh;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
     </style>
 
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3; border-right-width: 1px;">
+    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]">
         <div class="p-4 flex justify-between items-center">
             <span class="font-bold text-lg text-primary">MAi</span>
-            <i data-lucide="settings" class="w-5 h-5 cursor-pointer text-outline"></i>
+            <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Настройки">
+                <i data-lucide="settings" class="w-5 h-5 text-outline"></i>
+            </button>
         </div>
-        <div class="p-4 flex-1 overflow-y-auto">
-            <button class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90 transition-opacity">
+        <div class="px-4 pb-4 flex-1 flex flex-col min-h-0">
+            <button id="btn-new-note" type="button" class="w-full flex items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
-            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Папки</div>
-            <div class="flex items-center gap-3 p-2 text-sm bg-black/5 rounded-lg cursor-pointer font-medium text-primary">
-                <i data-lucide="file-text" class="w-4 h-4"></i> Входящие
-            </div>
-            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer text-outline">
-                <i data-lucide="hash" class="w-4 h-4"></i> #проект_Х
+            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 px-1">Заметки</div>
+            <div id="notes-list" class="flex-1 flex flex-col gap-1 overflow-y-auto min-h-0" style="display:none;"></div>
+            <div id="notes-empty" class="flex-1 flex items-center justify-center text-center text-sm text-outline italic px-4">
+                Пока нет заметок.<br>Нажмите «+», чтобы создать.
             </div>
         </div>
     </aside>
 
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
-        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between md:justify-end" style="border-bottom-width: 1px; opacity: 0.5;">
-            <i data-lucide="menu" class="w-6 h-6 md:hidden cursor-pointer"></i>
-            <div class="flex items-center gap-3">
-                <span id="save-status" class="text-xs text-outline italic">Готово</span>
-                <i data-lucide="search" class="w-5 h-5 cursor-pointer text-outline"></i>
+        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-2 justify-between">
+            <button type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Меню">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+            <div class="flex items-center gap-1">
+                <span id="save-status" class="text-xs text-outline italic mr-2">Готово</span>
+                <button id="btn-delete-note" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Удалить заметку" title="Удалить заметку">
+                    <i data-lucide="trash-2" class="w-5 h-5 text-outline"></i>
+                </button>
+                <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Поиск" disabled>
+                    <i data-lucide="search" class="w-5 h-5 text-outline"></i>
+                </button>
             </div>
         </header>
         <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
@@ -90,8 +103,8 @@
         </div>
     </main>
 
-    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2; border-left-width: 1px;">
-        <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2" style="border-bottom-width: 1px;">
+    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]">
+        <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2">
             <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
         </div>
         <div class="flex-1 p-4 text-sm text-outline italic flex items-center justify-center text-center">
@@ -100,45 +113,371 @@
     </aside>
 
     <script>
-        lucide.createIcons();
-        
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => console.log('✅ SW MAi зарегистрирован!', registration.scope))
-                    .catch(error => console.error('❌ Ошибка SW:', error));
+        'use strict';
+
+        // === STATE ===
+        const state = {
+            notes: [],
+            activeId: null,
+            saveTimeout: null,
+            saveStatus: 'idle' // 'idle' | 'saving' | 'saved' | 'error'
+        };
+
+        const STORAGE_KEY = 'mai_notes';
+        const LEGACY_TITLE_KEY = 'mai_title';
+        const LEGACY_CONTENT_KEY = 'mai_content';
+
+        // === DOM ELEMENTS ===
+        const els = {
+            notesList: document.getElementById('notes-list'),
+            notesEmpty: document.getElementById('notes-empty'),
+            btnNewNote: document.getElementById('btn-new-note'),
+            btnDeleteNote: document.getElementById('btn-delete-note'),
+            titleInput: document.getElementById('note-title'),
+            contentInput: document.getElementById('note-content'),
+            statusText: document.getElementById('save-status')
+        };
+
+        // === UTILS ===
+        function genId() {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                try { return crypto.randomUUID(); } catch (_) { /* fallback ниже */ }
+            }
+            return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function relativeTime(ts) {
+            const diff = Date.now() - ts;
+            if (diff < 60 * 1000) return 'только что';
+            if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + ' мин назад';
+            if (diff < 24 * 60 * 60 * 1000) return Math.floor(diff / 3600000) + ' ч назад';
+            if (diff < 48 * 60 * 60 * 1000) return 'вчера';
+            return new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        }
+
+        function getNoteById(id) {
+            if (!id) return null;
+            return state.notes.find(function (n) { return n.id === id; }) || null;
+        }
+
+        function isValidNote(n) {
+            return n && typeof n === 'object'
+                && typeof n.id === 'string'
+                && typeof n.title === 'string'
+                && typeof n.content === 'string'
+                && typeof n.updatedAt === 'number'
+                && (n.tags === undefined || Array.isArray(n.tags));
+        }
+
+        function sortedNotes() {
+            return state.notes.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+        }
+
+        function autoResizeTextarea() {
+            const ta = els.contentInput;
+            ta.style.height = 'auto';
+            const max = Math.max(200, window.innerHeight * 0.6);
+            ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
+        }
+
+        function notePreview(note) {
+            const firstLine = note.content.trim().split('\n')[0].trim();
+            return firstLine ? firstLine.slice(0, 60) : 'Пустая заметка';
+        }
+
+        function noteTitle(note) {
+            return note.title.trim() ? note.title : 'Без названия';
+        }
+
+        // === STORAGE ===
+        function loadNotes() {
+            let raw = null;
+            try {
+                raw = localStorage.getItem(STORAGE_KEY);
+            } catch (e) {
+                console.warn('localStorage недоступен (read):', e);
+                return [];
+            }
+
+            if (raw !== null) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) {
+                        return parsed
+                            .filter(isValidNote)
+                            .map(function (n) {
+                                return {
+                                    id: n.id,
+                                    title: n.title,
+                                    content: n.content,
+                                    updatedAt: n.updatedAt,
+                                    tags: Array.isArray(n.tags) ? n.tags : []
+                                };
+                            });
+                    }
+                } catch (e) {
+                    console.warn('Повреждён ' + STORAGE_KEY + ', восстанавливаюсь:', e);
+                }
+                return [];
+            }
+
+            // Миграция legacy-ключей (mai_title / mai_content). Сами legacy-ключи НЕ удаляем.
+            let legacyTitle = '';
+            let legacyContent = '';
+            try {
+                legacyTitle = localStorage.getItem(LEGACY_TITLE_KEY) || '';
+                legacyContent = localStorage.getItem(LEGACY_CONTENT_KEY) || '';
+            } catch (e) {
+                return [];
+            }
+
+            if (legacyTitle || legacyContent) {
+                return [{
+                    id: genId(),
+                    title: legacyTitle || 'Без названия',
+                    content: legacyContent,
+                    updatedAt: Date.now(),
+                    tags: []
+                }];
+            }
+
+            return [];
+        }
+
+        function persistNotes() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes));
+                return true;
+            } catch (e) {
+                console.error('persistNotes failed:', e);
+                state.saveStatus = 'error';
+                return false;
+            }
+        }
+
+        // === RENDER ===
+        function renderNotes() {
+            const sorted = sortedNotes();
+
+            if (sorted.length === 0) {
+                els.notesList.innerHTML = '';
+                els.notesList.style.display = 'none';
+                els.notesEmpty.style.display = 'flex';
+                return;
+            }
+
+            els.notesEmpty.style.display = 'none';
+            els.notesList.style.display = 'flex';
+
+            const html = sorted.map(function (note) {
+                const isActive = note.id === state.activeId;
+                const activeCls = isActive
+                    ? 'bg-black/5 text-primary font-semibold'
+                    : 'text-outline hover:bg-black/5';
+
+                return '<button type="button" '
+                    + 'class="note-item w-full text-left p-3 min-h-[48px] rounded-lg transition-colors ' + activeCls + '" '
+                    + 'data-note-id="' + escapeHtml(note.id) + '">'
+                    + '<div class="font-medium truncate text-sm">' + escapeHtml(noteTitle(note)) + '</div>'
+                    + '<div class="text-xs truncate opacity-80 mt-0.5">' + escapeHtml(notePreview(note)) + '</div>'
+                    + '<div class="text-[10px] opacity-60 mt-1">' + relativeTime(note.updatedAt) + '</div>'
+                    + '</button>';
+            }).join('');
+
+            els.notesList.innerHTML = html;
+
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        function updateActiveNoteInList() {
+            if (!state.activeId) return;
+            const note = getNoteById(state.activeId);
+            if (!note) return;
+            const btn = els.notesList.querySelector('[data-note-id="' + state.activeId + '"]');
+            if (!btn || btn.children.length < 3) return;
+
+            btn.children[0].textContent = noteTitle(note);
+            btn.children[1].textContent = notePreview(note);
+            btn.children[2].textContent = relativeTime(note.updatedAt);
+        }
+
+        function renderEditor() {
+            const note = getNoteById(state.activeId);
+
+            if (!note) {
+                els.titleInput.value = '';
+                els.contentInput.value = '';
+                els.titleInput.placeholder = 'Выберите заметку или создайте новую';
+                els.contentInput.placeholder = 'Здесь появится текст заметки...';
+            } else {
+                els.titleInput.value = note.title;
+                els.contentInput.value = note.content;
+                els.titleInput.placeholder = 'Заголовок заметки...';
+                els.contentInput.placeholder = 'Начните печатать свою мысль здесь...';
+            }
+
+            autoResizeTextarea();
+        }
+
+        function renderSaveStatus() {
+            const map = {
+                idle:   { text: 'Готово',            color: 'var(--md-outline)' },
+                saving: { text: 'Сохранение...',     color: 'var(--md-primary)' },
+                saved:  { text: 'Сохранено',         color: 'var(--md-outline)' },
+                error:  { text: 'Ошибка сохранения', color: '#B3261E' }
+            };
+            const s = map[state.saveStatus] || map.idle;
+            els.statusText.innerText = s.text;
+            els.statusText.style.color = s.color;
+        }
+
+        function renderAll() {
+            renderNotes();
+            renderEditor();
+            renderSaveStatus();
+        }
+
+        // === LOGIC ===
+        function scheduleSave() {
+            if (state.saveTimeout) clearTimeout(state.saveTimeout);
+            state.saveTimeout = setTimeout(function () {
+                state.saveTimeout = null;
+                const ok = persistNotes();
+                if (ok) state.saveStatus = 'saved';
+                renderSaveStatus();
+            }, 500);
+        }
+
+        function onEdit() {
+            if (!state.activeId) return;
+            const note = getNoteById(state.activeId);
+            if (!note) return;
+
+            note.title = els.titleInput.value;
+            note.content = els.contentInput.value;
+            note.updatedAt = Date.now();
+
+            state.saveStatus = 'saving';
+            renderSaveStatus();
+            scheduleSave();
+        }
+
+        function createNote() {
+            const note = {
+                id: genId(),
+                title: '',
+                content: '',
+                updatedAt: Date.now(),
+                tags: []
+            };
+            state.notes.unshift(note);
+            state.activeId = note.id;
+
+            const ok = persistNotes();
+            if (ok) state.saveStatus = 'idle';
+
+            renderAll();
+            try { els.titleInput.focus(); } catch (_) { /* noop */ }
+        }
+
+        function selectNote(id) {
+            if (id === state.activeId) return;
+            if (!getNoteById(id)) return;
+
+            state.activeId = id;
+            state.saveStatus = 'idle';
+            renderAll();
+        }
+
+        function deleteNote(id) {
+            const note = getNoteById(id);
+            if (!note) return;
+
+            const label = noteTitle(note);
+            if (!window.confirm('Удалить заметку «' + label + '»?')) return;
+
+            state.notes = state.notes.filter(function (n) { return n.id !== id; });
+
+            if (state.activeId === id) {
+                const sorted = sortedNotes();
+                state.activeId = sorted.length > 0 ? sorted[0].id : null;
+            }
+
+            const ok = persistNotes();
+            if (ok) state.saveStatus = 'idle';
+
+            renderAll();
+        }
+
+        // === BOOTSTRAP ===
+        function attachListeners() {
+            els.btnNewNote.addEventListener('click', createNote);
+
+            els.btnDeleteNote.addEventListener('click', function () {
+                if (state.activeId) deleteNote(state.activeId);
             });
+
+            els.notesList.addEventListener('click', function (e) {
+                const btn = e.target.closest('[data-note-id]');
+                if (!btn) return;
+                selectNote(btn.getAttribute('data-note-id'));
+            });
+
+            els.titleInput.addEventListener('input', onEdit);
+            els.contentInput.addEventListener('input', function () {
+                autoResizeTextarea();
+                onEdit();
+            });
+
+            // In-place обновление активной карточки (без пересборки DOM — не ломает click по списку).
+            els.titleInput.addEventListener('blur', updateActiveNoteInList);
+            els.contentInput.addEventListener('blur', updateActiveNoteInList);
+
+            window.addEventListener('resize', autoResizeTextarea);
+
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(function (reg) { console.log('✅ SW MAi зарегистрирован:', reg.scope); })
+                        .catch(function (err) { console.error('❌ Ошибка SW:', err); });
+                });
+            }
         }
 
-        const titleInput = document.getElementById('note-title');
-        const contentInput = document.getElementById('note-content');
-        const statusText = document.getElementById('save-status');
+        function init() {
+            state.notes = loadNotes();
 
-        titleInput.value = localStorage.getItem('mai_title') || '';
-        contentInput.value = localStorage.getItem('mai_content') || '';
+            // Если была миграция из legacy и mai_notes ещё нет — фиксируем новую структуру в хранилище.
+            try {
+                if (state.notes.length > 0 && localStorage.getItem(STORAGE_KEY) === null) {
+                    persistNotes();
+                }
+            } catch (_) { /* noop */ }
 
-        let saveTimeout;
-        function autoSave() {
-            statusText.innerText = 'Сохранение...';
-            statusText.style.color = 'var(--md-primary)';
-            
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                localStorage.setItem('mai_title', titleInput.value);
-                localStorage.setItem('mai_content', contentInput.value);
-                
-                statusText.innerText = 'Сохранено в память';
-                statusText.style.color = 'var(--md-outline)';
-            }, 500); 
+            if (state.notes.length > 0) {
+                state.activeId = sortedNotes()[0].id;
+            }
+
+            renderAll();
+            attachListeners();
+
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
         }
 
-        titleInput.addEventListener('input', autoSave);
-        contentInput.addEventListener('input', autoSave);
-
-        contentInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
+        init();
     </script>
 </body>
 </html>

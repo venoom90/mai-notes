@@ -1,27 +1,39 @@
-const CACHE_NAME = 'mai-cache-v1'; 
-const ASSETS = [ './manifest.json' ];
+const CACHE_NAME = 'mai-cache-v2';
+const ASSETS = ['./', './index.html', './manifest.json'];
 
-self.addEventListener('install', (e) => {
-  self.skipWaiting(); 
-  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
-});
-
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) return caches.delete(cacheName);
-        })
-      );
-    })
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
 });
 
-self.addEventListener('fetch', (e) => {
-  if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-  } else {
-    e.respondWith(caches.match(e.request).then((response) => response || fetch(e.request)));
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) return caches.delete(name);
+          return undefined;
+        })
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match(event.request, { ignoreSearch: true })
+          .then((cached) => cached || caches.match('./index.html'))
+      )
+    );
+    return;
   }
+
+  event.respondWith(
+    caches.match(event.request, { ignoreSearch: true })
+      .then((cached) => cached || fetch(event.request))
+  );
 });
