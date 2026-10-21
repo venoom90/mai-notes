@@ -119,6 +119,59 @@
             list-style: none;
             margin-left: -1.5em;
         }
+
+        /* === Prompt chips === */
+        .prompt-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25em;
+            background: var(--md-surface-variant);
+            color: var(--md-primary);
+            border-radius: 999px;
+            padding: 0.15em 0.6em;
+            font-size: 0.9em;
+            line-height: 1.4;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+            transition: opacity 0.15s;
+            vertical-align: middle;
+        }
+        .prompt-chip:hover { opacity: 0.8; }
+
+        .prompt-chip-palette-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35em;
+            background: var(--md-surface-variant);
+            color: var(--md-primary);
+            border-radius: 999px;
+            padding: 0.4em 0.85em;
+            font-size: 0.85em;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+            transition: opacity 0.15s;
+            min-height: 32px;
+        }
+        .prompt-chip-palette-btn:hover { opacity: 0.8; }
+
+        /* === AI panel (aside) === */
+        #ai-panel { display: none; flex-direction: column; }
+        @media (min-width: 1024px) {
+            #ai-panel { display: flex; }
+        }
+        @media (max-width: 1023px) {
+            #ai-panel.mobile-active {
+                display: flex;
+                position: fixed;
+                inset: 0;
+                z-index: 50;
+                width: 100%;
+                max-width: 100%;
+                border-left: none;
+            }
+        }
     </style>
 
     <link rel="manifest" href="manifest.json">
@@ -163,20 +216,35 @@
             </div>
         </header>
         <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
+            <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
             <input id="note-title" type="text" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6">
             <textarea id="note-content" placeholder="Начните печатать свою мысль здесь..."></textarea>
             <div id="note-preview" class="markdown-body hidden"></div>
         </div>
     </main>
 
-    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]">
-        <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2">
-            <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
+    <aside id="ai-panel" class="w-80 border-l border-[var(--md-outline)] bg-[var(--md-surface-variant)]">
+        <div class="p-4 border-b border-[var(--md-outline)] flex items-center justify-between gap-2">
+            <div class="font-bold text-sm text-outline uppercase flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
+            </div>
+            <button id="btn-ai-close" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть панель" title="Закрыть">
+                <i data-lucide="x" class="w-5 h-5 text-outline"></i>
+            </button>
         </div>
-        <div class="flex-1 p-4 text-sm text-outline italic flex items-center justify-center text-center">
-            Нажмите на чип, чтобы запустить ассистента.
+        <div id="ai-panel-empty" class="flex-1 p-4 text-sm text-outline italic flex items-center justify-center text-center">
+            Нажмите на чип в тексте, чтобы запустить ассистента.
+        </div>
+        <div id="ai-panel-active" class="flex-1 flex-col p-4 gap-3 overflow-y-auto" style="display:none;">
+            <div id="ai-prompt-title" class="font-bold text-primary text-lg"></div>
+            <div id="ai-prompt-description" class="text-sm text-outline"></div>
+            <div class="mt-2 pt-3 border-t border-[var(--md-outline)] text-xs italic text-outline">
+                ⚡ Ответ ассистента появится в V1.4 — после подключения GAS-прокси к Gemini.
+            </div>
         </div>
     </aside>
+
+    <div id="ai-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
 
     <script>
         'use strict';
@@ -186,9 +254,20 @@
             notes: [],
             activeId: null,
             saveTimeout: null,
-            saveStatus: 'idle',
-            editorMode: 'edit'   // 'edit' | 'preview'
+            saveStatus: 'idle',           // 'idle' | 'saving' | 'saved' | 'error'
+            editorMode: 'edit',            // 'edit' | 'preview'
+            activePrompt: null,            // id из PROMPTS | null
+            activePromptRawName: null,     // имя как в тексте (для «неизвестного»)
+            aiPanelOpen: false             // актуально для mobile-оверлея
         };
+
+        // Временная заглушка. Будет заменена пользовательской библиотекой промптов
+        // (roadmap). Контракт элемента: { id, name, icon, description }.
+        const PROMPTS = [
+            { id: 'coach',     name: 'Тренер',    icon: 'compass',     description: 'Задаёт вопросы, помогает развить мысль' },
+            { id: 'analyst',   name: 'Аналитик',  icon: 'bar-chart-3', description: 'Структурирует, находит паттерны и связи' },
+            { id: 'motivator', name: 'Мотиватор', icon: 'zap',         description: 'Фокусирует на действии, подбадривает' }
+        ];
 
         const STORAGE_KEY = 'mai_notes';
         const LEGACY_TITLE_KEY = 'mai_title';
@@ -204,7 +283,15 @@
             titleInput: document.getElementById('note-title'),
             contentInput: document.getElementById('note-content'),
             preview: document.getElementById('note-preview'),
-            statusText: document.getElementById('save-status')
+            statusText: document.getElementById('save-status'),
+            chipPalette: document.getElementById('chip-palette'),
+            aiPanel: document.getElementById('ai-panel'),
+            aiPanelEmpty: document.getElementById('ai-panel-empty'),
+            aiPanelActive: document.getElementById('ai-panel-active'),
+            aiPromptTitle: document.getElementById('ai-prompt-title'),
+            aiPromptDescription: document.getElementById('ai-prompt-description'),
+            btnAiClose: document.getElementById('btn-ai-close'),
+            aiBackdrop: document.getElementById('ai-backdrop')
         };
 
         // === UTILS ===
@@ -333,6 +420,188 @@
             }
         }
 
+        // === PROMPTS ===
+        function getPromptById(id) {
+            if (!id) return null;
+            return PROMPTS.find(function (p) { return p.id === id; }) || null;
+        }
+
+        function getPromptByName(name) {
+            if (!name) return null;
+            const lower = String(name).toLowerCase();
+            return PROMPTS.find(function (p) { return p.name.toLowerCase() === lower; }) || null;
+        }
+
+        // === CHIP PALETTE ===
+        function renderChipPalette() {
+            if (!els.chipPalette) return;
+            if (!state.activeId || state.editorMode === 'preview') {
+                els.chipPalette.style.display = 'none';
+                return;
+            }
+            els.chipPalette.style.display = 'flex';
+            els.chipPalette.innerHTML = PROMPTS.map(function (p) {
+                return '<button type="button" '
+                    + 'class="prompt-chip-palette-btn" '
+                    + 'data-prompt-insert="' + escapeHtml(p.name) + '" '
+                    + 'title="Вставить чип ' + escapeHtml(p.name) + '">'
+                    + '<i data-lucide="' + escapeHtml(p.icon) + '" class="w-3.5 h-3.5"></i>'
+                    + '<span>' + escapeHtml(p.name) + '</span>'
+                    + '</button>';
+            }).join('');
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        function insertChipAtCursor(promptName) {
+            if (!state.activeId) return;
+            if (state.editorMode === 'preview') exitPreviewMode();
+
+            const ta = els.contentInput;
+            const chip = '[!prompt:' + promptName + ']';
+            const value = ta.value;
+            let start = ta.selectionStart;
+            let end = ta.selectionEnd;
+            if (typeof start !== 'number') start = value.length;
+            if (typeof end !== 'number') end = value.length;
+
+            ta.value = value.slice(0, start) + chip + value.slice(end);
+            const pos = start + chip.length;
+            try {
+                ta.setSelectionRange(pos, pos);
+                ta.focus();
+            } catch (_) { /* noop */ }
+
+            onEdit();
+            autoResizeTextarea();
+        }
+
+        // === CHIP PARSER ===
+        function renderPromptChipsInPreview() {
+            if (!els.preview) return;
+            const regex = /\[!prompt:([^\]\n]+)\]/g;
+
+            const walker = document.createTreeWalker(
+                els.preview,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function (node) {
+                        if (node.parentElement && node.parentElement.closest('code, pre')) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        regex.lastIndex = 0;
+                        if (!regex.test(node.nodeValue || '')) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+
+            const textNodes = [];
+            let n;
+            while ((n = walker.nextNode())) textNodes.push(n);
+
+            textNodes.forEach(function (textNode) {
+                const text = textNode.nodeValue || '';
+                const frag = document.createDocumentFragment();
+                let lastIdx = 0;
+                let match;
+                regex.lastIndex = 0;
+                while ((match = regex.exec(text)) !== null) {
+                    if (match.index > lastIdx) {
+                        frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
+                    }
+                    const rawName = match[1].trim();
+                    const prompt = getPromptByName(rawName);
+
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'prompt-chip';
+                    chip.setAttribute('data-prompt-name', rawName);
+                    if (prompt) chip.setAttribute('data-prompt-id', prompt.id);
+
+                    if (prompt) {
+                        const iconEl = document.createElement('i');
+                        iconEl.setAttribute('data-lucide', prompt.icon);
+                        iconEl.className = 'w-3.5 h-3.5';
+                        chip.appendChild(iconEl);
+                    }
+                    const label = document.createElement('span');
+                    label.textContent = rawName;
+                    chip.appendChild(label);
+
+                    frag.appendChild(chip);
+                    lastIdx = match.index + match[0].length;
+                }
+                if (lastIdx < text.length) {
+                    frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+                }
+                if (textNode.parentNode) {
+                    textNode.parentNode.replaceChild(frag, textNode);
+                }
+            });
+
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        // === AI PANEL ===
+        function openPromptPanel(promptId, rawName) {
+            state.activePrompt = promptId || null;
+            state.activePromptRawName = rawName || null;
+            state.aiPanelOpen = true;
+            updateAIPanel();
+        }
+
+        function closePromptPanel() {
+            state.activePrompt = null;
+            state.activePromptRawName = null;
+            state.aiPanelOpen = false;
+            updateAIPanel();
+        }
+
+        function resetAIPanel() {
+            state.activePrompt = null;
+            state.activePromptRawName = null;
+            state.aiPanelOpen = false;
+            updateAIPanel();
+        }
+
+        function updateAIPanel() {
+            if (!els.aiPanel) return;
+            const prompt = getPromptById(state.activePrompt);
+            const rawName = state.activePromptRawName;
+            const hasActive = !!prompt || !!rawName;
+
+            if (hasActive) {
+                els.aiPanelEmpty.style.display = 'none';
+                els.aiPanelActive.style.display = 'flex';
+                els.aiPromptTitle.textContent = prompt ? prompt.name : (rawName || 'Неизвестный промпт');
+                els.aiPromptDescription.textContent = prompt
+                    ? prompt.description
+                    : 'Такого промпта нет в библиотеке';
+            } else {
+                els.aiPanelEmpty.style.display = 'flex';
+                els.aiPanelActive.style.display = 'none';
+            }
+
+            const isMobile = window.innerWidth < 1024;
+            if (isMobile && state.aiPanelOpen && hasActive) {
+                els.aiPanel.classList.add('mobile-active');
+                els.aiBackdrop.classList.remove('hidden');
+            } else {
+                els.aiPanel.classList.remove('mobile-active');
+                els.aiBackdrop.classList.add('hidden');
+            }
+
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
         // === MARKDOWN ===
         function renderMarkdown(text) {
             if (!text || !text.trim()) {
@@ -342,6 +611,7 @@
 
             if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') {
                 els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
+                renderPromptChipsInPreview();
                 return;
             }
 
@@ -356,9 +626,11 @@
                 });
 
                 makeCheckboxesInteractive();
+                renderPromptChipsInPreview();
             } catch (e) {
                 console.error('Markdown render error:', e);
                 els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
+                renderPromptChipsInPreview();
             }
         }
 
@@ -440,11 +712,8 @@
                 if (state.activeId !== noteIdAtBlur) return;
                 if (state.editorMode === 'preview') return;
                 const active = document.activeElement;
-                // Если фокус всё ещё в textarea — не переключаем (иначе «моргание»)
                 if (active === els.contentInput) return;
-                // Если фокус на кнопке-toggle — не переключаем (там свой обработчик)
                 if (active === els.btnPreview) return;
-                // Если фокус внутри preview (чек-бокс, ссылка) — не переключаем
                 if (active && els.preview.contains(active)) return;
                 enterPreviewMode();
             }, 50);
@@ -525,6 +794,8 @@
                 els.preview.innerHTML = '';
                 autoResizeTextarea();
                 updatePreviewButton();
+                renderChipPalette();
+                updateAIPanel();
                 return;
             }
 
@@ -545,6 +816,8 @@
             }
 
             updatePreviewButton();
+            renderChipPalette();
+            updateAIPanel();
         }
 
         function renderSaveStatus() {
@@ -601,6 +874,7 @@
             state.notes.unshift(note);
             state.activeId = note.id;
             state.editorMode = 'edit';
+            resetAIPanel();
 
             const ok = persistNotes();
             if (ok) state.saveStatus = 'idle';
@@ -619,6 +893,7 @@
             state.activeId = id;
             state.editorMode = 'edit';
             state.saveStatus = 'idle';
+            resetAIPanel();
             renderAll();
         }
 
@@ -637,6 +912,7 @@
             }
 
             state.editorMode = 'edit';
+            resetAIPanel();
             const ok = persistNotes();
             if (ok) state.saveStatus = 'idle';
 
@@ -672,28 +948,62 @@
                 schedulePreview(state.activeId);
             });
 
-            // Клик по превью (не по ссылке / чек-боксу / кнопке) → назад в edit
+            // Клик по превью:
+            // 1) по чипу — открыть панель промпта
+            // 2) по ссылке/чек-боксу — не выходить
+            // 3) иначе — выход из preview в edit
             els.preview.addEventListener('click', function (e) {
                 const t = e.target;
                 if (!t || typeof t.closest !== 'function') return;
+
+                const chip = t.closest('[data-prompt-name]');
+                if (chip) {
+                    e.preventDefault();
+                    const rawName = chip.getAttribute('data-prompt-name');
+                    const prompt = getPromptByName(rawName);
+                    openPromptPanel(prompt ? prompt.id : null, rawName);
+                    return;
+                }
+
                 if (t.closest('a') || t.closest('input') || t.closest('button')) return;
                 exitPreviewMode();
             });
 
-            // Клавиатура: Ctrl+Enter / Cmd+Enter → toggle preview; Escape → exit
+            // Палитра чипов
+            els.chipPalette.addEventListener('click', function (e) {
+                const btn = e.target.closest('[data-prompt-insert]');
+                if (!btn) return;
+                insertChipAtCursor(btn.getAttribute('data-prompt-insert'));
+            });
+
+            // AI panel controls
+            els.btnAiClose.addEventListener('click', closePromptPanel);
+            els.aiBackdrop.addEventListener('click', closePromptPanel);
+
+            // Клавиатура: Escape (двухступенчатый) + Ctrl/Cmd+Enter
             document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    if (state.aiPanelOpen) {
+                        e.preventDefault();
+                        closePromptPanel();
+                        return;
+                    }
+                    if (state.editorMode === 'preview') {
+                        e.preventDefault();
+                        exitPreviewMode();
+                        return;
+                    }
+                }
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                     e.preventDefault();
                     togglePreviewMode();
-                    return;
-                }
-                if (e.key === 'Escape' && state.editorMode === 'preview') {
-                    e.preventDefault();
-                    exitPreviewMode();
                 }
             });
 
-            window.addEventListener('resize', autoResizeTextarea);
+            window.addEventListener('resize', function () {
+                autoResizeTextarea();
+                updateAIPanel();
+            });
 
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function () {
@@ -718,8 +1028,13 @@
             }
 
             state.editorMode = 'edit';
+            state.activePrompt = null;
+            state.activePromptRawName = null;
+            state.aiPanelOpen = false;
+
             renderAll();
             attachListeners();
+            updateAIPanel();
 
             if (window.lucide && typeof window.lucide.createIcons === 'function') {
                 window.lucide.createIcons();
