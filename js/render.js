@@ -30,17 +30,21 @@ export function renderSidebar() {
         return `<button type="button" class="${cls}" data-context="${escapeHtml(item.context)}"><i data-lucide="link" class="w-3 h-3"></i><span>${escapeHtml(item.context)}</span></button>`;
     }).join('');
 
-    els.filtersList.innerHTML = state.savedFilters.map(f => {
-        const isActive = f.id === state.activeFilterId;
-        const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
-        return `<div class="${cls} flex items-center gap-1">
-            <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-filter-select="${f.id}">
-                <i data-lucide="filter" class="w-4 h-4 text-outline"></i>
-                <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(f.name)}</span>
-            </button>
-            <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${f.id}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-        </div>`;
-    }).join('');
+    if (state.savedFilters.length === 0) {
+        els.filtersList.innerHTML = `<div class="text-xs text-outline italic px-2 py-1 opacity-70">Нет сохраненных фильтров</div>`;
+    } else {
+        els.filtersList.innerHTML = state.savedFilters.map(f => {
+            const isActive = f.id === state.activeFilterId;
+            const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
+            return `<div class="${cls} flex items-center gap-1">
+                <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-filter-select="${f.id}">
+                    <i data-lucide="filter" class="w-4 h-4 text-outline"></i>
+                    <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(f.name)}</span>
+                </button>
+                <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${f.id}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>`;
+        }).join('');
+    }
 
     updateIcons();
 }
@@ -50,17 +54,20 @@ export function renderBreadcrumbs() {
     els.crumbFolderName.textContent = folder ? folder.name : 'Входящие';
 
     if (state.viewMode === 'folder') {
+        let title = '';
         if (state.activeFilterId) {
             const f = state.savedFilters.find(x => x.id === state.activeFilterId);
-            els.crumbTitle.textContent = f ? f.name : 'Фильтр';
+            title = f ? f.name : 'Фильтр';
         } else if (state.activeTag) {
-            els.crumbTitle.textContent = `#${state.activeTag}`;
+            title = `#${state.activeTag}`;
         } else if (state.activeContext) {
-            els.crumbTitle.textContent = `[[${state.activeContext}]]`;
-        } else {
-            els.crumbTitle.textContent = 'Все заметки';
+            title = `[[${state.activeContext}]]`;
         }
-        els.crumbSeparator.classList.add('hidden');
+        
+        els.crumbTitle.textContent = title;
+        if (title) els.crumbSeparator.classList.remove('hidden');
+        else els.crumbSeparator.classList.add('hidden');
+        
         els.moveNoteContainer.style.display = 'none'; 
     } 
     else if (state.viewMode === 'editor') {
@@ -138,7 +145,7 @@ export function renderFolderView() {
                     <span class="text-[10px] text-outline mr-auto">${relativeTime(note.updatedAt)}</span>
                     ${tagsHtml}${contextHtml}
                 </div>
-                <button class="note-card-actions action-dots p-1.5 rounded-full hover:bg-black/10 bg-[var(--md-surface)] text-outline shadow-sm" data-action-menu="${note.id}">
+                <button class="note-card-actions p-1.5 rounded-full text-outline hover:text-[var(--md-on-surface)] hover:bg-black/10 transition-colors" data-action-menu="${note.id}">
                     <i data-lucide="more-vertical" class="w-4 h-4 pointer-events-none"></i>
                 </button>
             </div>
@@ -292,16 +299,16 @@ export function renderFilterRuleRow(index, rule) {
     
     return `
     <div class="filter-rule-row" data-rule-index="${index}">
-        <select class="rule-logic bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none" style="width: 100px;">
+        <select class="rule-logic bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none">
             <option value="include" ${rule.logic === 'include' ? 'selected' : ''}>Включая</option>
             <option value="exclude" ${rule.logic === 'exclude' ? 'selected' : ''}>Исключая</option>
         </select>
-        <select class="rule-type bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none" style="width: 110px;">
+        <select class="rule-type bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none">
             <option value="folder" ${rule.type === 'folder' ? 'selected' : ''}>Папку</option>
             <option value="tag" ${rule.type === 'tag' ? 'selected' : ''}>Тег</option>
             <option value="context" ${rule.type === 'context' ? 'selected' : ''}>Контекст</option>
         </select>
-        <select class="rule-value flex-1 bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none">
+        <select class="rule-value w-full bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none">
             ${rule.type === 'folder' ? folders : rule.type === 'tag' ? tags : contexts}
         </select>
         <button class="btn-remove-rule p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
@@ -319,12 +326,10 @@ export function renderPickerList(query) {
         items = collectAllContexts().map(c => c.context);
     }
     
-    // Фильтруем по вводу
     const filtered = items.filter(i => i.toLowerCase().includes(q));
     
     let html = '';
     
-    // Кнопка создания нового, если такого еще нет
     if (q && !filtered.includes(q)) {
         const icon = state.pickerType === 'tag' ? 'hash' : 'link';
         const prefix = state.pickerType === 'tag' ? '#' : '[[';
