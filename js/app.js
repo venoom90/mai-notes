@@ -5,7 +5,7 @@ import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, render
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
-    insertChipAtCursor, moveNoteToFolder, toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
+    insertChipAtCursor, toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
     openSearch, closeSearch, handleSearchInput, insertFormatting,
     openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter
@@ -37,6 +37,7 @@ function attachListeners() {
     els.btnPreview.addEventListener('click', togglePreviewMode);
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
     
+    // Обработка перемещения из шапки
     if (els.folderMoveSelect) {
         els.folderMoveSelect.addEventListener('change', (e) => {
             const note = getNoteById(state.activeId);
