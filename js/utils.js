@@ -21,9 +21,10 @@ export function relativeTime(ts) {
 }
 
 export function getNoteById(id) { return id ? (state.notes.find(n => n.id === id) || null) : null; }
+
 export function findNoteByTitle(title) {
     if (!title) return null;
-    const lower = title.toLowerCase();
+    const lower = String(title).toLowerCase();
     return state.notes.find(n => noteTitle(n).toLowerCase() === lower) || null;
 }
 
@@ -56,11 +57,18 @@ export function autoResizeTitle() {
 }
 
 export function notePreview(note) {
-    const firstLine = note.content.trim().split('\n')[0].trim();
+    if (!note || !note.content) return 'Пустая заметка';
+    const firstLine = String(note.content).trim().split('\n')[0].trim();
     return firstLine ? firstLine.slice(0, 60) : 'Пустая заметка';
 }
 
-export function noteTitle(note) { return note.title.trim() ? note.title : 'Без названия'; }
+// БЕЗОПАСНАЯ ФУНКЦИЯ: никогда не крашит приложение при null/undefined
+export function noteTitle(note) { 
+    if (!note || !note.title) return 'Без названия';
+    const title = String(note.title).trim();
+    return title ? title : 'Без названия'; 
+}
+
 export function makeDefaultFolder() { return { id: 'inbox', name: 'Входящие', updatedAt: Date.now() }; }
 
 export function parseTagsFromContent(text) {
@@ -126,20 +134,25 @@ export function updateIcons() {
     }
 }
 
-// --- V1.8.0 Markdown Export/Import Utils ---
+// --- Markdown Export/Import Utils ---
 
 export function generateMarkdown(note, folderName) {
+    const safeTitle = String(note.title || 'Без названия').replace(/"/g, '\\"');
+    const safeFolder = String(folderName || 'Входящие').replace(/"/g, '\\"');
+    const safeContent = String(note.content || '');
+    const ts = Number(note.updatedAt) || Date.now();
+
     const yaml = [
         '---',
-        `id: "${note.id}"`,
-        `title: "${note.title.replace(/"/g, '\\"')}"`,
-        `folder: "${folderName.replace(/"/g, '\\"')}"`,
+        `id: "${note.id || genId()}"`,
+        `title: "${safeTitle}"`,
+        `folder: "${safeFolder}"`,
         `pinned: ${!!note.isPinned}`,
-        `created: ${note.updatedAt}`,
-        `updated: ${note.updatedAt}`,
+        `created: ${ts}`,
+        `updated: ${ts}`,
         '---'
     ].join('\n');
-    return `${yaml}\n\n# ${noteTitle(note)}\n\n${note.content}`;
+    return `${yaml}\n\n# ${noteTitle(note)}\n\n${safeContent}`;
 }
 
 export function parseMarkdown(text, defaultFolderId) {
@@ -164,10 +177,9 @@ export function parseMarkdown(text, defaultFolderId) {
         });
     }
 
-    // Убираем первый H1 заголовок из контента, если он совпадает с title
     const lines = content.split('\n');
     if (lines[0].startsWith('# ')) {
-        lines.shift(); // Удаляем заголовок
+        lines.shift(); 
         content = lines.join('\n').trim();
     }
 

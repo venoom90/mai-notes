@@ -1,5 +1,5 @@
 import { state, els, FILTERS_KEY } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
@@ -317,7 +317,7 @@ export function insertPickedItem(value) {
     closePicker();
 }
 
-// --- V1.8.1 EXPORT / IMPORT (FIXED) ---
+// --- EXPORT / IMPORT (FIXED V1.8.1) ---
 
 function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8') {
     const blob = new Blob([content], { type: mimeType });
@@ -325,76 +325,98 @@ function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
-    // КРИТИЧЕСКИ ВАЖНО: добавляем элемент в DOM, иначе браузер может проигнорировать клик
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 export function shareNoteFile(noteId) {
-    const note = getNoteById(noteId);
-    if (!note) return;
-    const folder = getFolderById(note.folderId);
-    const folderName = folder ? folder.name : 'Входящие';
-    const md = generateMarkdown(note, folderName);
-    const fileName = `${noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_')}.md`;
-    
-    const file = new File([md], fileName, { type: 'text/markdown' });
-    
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({
-            files: [file],
-            title: noteTitle(note),
-            text: 'Заметка из MAi'
-        }).catch(err => {
-            console.warn('Share failed or cancelled:', err);
-            // Если системное меню не открылось или произошла ошибка, делаем скачивание
+    try {
+        const note = getNoteById(noteId);
+        if (!note) return;
+        const folder = getFolderById(note.folderId);
+        const folderName = folder ? String(folder.name) : 'Входящие';
+        const md = generateMarkdown(note, folderName);
+        
+        const safeName = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').trim() || 'Заметка';
+        const fileName = `${safeName}.md`;
+        
+        let file;
+        try {
+            file = new File([md], fileName, { type: 'text/markdown' });
+        } catch (e) {
+            file = new Blob([md], { type: 'text/markdown' });
+            file.name = fileName;
+        }
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+                files: [file],
+                title: noteTitle(note),
+                text: 'Заметка из MAi'
+            }).catch(err => {
+                console.warn('Share failed/cancelled:', err);
+                downloadFile(md, fileName); 
+            });
+        } else {
             downloadFile(md, fileName);
-        });
-    } else {
-        // Если API Share недоступно, просто скачиваем
-        downloadFile(md, fileName);
+        }
+    } catch (e) {
+        console.error('Share error:', e);
+        alert('Ошибка при создании файла: ' + e.message);
+    } finally {
+        closeActionMenu();
     }
-    closeActionMenu();
 }
 
 export async function exportAllData() {
     if (typeof JSZip === 'undefined') {
-        window.alert('Ошибка: Библиотека JSZip не загружена. Проверьте интернет.');
+        alert('Ошибка: Библиотека JSZip не загружена. Проверьте интернет.');
         return;
     }
     
-    const zip = new JSZip();
-    
-    const settings = {
-        folders: state.folders,
-        filters: state.savedFilters
-    };
-    zip.file('mai_settings.json', JSON.stringify(settings, null, 2));
-    
-    state.notes.forEach(note => {
-        const folder = getFolderById(note.folderId);
-        const folderName = folder ? folder.name.replace(/[\/\\:*?"<>|]/g, '_') : 'Входящие';
-        const md = generateMarkdown(note, folderName);
-        const safeTitle = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').slice(0, 50); 
-        zip.file(`${folderName}/${safeTitle}_${note.id.slice(0,4)}.md`, md);
-    });
-    
     try {
+        const zip = new JSZip();
+        const settings = { folders: state.folders, filters: state.savedFilters };
+        zip.file('mai_settings.json', JSON.stringify(settings, null, 2));
+        
+        let packedCount = 0;
+        state.notes.forEach(note => {
+            try {
+                const folder = getFolderById(note.folderId);
+                const folderName = folder ? String(folder.name).replace(/[\/\\:*?"<>|]/g, '_') : 'Входящие';
+                const md = generateMarkdown(note, folderName);
+                
+                const safeTitle = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').trim().slice(0, 50) || 'Без_названия'; 
+                const safeId = String(note.id || '').slice(0, 4);
+                
+                zip.file(`${folderName}/${safeTitle}_${safeId}.md`, md);
+                packedCount++;
+            } catch (err) {
+                console.error('Ошибка упаковки заметки:', note, err);
+            }
+        });
+        
+        if (packedCount === 0 && state.notes.length > 0) {
+            alert('Не удалось упаковать заметки. Проверьте консоль (F12).');
+            return;
+        }
+
         const blob = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
-        // КРИТИЧЕСКИ ВАЖНО: добавляем в DOM
+        
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        
     } catch (e) {
-        console.error(e);
-        window.alert('Ошибка при создании архива: ' + e.message);
+        console.error('Export error:', e);
+        alert('Ошибка при создании архива: ' + e.message);
     }
 }
 
@@ -404,7 +426,7 @@ export async function handleImportFiles(files) {
 
     for (const file of files) {
         if (file.name.endsWith('.zip')) {
-            if (typeof JSZip === 'undefined') { window.alert('JSZip не загружен'); continue; }
+            if (typeof JSZip === 'undefined') { alert('JSZip не загружен'); continue; }
             try {
                 const zip = await JSZip.loadAsync(file);
                 
@@ -467,9 +489,9 @@ export async function handleImportFiles(files) {
     if (importedCount > 0) {
         persistNotes(); persistFolders();
         renderAll();
-        window.alert(`Успешно импортировано файлов: ${importedCount}`);
+        alert(`Успешно импортировано файлов: ${importedCount}`);
     } else {
-        window.alert('Не найдено подходящих файлов для импорта.');
+        alert('Не найдено подходящих файлов для импорта.');
     }
     els.importFileInput.value = ''; 
 }
