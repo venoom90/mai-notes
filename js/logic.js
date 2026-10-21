@@ -223,7 +223,8 @@ export function openFilterModal() {
     addFilterRule();
 }
 export function closeFilterModal() {
-    els.filterModal.classList.remove('open'); els.filterBackdrop.classList.add('hidden');
+    els.filterModal.classList.remove('open'); 
+    els.filterBackdrop.classList.add('hidden');
 }
 export function addFilterRule() {
     const index = state.draftFilter.length;
@@ -317,10 +318,12 @@ export function insertPickedItem(value) {
     closePicker();
 }
 
-// --- EXPORT / IMPORT (FIXED V1.8.2) ---
+// --- EXPORT / IMPORT (FIXED V1.8.4) ---
+
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8') {
-    const blob = new Blob([content], { type: mimeType });
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -331,7 +334,50 @@ function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8
     setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-export function shareNoteFile(noteId) {
+async function nativeShareOrDownload(blob, fileName, mimeType, title) {
+    let file;
+    try {
+        file = new File([blob], fileName, { type: mimeType });
+    } catch (e) {
+        file = new Blob([blob], { type: mimeType });
+        file.name = fileName;
+    }
+
+    // Если это мобильное устройство и браузер поддерживает Web Share API
+    if (isMobileDevice && navigator.share) {
+        try {
+            // Принудительно вызываем меню "Поделиться" (игнорируя нестабильный canShare)
+            await navigator.share({ 
+                files: [file], 
+                title: title,
+                text: 'Файл из MAi Notes'
+            });
+            return true; // Успешно отправлено в меню шаринга
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                return true; // Пользователь сам закрыл меню шаринга, это норма
+            }
+            console.warn('Нативный Share не сработал:', err);
+            
+            // Фоллбэк: если Android заблокировал передачу файла (NotAllowedError), пробуем поделиться хотя бы текстом
+            try {
+                await navigator.share({ 
+                    title: title, 
+                    text: 'Не удалось прикрепить файл, но вы можете сохранить эту заметку в MAi.' 
+                });
+                return true;
+            } catch (e2) {
+                // Игнорируем, падаем в скачивание
+            }
+        }
+    }
+    
+    // Десктоп или отказ системы -> скачиваем файл
+    downloadFile(blob, fileName, mimeType);
+    return false;
+}
+
+export async function shareNoteFile(noteId) {
     try {
         const note = getNoteById(noteId);
         if (!note) return;
@@ -343,30 +389,7 @@ export function shareNoteFile(noteId) {
         const safeName = sanitizeFileName(noteTitle(note)).slice(0, 50) || 'Заметка';
         const fileName = `${safeName}.md`;
         
-        let file;
-        try {
-            // text/plain лучше поддерживается системным Share Sheet на Android
-            file = new File([md], fileName, { type: 'text/plain' });
-        } catch (e) {
-            file = new Blob([md], { type: 'text/plain' });
-            file.name = fileName;
-        }
-        
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({
-                files: [file],
-                title: noteTitle(note),
-                text: 'Заметка из MAi'
-            }).catch(err => {
-                // Игнорируем отмену пользователем, чтобы не спамить в консоль
-                if (err.name === 'AbortError') return;
-                
-                console.warn('Share failed, falling back to download:', err);
-                downloadFile(md, fileName); 
-            });
-        } else {
-            downloadFile(md, fileName);
-        }
+        await nativeShareOrDownload(md, fileName, 'text/markdown', noteTitle(note));
     } catch (e) {
         console.error('Share error:', e);
         alert('Ошибка при создании файла: ' + e.message);
@@ -411,31 +434,7 @@ export async function exportAllData() {
         const blob = await zip.generateAsync({ type: 'blob' });
         const fileName = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
         
-        // Попытка использовать Share API для ZIP (решает проблему блокировки скачивания на Android)
-        try {
-            const file = new File([blob], fileName, { type: 'application/zip' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'Бэкап MAi',
-                    text: 'Архив с заметками MAi'
-                });
-                return; // Успешно поделились
-            }
-        } catch (e) {
-            if (e.name === 'AbortError') return; // Пользователь передумал
-            console.warn('ZIP Share failed, falling back to download:', e);
-        }
-
-        // Классическое скачивание (если шаринг недоступен)
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        await nativeShareOrDownload(blob, fileName, 'application/zip', 'Бэкап MAi');
         
     } catch (e) {
         console.error('Export error:', e);
