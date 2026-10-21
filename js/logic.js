@@ -3,8 +3,20 @@ import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderB
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
-export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.remove('hidden'); }
-export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.add('hidden'); }
+export function openLeftPanel() { 
+    if (state.leftPanelOpen || window.innerWidth >= 768) return; 
+    state.leftPanelOpen = true; 
+    els.leftPanel.classList.add('mobile-active'); 
+    els.leftPanelBackdrop.classList.add('mobile-active'); 
+}
+
+export function closeLeftPanel() { 
+    if (!state.leftPanelOpen) return; 
+    state.leftPanelOpen = false; 
+    els.leftPanel.classList.remove('mobile-active'); 
+    els.leftPanelBackdrop.classList.remove('mobile-active'); 
+}
+
 export function toggleLeftPanel() { state.leftPanelOpen ? closeLeftPanel() : openLeftPanel(); }
 
 export function scheduleSave() {
@@ -318,11 +330,11 @@ export function insertPickedItem(value) {
     closePicker();
 }
 
-// --- EXPORT / IMPORT (FIXED V1.8.4) ---
+// --- EXPORT / IMPORT ---
 
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8') {
+function downloadFile(content, fileName, mimeType = 'text/plain;charset=utf-8') {
     const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -343,36 +355,21 @@ async function nativeShareOrDownload(blob, fileName, mimeType, title) {
         file.name = fileName;
     }
 
-    // Если это мобильное устройство и браузер поддерживает Web Share API
     if (isMobileDevice && navigator.share) {
         try {
-            // Принудительно вызываем меню "Поделиться" (игнорируя нестабильный canShare)
             await navigator.share({ 
                 files: [file], 
-                title: title,
-                text: 'Файл из MAi Notes'
+                title: title
             });
-            return true; // Успешно отправлено в меню шаринга
+            return true; 
         } catch (err) {
             if (err.name === 'AbortError') {
-                return true; // Пользователь сам закрыл меню шаринга, это норма
+                return true; 
             }
             console.warn('Нативный Share не сработал:', err);
-            
-            // Фоллбэк: если Android заблокировал передачу файла (NotAllowedError), пробуем поделиться хотя бы текстом
-            try {
-                await navigator.share({ 
-                    title: title, 
-                    text: 'Не удалось прикрепить файл, но вы можете сохранить эту заметку в MAi.' 
-                });
-                return true;
-            } catch (e2) {
-                // Игнорируем, падаем в скачивание
-            }
         }
     }
     
-    // Десктоп или отказ системы -> скачиваем файл
     downloadFile(blob, fileName, mimeType);
     return false;
 }
@@ -389,7 +386,7 @@ export async function shareNoteFile(noteId) {
         const safeName = sanitizeFileName(noteTitle(note)).slice(0, 50) || 'Заметка';
         const fileName = `${safeName}.md`;
         
-        await nativeShareOrDownload(md, fileName, 'text/markdown', noteTitle(note));
+        await nativeShareOrDownload(md, fileName, 'text/plain', noteTitle(note));
     } catch (e) {
         console.error('Share error:', e);
         alert('Ошибка при создании файла: ' + e.message);
