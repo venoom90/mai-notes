@@ -1,8 +1,8 @@
 {
-  "name": "Zettel AI",
-  "short_name": "Zettel",
-  "description": "Второй мозг с искусственным интеллектом",
-  "start_url": "/zettel-ai/",
+  "name": "MAi — Второй Мозг",
+  "short_name": "MAi",
+  "description": "Личный ассистент и база знаний",
+  "start_url": "/mai-notes/",
   "display": "standalone",
   "background_color": "#FAFAFA",
   "theme_color": "#FAFAFA",

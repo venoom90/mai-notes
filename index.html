@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zettel AI</title>
+    <title>MAi</title>
     
+    <!-- Иконка сайта (эмодзи) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+
+    <!-- Material 3 (Tailwind CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Подключаем парсер Markdown -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Иконки -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
@@ -43,101 +45,52 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 10px; }
 
-        input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
+        input, textarea {
+            background: transparent; border: none; outline: none;
+            color: var(--md-on-surface); width: 100%; font-family: inherit;
+        }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         textarea { resize: none; height: calc(100vh - 200px); line-height: 1.6; }
-
-        .note-item.active { background-color: var(--md-primary); color: var(--md-on-primary); }
-        .note-item.active .note-date { color: rgba(255,255,255,0.7); }
-
-        #sidebar { transition: transform 0.3s ease-in-out; }
-        #sidebar-overlay { transition: opacity 0.3s ease-in-out; }
-
-        /* Стили для красивого отображения Markdown */
-        .markdown-body { line-height: 1.7; font-size: 1.1rem; }
-        .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-weight: bold; margin-top: 1.5em; margin-bottom: 0.5em; }
-        .markdown-body h1 { font-size: 1.8em; }
-        .markdown-body h2 { font-size: 1.5em; }
-        .markdown-body p { margin-bottom: 1em; }
-        .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-        .markdown-body ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
-        .markdown-body blockquote { border-left: 4px solid var(--md-primary); padding-left: 1em; color: var(--md-outline); font-style: italic; margin: 1em 0; }
-        
-        /* Стиль для чипа ИИ в режиме просмотра */
-        .ai-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background-color: rgba(103, 80, 164, 0.15);
-            color: var(--md-primary);
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 0.9em;
-            font-weight: 600;
-            cursor: pointer;
-            border: 1px solid rgba(103, 80, 164, 0.3);
-        }
-        .ai-chip:hover { background-color: rgba(103, 80, 164, 0.25); }
     </style>
+
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden opacity-0"></div>
-
-    <aside id="sidebar" class="fixed md:relative inset-y-0 left-0 z-50 w-64 border-r border-[var(--md-outline)] flex flex-col bg-[var(--md-surface-variant)] transform -translate-x-full md:translate-x-0" style="border-right-width: 1px;">
+    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]" style="opacity: 0.3; border-right-width: 1px;">
         <div class="p-4 flex justify-between items-center">
-            <span class="font-bold text-lg text-primary">Zettel AI</span>
-            <i data-lucide="x" id="btn-close-menu" class="w-5 h-5 cursor-pointer text-outline md:hidden"></i>
-            <i data-lucide="settings" class="w-5 h-5 cursor-pointer text-outline hidden md:block"></i>
+            <span class="font-bold text-lg text-primary">MAi</span>
+            <i data-lucide="settings" class="w-5 h-5 cursor-pointer text-outline"></i>
         </div>
-        <div class="p-4 flex-1 overflow-y-auto flex flex-col">
-            <button id="btn-new-note" class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
+        <div class="p-4 flex-1 overflow-y-auto">
+            <button class="w-full flex items-center justify-center gap-2 bg-primary p-2.5 rounded-xl mb-6 font-medium shadow-sm hover:opacity-90 transition-opacity">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
-            
-            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Все заметки</div>
-            <div id="notes-list" class="space-y-1 overflow-y-auto flex-1"></div>
+            <div class="text-xs font-bold text-outline uppercase tracking-wider mb-2">Папки</div>
+            <div class="flex items-center gap-3 p-2 text-sm bg-black/5 rounded-lg cursor-pointer font-medium text-primary">
+                <i data-lucide="file-text" class="w-4 h-4"></i> Входящие
+            </div>
+            <div class="flex items-center gap-3 p-2 text-sm hover:bg-black/5 rounded-lg cursor-pointer text-outline">
+                <i data-lucide="hash" class="w-4 h-4"></i> #проект_Х
+            </div>
         </div>
     </aside>
 
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
-        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between" style="border-bottom-width: 1px;">
-            <button id="btn-menu-toggle" class="md:hidden p-2 -ml-2 rounded-full hover:bg-black/5">
-                <i data-lucide="menu" class="w-6 h-6 cursor-pointer"></i>
-            </button>
-            
-            <div class="flex items-center gap-3 ml-auto">
-                <span id="save-status" class="text-xs text-outline italic mr-2">Готово</span>
-                
-                <!-- Кнопка вставки чипа ИИ -->
-                <button id="btn-insert-ai" class="p-2 rounded-full hover:bg-black/5" title="Вставить промпт ИИ">
-                    <i data-lucide="sparkles" class="w-5 h-5 text-primary"></i>
-                </button>
-                
-                <!-- Кнопка переключения режима (Редактор/Просмотр) -->
-                <button id="btn-toggle-preview" class="p-2 rounded-full hover:bg-black/5" title="Режим просмотра">
-                    <i data-lucide="eye" id="icon-preview" class="w-5 h-5 text-outline"></i>
-                </button>
-                
-                <button id="btn-delete" class="p-2 rounded-full hover:bg-black/5" title="Удалить заметку">
-                    <i data-lucide="trash-2" class="w-5 h-5 text-outline hover:text-red-500 transition-colors"></i>
-                </button>
+        <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-4 justify-between md:justify-end" style="border-bottom-width: 1px; opacity: 0.5;">
+            <i data-lucide="menu" class="w-6 h-6 md:hidden cursor-pointer"></i>
+            <div class="flex items-center gap-3">
+                <span id="save-status" class="text-xs text-outline italic">Готово</span>
+                <i data-lucide="search" class="w-5 h-5 cursor-pointer text-outline"></i>
             </div>
         </header>
-
-        <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full flex flex-col">
+        <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
             <input id="note-title" type="text" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6">
-            
-            <!-- Режим редактирования (Textarea) -->
-            <textarea id="note-content" placeholder="Начните печатать свою мысль здесь... (поддерживается Markdown)"></textarea>
-            
-            <!-- Режим просмотра (Рендер Markdown) -->
-            <div id="note-preview" class="hidden markdown-body"></div>
+            <textarea id="note-content" placeholder="Начните печатать свою мысль здесь..."></textarea>
         </div>
     </main>
 
-    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="border-left-width: 1px; opacity: 0.8;">
+    <aside class="w-80 border-l border-[var(--md-outline)] hidden lg:flex flex-col bg-[var(--md-surface-variant)]" style="opacity: 0.2; border-left-width: 1px;">
         <div class="p-4 border-b border-[var(--md-outline)] font-bold text-sm text-outline uppercase flex items-center gap-2" style="border-bottom-width: 1px;">
             <i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini
         </div>
@@ -148,229 +101,44 @@
 
     <script>
         lucide.createIcons();
+        
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => console.log('✅ SW MAi зарегистрирован!', registration.scope))
+                    .catch(error => console.error('❌ Ошибка SW:', error));
+            });
         }
 
-        // --- МОБИЛЬНОЕ МЕНЮ ---
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-        const btnMenuToggle = document.getElementById('btn-menu-toggle');
-        const btnCloseMenu = document.getElementById('btn-close-menu');
-
-        function openMobileMenu() {
-            sidebar.classList.remove('-translate-x-full');
-            sidebar.classList.add('translate-x-0');
-            overlay.classList.remove('hidden');
-            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
-        }
-        function closeMobileMenu() {
-            sidebar.classList.add('-translate-x-full');
-            sidebar.classList.remove('translate-x-0');
-            overlay.classList.add('opacity-0');
-            setTimeout(() => overlay.classList.add('hidden'), 300);
-        }
-        btnMenuToggle.addEventListener('click', openMobileMenu);
-        btnCloseMenu.addEventListener('click', closeMobileMenu);
-        overlay.addEventListener('click', closeMobileMenu);
-
-        // --- ЛОГИКА ЗАМЕТОК ---
-        const btnNew = document.getElementById('btn-new-note');
-        const btnDelete = document.getElementById('btn-delete');
-        const notesListEl = document.getElementById('notes-list');
         const titleInput = document.getElementById('note-title');
         const contentInput = document.getElementById('note-content');
         const statusText = document.getElementById('save-status');
 
-        let notes = JSON.parse(localStorage.getItem('zettel_notes')) || [];
-        let currentNoteId = localStorage.getItem('zettel_current_id') || null;
-
-        if (notes.length === 0) {
-            const defaultNote = {
-                id: Date.now().toString(),
-                title: 'Добро пожаловать в Zettel AI',
-                content: 'Это **Markdown** редактор.\n\nПопробуйте нажать на иконку ✨ (спаркл) вверху, чтобы вставить промпт.\n\n[!ai:Идея] Развей эту мысль!',
-                date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-            };
-            notes.push(defaultNote);
-            currentNoteId = defaultNote.id;
-            saveToStorage();
-        }
-
-        function saveToStorage() {
-            localStorage.setItem('zettel_notes', JSON.stringify(notes));
-            localStorage.setItem('zettel_current_id', currentNoteId);
-        }
-
-        function renderList() {
-            notesListEl.innerHTML = '';
-            const sortedNotes = [...notes].sort((a, b) => b.id - a.id);
-
-            sortedNotes.forEach(note => {
-                const isActive = note.id === currentNoteId ? 'active' : '';
-                const noteTitle = note.title || 'Без названия';
-                const dateStr = note.date || '';
-
-                const div = document.createElement('div');
-                div.className = `note-item p-3 rounded-lg cursor-pointer transition-colors ${isActive ? 'active' : 'hover:bg-black/5'}`;
-                div.innerHTML = `
-                    <div class="font-medium text-sm truncate">${noteTitle}</div>
-                    <div class="note-date text-xs text-outline mt-1">${dateStr}</div>
-                `;
-                div.onclick = () => {
-                    currentNoteId = note.id;
-                    saveToStorage();
-                    loadCurrentNote();
-                    renderList(); 
-                    closeMobileMenu(); 
-                };
-                notesListEl.appendChild(div);
-            });
-        }
-
-        function loadCurrentNote() {
-            const note = notes.find(n => n.id === currentNoteId);
-            if (note) {
-                titleInput.value = note.title || '';
-                contentInput.value = note.content || '';
-                // Если открыт режим просмотра, обновляем и его
-                if (!document.getElementById('note-preview').classList.contains('hidden')) {
-                    updatePreview();
-                }
-            } else if (notes.length > 0) {
-                currentNoteId = notes[0].id;
-                loadCurrentNote();
-            }
-        }
+        titleInput.value = localStorage.getItem('mai_title') || '';
+        contentInput.value = localStorage.getItem('mai_content') || '';
 
         let saveTimeout;
-        function handleInput() {
+        function autoSave() {
             statusText.innerText = 'Сохранение...';
             statusText.style.color = 'var(--md-primary)';
             
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
-                const note = notes.find(n => n.id === currentNoteId);
-                if (note) {
-                    note.title = titleInput.value;
-                    note.content = contentInput.value;
-                    saveToStorage();
-                    renderList(); 
-                }
-                statusText.innerText = 'Сохранено';
+                localStorage.setItem('mai_title', titleInput.value);
+                localStorage.setItem('mai_content', contentInput.value);
+                
+                statusText.innerText = 'Сохранено в память';
                 statusText.style.color = 'var(--md-outline)';
-            }, 500);
+            }, 500); 
         }
 
-        titleInput.addEventListener('input', handleInput);
-        contentInput.addEventListener('input', handleInput);
+        titleInput.addEventListener('input', autoSave);
+        contentInput.addEventListener('input', autoSave);
 
-        btnNew.onclick = () => {
-            const newNote = {
-                id: Date.now().toString(),
-                title: '',
-                content: '',
-                date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-            };
-            notes.push(newNote);
-            currentNoteId = newNote.id;
-            saveToStorage();
-            loadCurrentNote();
-            renderList();
-            closeMobileMenu(); 
-            titleInput.focus();
-        };
-
-        btnDelete.onclick = () => {
-            if (confirm('Вы уверены, что хотите удалить эту заметку?')) {
-                notes = notes.filter(n => n.id !== currentNoteId);
-                currentNoteId = notes.length > 0 ? notes[0].id : null;
-                saveToStorage();
-                
-                if (notes.length === 0) {
-                    btnNew.click(); 
-                } else {
-                    loadCurrentNote();
-                    renderList();
-                }
-            }
-        };
-
-        // --- ЛОГИКА MARKDOWN И ЧИПОВ ---
-        const btnTogglePreview = document.getElementById('btn-toggle-preview');
-        const iconPreview = document.getElementById('icon-preview');
-        const previewDiv = document.getElementById('note-preview');
-        const btnInsertAi = document.getElementById('btn-insert-ai');
-        let isPreviewMode = false;
-
-        // Переключение режимов
-        btnTogglePreview.onclick = () => {
-            isPreviewMode = !isPreviewMode;
-            if (isPreviewMode) {
-                // Включаем просмотр
-                contentInput.classList.add('hidden');
-                titleInput.readOnly = true;
-                previewDiv.classList.remove('hidden');
-                iconPreview.setAttribute('data-lucide', 'edit-3'); // Меняем иконку на карандаш
-                updatePreview();
-            } else {
-                // Включаем редактирование
-                contentInput.classList.remove('hidden');
-                titleInput.readOnly = false;
-                previewDiv.classList.add('hidden');
-                iconPreview.setAttribute('data-lucide', 'eye'); // Меняем иконку на глаз
-            }
-            lucide.createIcons(); // Обновляем иконки
-        };
-
-        // Функция обновления HTML в режиме просмотра
-        function updatePreview() {
-            // 1. Парсим Markdown в HTML
-            let html = marked.parse(contentInput.value);
-            
-            // 2. Ищем наши чипы [!ai:Текст] и заменяем их на красивые HTML-кнопки
-            // Регулярное выражение ищет текст в квадратных скобках, начинающийся с !ai:
-            const chipRegex = /\[!ai:(.*?)\]/g;
-            html = html.replace(chipRegex, (match, promptName) => {
-                return `<span class="ai-chip" onclick="alert('Тут будет запуск Gemini с промптом: ${promptName}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                            ${promptName}
-                        </span>`;
-            });
-
-            previewDiv.innerHTML = html;
-        }
-
-        // Кнопка вставки промпта в текст
-        btnInsertAi.onclick = () => {
-            const prompts = ['Идея', 'Критика', 'Мозговой штурм'];
-            // Простое меню выбора (можно будет заменить на красивое M3 меню позже)
-            const choice = prompt(`Выберите промпт для вставки (${prompts.join(', ')}):`, prompts[0]);
-            
-            if (choice) {
-                const textToInsert = `\n[!ai:${choice}]\n`;
-                // Вставляем текст туда, где стоит курсор
-                const startPos = contentInput.selectionStart;
-                const endPos = contentInput.selectionEnd;
-                contentInput.value = contentInput.value.substring(0, startPos) 
-                                   + textToInsert 
-                                   + contentInput.value.substring(endPos, contentInput.value.length);
-                
-                // Триггерим сохранение
-                handleInput();
-                
-                // Если мы были в режиме просмотра, возвращаем в режим редактирования
-                if (isPreviewMode) btnTogglePreview.click();
-                
-                contentInput.focus();
-                contentInput.selectionStart = contentInput.selectionEnd = startPos + textToInsert.length;
-            }
-        };
-
-        // Инициализация
-        renderList();
-        loadCurrentNote();
-
+        contentInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
     </script>
 </body>
 </html>
