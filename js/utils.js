@@ -11,6 +11,10 @@ export function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+export function sanitizeFileName(name) {
+    return String(name || '').replace(/[\/\\:*?"<>|\r\n]/g, '_').trim();
+}
+
 export function relativeTime(ts) {
     const diff = Date.now() - ts;
     if (diff < 60000) return 'только что';
@@ -62,7 +66,6 @@ export function notePreview(note) {
     return firstLine ? firstLine.slice(0, 60) : 'Пустая заметка';
 }
 
-// БЕЗОПАСНАЯ ФУНКЦИЯ: никогда не крашит приложение при null/undefined
 export function noteTitle(note) { 
     if (!note || !note.title) return 'Без названия';
     const title = String(note.title).trim();
@@ -133,8 +136,6 @@ export function updateIcons() {
         window.lucide.createIcons();
     }
 }
-
-// --- Markdown Export/Import Utils ---
 
 export function generateMarkdown(note, folderName) {
     const safeTitle = String(note.title || 'Без названия').replace(/"/g, '\\"');

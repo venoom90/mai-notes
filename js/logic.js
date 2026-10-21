@@ -1,5 +1,5 @@
 import { state, els, FILTERS_KEY } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
@@ -317,7 +317,7 @@ export function insertPickedItem(value) {
     closePicker();
 }
 
-// --- EXPORT / IMPORT (FIXED V1.8.1) ---
+// --- EXPORT / IMPORT (FIXED V1.8.2) ---
 
 function downloadFile(content, fileName, mimeType = 'text/markdown;charset=utf-8') {
     const blob = new Blob([content], { type: mimeType });
@@ -335,18 +335,20 @@ export function shareNoteFile(noteId) {
     try {
         const note = getNoteById(noteId);
         if (!note) return;
+        
         const folder = getFolderById(note.folderId);
-        const folderName = folder ? String(folder.name) : 'Входящие';
+        const folderName = sanitizeFileName(folder ? folder.name : 'Входящие') || 'Входящие';
         const md = generateMarkdown(note, folderName);
         
-        const safeName = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').trim() || 'Заметка';
+        const safeName = sanitizeFileName(noteTitle(note)).slice(0, 50) || 'Заметка';
         const fileName = `${safeName}.md`;
         
         let file;
         try {
-            file = new File([md], fileName, { type: 'text/markdown' });
+            // text/plain лучше поддерживается системным Share Sheet на Android
+            file = new File([md], fileName, { type: 'text/plain' });
         } catch (e) {
-            file = new Blob([md], { type: 'text/markdown' });
+            file = new Blob([md], { type: 'text/plain' });
             file.name = fileName;
         }
         
@@ -356,7 +358,10 @@ export function shareNoteFile(noteId) {
                 title: noteTitle(note),
                 text: 'Заметка из MAi'
             }).catch(err => {
-                console.warn('Share failed/cancelled:', err);
+                // Игнорируем отмену пользователем, чтобы не спамить в консоль
+                if (err.name === 'AbortError') return;
+                
+                console.warn('Share failed, falling back to download:', err);
                 downloadFile(md, fileName); 
             });
         } else {
@@ -385,11 +390,11 @@ export async function exportAllData() {
         state.notes.forEach(note => {
             try {
                 const folder = getFolderById(note.folderId);
-                const folderName = folder ? String(folder.name).replace(/[\/\\:*?"<>|]/g, '_') : 'Входящие';
+                const folderName = sanitizeFileName(folder ? folder.name : 'Входящие') || 'Входящие';
                 const md = generateMarkdown(note, folderName);
                 
-                const safeTitle = noteTitle(note).replace(/[\/\\:*?"<>|]/g, '_').trim().slice(0, 50) || 'Без_названия'; 
-                const safeId = String(note.id || '').slice(0, 4);
+                const safeTitle = sanitizeFileName(noteTitle(note)).slice(0, 50) || 'Без_названия'; 
+                const safeId = String(note.id || '').slice(0, 4) || 'id';
                 
                 zip.file(`${folderName}/${safeTitle}_${safeId}.md`, md);
                 packedCount++;
@@ -404,11 +409,29 @@ export async function exportAllData() {
         }
 
         const blob = await zip.generateAsync({ type: 'blob' });
+        const fileName = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
+        
+        // Попытка использовать Share API для ZIP (решает проблему блокировки скачивания на Android)
+        try {
+            const file = new File([blob], fileName, { type: 'application/zip' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Бэкап MAi',
+                    text: 'Архив с заметками MAi'
+                });
+                return; // Успешно поделились
+            }
+        } catch (e) {
+            if (e.name === 'AbortError') return; // Пользователь передумал
+            console.warn('ZIP Share failed, falling back to download:', e);
+        }
+
+        // Классическое скачивание (если шаринг недоступен)
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `mai-backup-${new Date().toISOString().slice(0,10)}.zip`;
-        
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

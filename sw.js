@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mai-cache-v25';
+const CACHE_NAME = 'mai-cache-v26';
 const ASSETS = [
   './', './index.html', './manifest.json',
   './js/state.js', './js/utils.js', './js/storage.js',
