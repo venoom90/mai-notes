@@ -140,6 +140,7 @@ export const els = {
 
     // Calendar
     btnOpenCalendar: document.getElementById('btn-open-calendar'),
+    btnCalendarToday: document.getElementById('btn-calendar-today'),
     calendarGrid: document.getElementById('calendar-grid'),
     calendarMonthTitle: document.getElementById('calendar-month-title'),
     btnPrevMonth: document.getElementById('btn-prev-month'),

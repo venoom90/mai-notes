@@ -65,21 +65,31 @@ export function toggleFocusMode() {
 // --- CALENDAR LOGIC ---
 
 export function openCalendar() {
+    const today = new Date();
     state.viewMode = 'calendar';
     state.activeId = null;
-    state.calendarDate = new Date();
-    state.selectedDate = null;
+    state.calendarDate = today;
+    state.selectedDate = formatDateYYYYMMDD(today);
     renderAll();
     closeLeftPanel();
 }
 
 export function prevMonth() {
     state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1);
+    state.selectedDate = null; // Сбрасываем выбранный день при смене месяца, чтобы избежать путаницы
     renderAll();
 }
 
 export function nextMonth() {
     state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() + 1, 1);
+    state.selectedDate = null;
+    renderAll();
+}
+
+export function goToToday() {
+    const today = new Date();
+    state.calendarDate = today;
+    state.selectedDate = formatDateYYYYMMDD(today);
     renderAll();
 }
 

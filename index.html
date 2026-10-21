@@ -119,8 +119,8 @@
         .outline-h3 { padding-left: 12px; font-size: 0.8rem; }
 
         /* Calendar */
-        .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 0.9rem; transition: background 0.15s; position: relative; }
-        .calendar-day:hover { background: var(--md-surface-variant); }
+        .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 0.95rem; transition: background 0.15s; position: relative; margin: 0 auto; width: 100%; max-width: 44px; }
+        .calendar-day:hover { background: rgba(0,0,0,0.05); }
         .calendar-day.empty { cursor: default; opacity: 0; pointer-events: none; }
         .calendar-day.today { border: 1px solid var(--md-primary); color: var(--md-primary); font-weight: bold; }
         .calendar-day.selected { background: var(--md-primary); color: var(--md-on-primary); font-weight: bold; }
@@ -249,19 +249,22 @@
 
             <!-- КАЛЕНДАРЬ -->
             <div id="view-calendar" class="hidden pb-32 flex flex-col items-center">
-                <div class="w-full max-w-sm bg-[var(--md-surface-variant)] rounded-2xl p-4 shadow-sm mb-6">
+                <div class="w-full max-w-md md:max-w-2xl bg-[var(--md-surface-variant)] rounded-2xl p-4 md:p-6 shadow-sm mb-6">
                     <div class="flex items-center justify-between mb-4">
                         <button id="btn-prev-month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                        <div id="calendar-month-title" class="font-bold text-lg capitalize">Октябрь 2026</div>
+                        <div class="flex flex-col items-center">
+                            <div id="calendar-month-title" class="font-bold text-lg capitalize">Октябрь 2026</div>
+                            <button id="btn-calendar-today" class="text-xs text-primary font-medium hover:underline mt-1">Сегодня</button>
+                        </div>
                         <button id="btn-next-month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
                     </div>
                     <div class="grid grid-cols-7 gap-1 mb-2 text-center text-xs font-bold text-outline">
                         <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
                     </div>
-                    <div id="calendar-grid" class="grid grid-cols-7 gap-1"></div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2"></div>
                 </div>
                 
-                <div id="calendar-notes-container" class="w-full hidden">
+                <div id="calendar-notes-container" class="w-full max-w-md md:max-w-2xl hidden">
                     <div id="calendar-selected-title" class="text-lg font-bold mb-4 px-1"></div>
                     <div id="calendar-notes-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>

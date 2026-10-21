@@ -210,7 +210,7 @@ export function renderCalendarView() {
         const dayNotes = state.notes.filter(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
         
         if (dayNotes.length === 0) {
-            els.calendarNotesList.innerHTML = `<div class="col-span-full text-center text-outline italic py-4">В этот день заметок нет.</div>`;
+            els.calendarNotesList.innerHTML = `<div class="col-span-full text-center text-outline italic py-6 bg-[var(--md-surface-variant)]/50 rounded-xl">В этот день заметок нет.</div>`;
         } else {
             els.calendarNotesList.innerHTML = dayNotes.map(note => `
                 <div class="note-card" data-note-id="${escapeHtml(note.id)}">

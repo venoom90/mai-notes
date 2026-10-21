@@ -12,7 +12,7 @@ import {
     openPicker, closePicker, handlePickerSearch, insertPickedItem,
     shareNoteFile, exportAllData, handleImportFiles,
     goBack, goForward, toggleFocusMode, goToFolderView,
-    openCalendar, prevMonth, nextMonth, selectCalendarDay
+    openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday
 } from './logic.js';
 
 function attachListeners() {
@@ -58,12 +58,15 @@ function attachListeners() {
     if (els.btnOpenCalendar) els.btnOpenCalendar.addEventListener('click', openCalendar);
     if (els.btnPrevMonth) els.btnPrevMonth.addEventListener('click', prevMonth);
     if (els.btnNextMonth) els.btnNextMonth.addEventListener('click', nextMonth);
+    if (els.btnCalendarToday) els.btnCalendarToday.addEventListener('click', goToToday);
+    
     if (els.calendarGrid) {
         els.calendarGrid.addEventListener('click', (e) => {
             const dayDiv = e.target.closest('[data-date]');
             if (dayDiv) selectCalendarDay(dayDiv.getAttribute('data-date'));
         });
     }
+    
     if (els.calendarNotesList) {
         els.calendarNotesList.addEventListener('click', (e) => {
             const card = e.target.closest('.note-card');
