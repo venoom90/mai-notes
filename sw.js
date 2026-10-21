@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mai-cache-v7';
+const CACHE_NAME = 'mai-cache-v8';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {

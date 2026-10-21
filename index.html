@@ -173,6 +173,21 @@
             }
         }
 
+        /* === Left panel (drawer на мобиле) === */
+        @media (max-width: 767px) {
+            #left-panel.mobile-active {
+                display: flex;
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 50;
+                width: 280px;
+                max-width: 85vw;
+                box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+            }
+        }
+
         /* === Folders === */
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
         .folder-item:hover { background: rgba(0,0,0,0.03); }
@@ -215,7 +230,9 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <aside class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]">
+    <div id="left-panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+    <aside id="left-panel" class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]">
         <div class="p-4 flex justify-between items-center">
             <span class="font-bold text-lg text-primary">MAi</span>
             <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Настройки">
@@ -254,7 +271,7 @@
 
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
         <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-2 justify-between">
-            <button type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Меню">
+            <button id="btn-menu" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Открыть меню">
                 <i data-lucide="menu" class="w-6 h-6"></i>
             </button>
             <div class="flex items-center gap-1">
@@ -316,7 +333,8 @@
             editorMode: 'edit',
             activePrompt: null,
             activePromptRawName: null,
-            aiPanelOpen: false
+            aiPanelOpen: false,
+            leftPanelOpen: false
         };
 
         const PROMPTS = [
@@ -332,6 +350,9 @@
 
         // === DOM ELEMENTS ===
         const els = {
+            leftPanel: document.getElementById('left-panel'),
+            leftPanelBackdrop: document.getElementById('left-panel-backdrop'),
+            btnMenu: document.getElementById('btn-menu'),
             notesList: document.getElementById('notes-list'),
             notesEmpty: document.getElementById('notes-empty'),
             notesSectionLabel: document.getElementById('notes-section-label'),
@@ -429,6 +450,27 @@
             return { id: 'inbox', name: 'Входящие', updatedAt: Date.now() };
         }
 
+        // === LEFT PANEL (DRAWER) ===
+        function openLeftPanel() {
+            if (state.leftPanelOpen) return;
+            if (window.innerWidth >= 768) return;
+            state.leftPanelOpen = true;
+            if (els.leftPanel) els.leftPanel.classList.add('mobile-active');
+            if (els.leftPanelBackdrop) els.leftPanelBackdrop.classList.remove('hidden');
+        }
+
+        function closeLeftPanel() {
+            if (!state.leftPanelOpen) return;
+            state.leftPanelOpen = false;
+            if (els.leftPanel) els.leftPanel.classList.remove('mobile-active');
+            if (els.leftPanelBackdrop) els.leftPanelBackdrop.classList.add('hidden');
+        }
+
+        function toggleLeftPanel() {
+            if (state.leftPanelOpen) closeLeftPanel();
+            else openLeftPanel();
+        }
+
         // === TAGS ===
         function parseTagsFromContent(content) {
             if (!content || typeof content !== 'string') return [];
@@ -511,6 +553,7 @@
             state.activeId = candidates.length > 0 ? candidates[0].id : null;
 
             renderAll();
+            closeLeftPanel();
         }
 
         function clearTagFilter() {
@@ -523,6 +566,7 @@
             state.activeId = candidates.length > 0 ? candidates[0].id : null;
 
             renderAll();
+            closeLeftPanel();
         }
 
         function getFilteredNotes() {
@@ -753,7 +797,10 @@
 
         function selectFolder(id) {
             if (!getFolderById(id)) return;
-            if (id === state.activeFolderId && state.activeTag === null) return;
+            if (id === state.activeFolderId && state.activeTag === null) {
+                closeLeftPanel();
+                return;
+            }
 
             state.activeFolderId = id;
             state.activeTag = null;
@@ -764,6 +811,7 @@
             state.activeId = candidates.length > 0 ? candidates[0].id : null;
 
             renderAll();
+            closeLeftPanel();
         }
 
         // === PROMPTS ===
@@ -1018,6 +1066,7 @@
                     current.updatedAt = Date.now();
                     syncNoteTags(current);
                     renderTags();
+                    updateActiveNoteInList();
 
                     state.saveStatus = 'saving';
                     renderSaveStatus();
@@ -1027,10 +1076,16 @@
         }
 
         // === PREVIEW / EDIT MODE ===
-        function enterPreviewMode() {
+        function enterPreviewMode(showMessage) {
             const note = getNoteById(state.activeId);
-            if (!note) return;
-            if (!note.content.trim()) return;
+            if (!note) {
+                if (showMessage) window.alert('Сначала создайте или выберите заметку.');
+                return;
+            }
+            if (!note.content.trim()) {
+                if (showMessage) window.alert('Заметка пуста — нечего показывать в превью.');
+                return;
+            }
             if (state.editorMode === 'preview') return;
             state.editorMode = 'preview';
             renderEditor();
@@ -1051,7 +1106,7 @@
             if (state.editorMode === 'preview') {
                 exitPreviewMode();
             } else {
-                enterPreviewMode();
+                enterPreviewMode(true);
             }
         }
 
@@ -1063,7 +1118,7 @@
                 if (active === els.contentInput) return;
                 if (active === els.btnPreview) return;
                 if (active && els.preview.contains(active)) return;
-                enterPreviewMode();
+                enterPreviewMode(false);
             }, 50);
         }
 
@@ -1167,6 +1222,10 @@
 
         function updatePreviewButton() {
             if (!els.btnPreview) return;
+            const note = getNoteById(state.activeId);
+            const hasNote = !!note;
+            els.btnPreview.disabled = !hasNote;
+            els.btnPreview.style.opacity = hasNote ? '1' : '0.4';
             const isPreview = state.editorMode === 'preview';
             els.btnPreview.innerHTML = isPreview
                 ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>'
@@ -1285,12 +1344,14 @@
             if (ok) state.saveStatus = 'idle';
 
             renderAll();
+            closeLeftPanel();
             try { els.titleInput.focus(); } catch (_) { /* noop */ }
         }
 
         function selectNote(id) {
             if (id === state.activeId) {
                 if (state.editorMode === 'preview') exitPreviewMode();
+                closeLeftPanel();
                 return;
             }
             const note = getNoteById(id);
@@ -1302,6 +1363,7 @@
             state.saveStatus = 'idle';
             resetAIPanel();
             renderAll();
+            closeLeftPanel();
         }
 
         function deleteNote(id) {
@@ -1333,6 +1395,9 @@
 
         // === BOOTSTRAP ===
         function attachListeners() {
+            if (els.btnMenu) els.btnMenu.addEventListener('click', toggleLeftPanel);
+            if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);
+
             els.btnNewNote.addEventListener('click', createNote);
             els.btnNewFolder.addEventListener('click', createFolder);
             els.btnPreview.addEventListener('click', togglePreviewMode);
@@ -1426,6 +1491,11 @@
                         closePromptPanel();
                         return;
                     }
+                    if (state.leftPanelOpen) {
+                        e.preventDefault();
+                        closeLeftPanel();
+                        return;
+                    }
                     if (state.editorMode === 'preview') {
                         e.preventDefault();
                         exitPreviewMode();
@@ -1441,6 +1511,9 @@
             window.addEventListener('resize', function () {
                 autoResizeTextarea();
                 updateAIPanel();
+                if (window.innerWidth >= 768 && state.leftPanelOpen) {
+                    closeLeftPanel();
+                }
             });
 
             if ('serviceWorker' in navigator) {
@@ -1458,7 +1531,6 @@
 
             state.notes = loadNotes();
             validateFolderRefs();
-            // V1.4.1 → V1.4.2: пересчитанные tags[] фиксируем в хранилище
             try { persistNotes(); } catch (_) { /* noop */ }
 
             state.activeFolderId = 'inbox';
@@ -1470,6 +1542,7 @@
             state.activePrompt = null;
             state.activePromptRawName = null;
             state.aiPanelOpen = false;
+            state.leftPanelOpen = false;
 
             renderAll();
             attachListeners();
