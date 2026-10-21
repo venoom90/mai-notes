@@ -15,6 +15,8 @@ import {
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
+    
+    // Свайп для открытия левой панели с края экрана
     els.mainContent.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
@@ -27,6 +29,21 @@ function attachListeners() {
             toggleLeftPanel();
         }
     }, { passive: true });
+
+    // Свайп влево для закрытия левой панели
+    if (els.leftPanel) {
+        let panelTouchStartX = 0;
+        els.leftPanel.addEventListener('touchstart', (e) => {
+            panelTouchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+        
+        els.leftPanel.addEventListener('touchend', (e) => {
+            const deltaX = panelTouchStartX - e.changedTouches[0].screenX;
+            if (deltaX > 80) {
+                closeLeftPanel();
+            }
+        }, { passive: true });
+    }
 
     if (els.btnMenu) els.btnMenu.addEventListener('click', toggleLeftPanel);
     if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);

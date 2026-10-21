@@ -75,7 +75,6 @@
                 top: 0; left: 0; bottom: 0; 
                 z-index: 50; 
                 width: 300px; max-width: 85vw; 
-                box-shadow: 4px 0 24px rgba(0,0,0,0.2); 
                 transform: translateX(-100%); 
             } 
             #left-panel.mobile-active { 
@@ -102,13 +101,29 @@
         .folder-item-active { background: rgba(0,0,0,0.05); }
         .folder-item-active .folder-name { font-weight: 600; color: var(--md-primary); }
         
-        .nav-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface); color: var(--md-outline); border-radius: 999px; padding: 0.35em 0.7em; font-size: 0.8em; min-height: 32px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
+        .nav-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface); color: var(--md-outline); border-radius: 999px; padding: 0.35em 0.7em; font-size: 0.8em; min-height: 32px; cursor: pointer; border: 1px solid var(--md-outline)/30; transition: all 0.15s; white-space: nowrap; }
         .nav-chip:hover { border-color: var(--md-outline); }
         .nav-chip.nav-chip-active { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
 
-        /* Карточки заметок */
-        .note-card { background: var(--md-surface-variant); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 1px solid transparent; display: flex; flex-direction: column; gap: 8px; position: relative; }
-        .note-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: var(--md-outline); }
+        /* Парящие карточки заметок */
+        .note-card { 
+            background: var(--md-surface); 
+            border-radius: 16px; 
+            padding: 16px; 
+            cursor: pointer; 
+            transition: transform 0.15s, box-shadow 0.15s; 
+            border: 1px solid rgba(121, 116, 126, 0.15); 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            position: relative; 
+        }
+        .note-card:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08); 
+            border-color: rgba(121, 116, 126, 0.3); 
+        }
         .note-card-title { font-weight: 700; font-size: 1.1rem; padding-right: 32px; }
         .note-card-preview { font-size: 0.9rem; color: var(--md-outline); opacity: 0.8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .note-card-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: auto; padding-top: 8px; }
@@ -145,14 +160,16 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <div id="left-panel-backdrop" class="fixed inset-0 bg-black/50 z-40"></div>
+    <!-- Backdrop для левой панели (увеличен z-index) -->
+    <div id="left-panel-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
+    
     <div id="action-sheet-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="search-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="picker-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
 
-    <!-- ЛЕВАЯ ПАНЕЛЬ -->
-    <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)]">
+    <!-- ЛЕВАЯ ПАНЕЛЬ (Добавлена тень shadow-2xl) -->
+    <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)] shadow-2xl">
         <div class="p-4 flex justify-between items-center shrink-0">
             <span class="font-bold text-lg text-primary">MAi</span>
             <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
@@ -238,11 +255,12 @@
             <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32"></div>
         </div>
 
-        <button id="fab-new-note" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center z-40 active:scale-95 transition-transform">
+        <!-- Кнопка FAB (уменьшен z-index, чтобы уходила под панель) -->
+        <button id="fab-new-note" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center z-30 active:scale-95 transition-transform">
             <i data-lucide="plus" class="w-6 h-6"></i>
         </button>
 
-        <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-40 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
+        <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-30 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold" data-format="bold">B</button>
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif" data-format="italic">I</button>
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="h2"><i data-lucide="heading-2" class="w-5 h-5"></i></button>

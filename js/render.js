@@ -132,8 +132,8 @@ export function renderFolderView() {
     els.viewFolder.innerHTML = notes.map(note => {
         const tags = (note.tags || []).slice(0, 3);
         const contexts = (note.content.match(/\[\[([^\]\n]+)\]\]/g) || []).slice(0, 2);
-        const tagsHtml = tags.map(t => `<span class="text-[10px] bg-black/5 text-primary px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('');
-        const contextHtml = contexts.map(c => `<span class="text-[10px] bg-black/5 text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
+        const tagsHtml = tags.map(t => `<span class="text-[10px] bg-[var(--md-surface-variant)] text-primary px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('');
+        const contextHtml = contexts.map(c => `<span class="text-[10px] bg-[var(--md-surface-variant)] text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
         const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3.5 h-3.5 text-primary fill-primary absolute top-4 right-12"></i>` : '';
 
         return `
