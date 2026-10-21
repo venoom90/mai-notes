@@ -77,7 +77,7 @@
         }
         @media (min-width: 768px) { #left-panel-backdrop { display: none !important; } }
 
-        /* FOCUS MODE (Zen Mode) */
+        /* FOCUS MODE */
         body.focus-mode #left-panel, body.focus-mode header, body.focus-mode #format-toolbar, body.focus-mode #ai-panel, body.focus-mode #breadcrumbs { display: none !important; }
         body.focus-mode main { padding-top: 1rem !important; }
         body.focus-mode #btn-close-focus { display: flex !important; }
@@ -117,12 +117,20 @@
         .outline-link:hover { color: var(--md-primary); }
         .outline-h2 { padding-left: 0; font-weight: 600; }
         .outline-h3 { padding-left: 12px; font-size: 0.8rem; }
+
+        /* Calendar */
+        .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 0.9rem; transition: background 0.15s; position: relative; }
+        .calendar-day:hover { background: var(--md-surface-variant); }
+        .calendar-day.empty { cursor: default; opacity: 0; pointer-events: none; }
+        .calendar-day.today { border: 1px solid var(--md-primary); color: var(--md-primary); font-weight: bold; }
+        .calendar-day.selected { background: var(--md-primary); color: var(--md-on-primary); font-weight: bold; }
+        .calendar-day.has-notes::after { content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--md-primary); }
+        .calendar-day.selected.has-notes::after { background: var(--md-on-primary); }
     </style>
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- Кнопка выхода из фокуса -->
     <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
 
     <div id="left-panel-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
@@ -142,6 +150,13 @@
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
             
+            <div class="flex flex-col gap-1 mb-4">
+                <button id="btn-open-calendar" type="button" class="folder-item flex items-center gap-3 p-2.5 min-h-[44px] text-left text-outline hover:bg-black/5 rounded-lg">
+                    <i data-lucide="calendar-days" class="w-4 h-4 flex-shrink-0"></i>
+                    <span class="flex-1 truncate text-sm font-medium">Календарь</span>
+                </button>
+            </div>
+
             <div class="flex items-center justify-between px-1 mb-1 mt-2">
                 <div class="text-xs font-bold text-outline uppercase tracking-wider">Папки</div>
                 <button id="btn-new-folder" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="folder-plus" class="w-4 h-4 text-outline"></i></button>
@@ -231,6 +246,27 @@
             </div>
 
             <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32"></div>
+
+            <!-- КАЛЕНДАРЬ -->
+            <div id="view-calendar" class="hidden pb-32 flex flex-col items-center">
+                <div class="w-full max-w-sm bg-[var(--md-surface-variant)] rounded-2xl p-4 shadow-sm mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <button id="btn-prev-month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <div id="calendar-month-title" class="font-bold text-lg capitalize">Октябрь 2026</div>
+                        <button id="btn-next-month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 mb-2 text-center text-xs font-bold text-outline">
+                        <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+                    </div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1"></div>
+                </div>
+                
+                <div id="calendar-notes-container" class="w-full hidden">
+                    <div id="calendar-selected-title" class="text-lg font-bold mb-4 px-1"></div>
+                    <div id="calendar-notes-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Кнопка FAB -->

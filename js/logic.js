@@ -1,5 +1,5 @@
 import { state, els, FILTERS_KEY } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
@@ -62,6 +62,32 @@ export function toggleFocusMode() {
     }
 }
 
+// --- CALENDAR LOGIC ---
+
+export function openCalendar() {
+    state.viewMode = 'calendar';
+    state.activeId = null;
+    state.calendarDate = new Date();
+    state.selectedDate = null;
+    renderAll();
+    closeLeftPanel();
+}
+
+export function prevMonth() {
+    state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1);
+    renderAll();
+}
+
+export function nextMonth() {
+    state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() + 1, 1);
+    renderAll();
+}
+
+export function selectCalendarDay(dateStr) {
+    state.selectedDate = dateStr;
+    renderAll();
+}
+
 // --- CRUD ---
 
 export function scheduleSave() {
@@ -81,7 +107,8 @@ export function onEdit() {
 }
 
 export function createNote() {
-    const note = { id: genId(), title: '', content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId || 'inbox', isPinned: false };
+    const now = Date.now();
+    const note = { id: genId(), title: '', content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId || 'inbox', isPinned: false };
     state.notes.unshift(note); state.activeId = note.id; 
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.viewMode = 'editor'; state.editorMode = 'edit'; 

@@ -11,6 +11,7 @@ export function loadNotes() {
                 return parsed.filter(isValidNote).map(n => {
                     const note = { 
                         id: n.id, title: n.title, content: n.content, updatedAt: n.updatedAt, 
+                        createdAt: n.createdAt || n.updatedAt, // Fallback для старых данных
                         tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox',
                         isPinned: !!n.isPinned
                     };
@@ -27,7 +28,8 @@ export function loadNotes() {
         legacyContent = localStorage.getItem(LEGACY_CONTENT_KEY) || '';
     } catch (e) { return []; }
     if (legacyTitle || legacyContent) {
-        const note = { id: genId(), title: legacyTitle || 'Без названия', content: legacyContent, updatedAt: Date.now(), tags: [], folderId: 'inbox', isPinned: false };
+        const now = Date.now();
+        const note = { id: genId(), title: legacyTitle || 'Без названия', content: legacyContent, updatedAt: now, createdAt: now, tags: [], folderId: 'inbox', isPinned: false };
         syncNoteTags(note);
         return [note];
     }

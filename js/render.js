@@ -1,5 +1,5 @@
 import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons, getBacklinks, getOutline } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt } from './utils.js';
 
 export function renderSidebar() {
     els.foldersList.innerHTML = sortedFolders().map(folder => {
@@ -79,6 +79,10 @@ export function renderBreadcrumbs() {
             els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
             els.folderMoveSelect.value = note.folderId;
         }
+    } else if (state.viewMode === 'calendar') {
+        els.crumbTitle.textContent = 'Календарь';
+        els.crumbSeparator.classList.remove('hidden');
+        els.moveNoteContainer.style.display = 'none';
     }
 
     // Nav buttons state
@@ -158,6 +162,73 @@ export function renderFolderView() {
     updateIcons();
 }
 
+export function renderCalendarView() {
+    const year = state.calendarDate.getFullYear();
+    const month = state.calendarDate.getMonth();
+    
+    const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+    els.calendarMonthTitle.textContent = `${monthNames[month]} ${year}`;
+
+    // Получаем первый день месяца (0 - Вс, 1 - Пн, ...)
+    let firstDay = new Date(year, month, 1).getDay();
+    // Переделываем под Пн=0, Вт=1 ... Вс=6
+    firstDay = firstDay === 0 ? 6 : firstDay - 1;
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = formatDateYYYYMMDD(new Date());
+
+    let html = '';
+    
+    // Пустые ячейки в начале
+    for (let i = 0; i < firstDay; i++) {
+        html += `<div class="calendar-day empty"></div>`;
+    }
+
+    // Дни месяца
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatDateYYYYMMDD(new Date(year, month, d));
+        const hasNotes = state.notes.some(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === dateStr);
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === state.selectedDate;
+
+        let cls = 'calendar-day';
+        if (isToday) cls += ' today';
+        if (isSelected) cls += ' selected';
+        if (hasNotes) cls += ' has-notes';
+
+        html += `<div class="${cls}" data-date="${dateStr}">${d}</div>`;
+    }
+
+    els.calendarGrid.innerHTML = html;
+
+    // Рендер заметок для выбранного дня
+    if (state.selectedDate) {
+        els.calendarNotesContainer.classList.remove('hidden');
+        const d = new Date(state.selectedDate);
+        els.calendarSelectedTitle.textContent = `Заметки за ${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+        
+        const dayNotes = state.notes.filter(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
+        
+        if (dayNotes.length === 0) {
+            els.calendarNotesList.innerHTML = `<div class="col-span-full text-center text-outline italic py-4">В этот день заметок нет.</div>`;
+        } else {
+            els.calendarNotesList.innerHTML = dayNotes.map(note => `
+                <div class="note-card" data-note-id="${escapeHtml(note.id)}">
+                    <div class="note-card-title truncate">${escapeHtml(noteTitle(note))}</div>
+                    <div class="note-card-preview">${escapeHtml(notePreview(note))}</div>
+                    <div class="note-card-meta">
+                        <span class="text-[10px] text-outline mr-auto">${new Date(getNoteCreatedAt(note)).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } else {
+        els.calendarNotesContainer.classList.add('hidden');
+    }
+    
+    updateIcons();
+}
+
 export function renderEditor() {
     const note = getNoteById(state.activeId);
     if (!note) return;
@@ -217,16 +288,26 @@ export function renderAll() {
     if (state.viewMode === 'editor') {
         els.viewEditor.classList.remove('hidden');
         els.viewFolder.classList.add('hidden');
+        els.viewCalendar.classList.add('hidden');
         els.btnPreview.style.display = 'flex';
         els.btnDeleteNote.style.display = 'flex';
         renderEditor();
+    } else if (state.viewMode === 'calendar') {
+        els.viewEditor.classList.add('hidden');
+        els.viewFolder.classList.add('hidden');
+        els.viewCalendar.classList.remove('hidden');
+        els.btnPreview.style.display = 'none';
+        els.btnDeleteNote.style.display = 'none';
+        els.outlineContainer.classList.add('hidden');
+        renderCalendarView();
     } else {
         els.viewEditor.classList.add('hidden');
         els.viewFolder.classList.remove('hidden');
+        els.viewCalendar.classList.add('hidden');
         els.btnPreview.style.display = 'none';
         els.btnDeleteNote.style.display = 'none';
-        renderFolderView();
         els.outlineContainer.classList.add('hidden');
+        renderFolderView();
     }
     
     if (els.fabNewNote) {

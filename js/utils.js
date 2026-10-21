@@ -164,6 +164,20 @@ export function getOutline(content) {
     return outline;
 }
 
+// --- Calendar Utils ---
+
+export function formatDateYYYYMMDD(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+export function getNoteCreatedAt(note) {
+    return note.createdAt || note.updatedAt;
+}
+
 // --- Markdown Export/Import Utils ---
 
 export function generateMarkdown(note, folderName) {
@@ -171,6 +185,7 @@ export function generateMarkdown(note, folderName) {
     const safeFolder = String(folderName || 'Входящие').replace(/"/g, '\\"');
     const safeContent = String(note.content || '');
     const ts = Number(note.updatedAt) || Date.now();
+    const created = Number(note.createdAt) || ts;
 
     const yaml = [
         '---',
@@ -178,7 +193,7 @@ export function generateMarkdown(note, folderName) {
         `title: "${safeTitle}"`,
         `folder: "${safeFolder}"`,
         `pinned: ${!!note.isPinned}`,
-        `created: ${ts}`,
+        `created: ${created}`,
         `updated: ${ts}`,
         '---'
     ].join('\n');
@@ -218,6 +233,7 @@ export function parseMarkdown(text, defaultFolderId) {
         title: meta.title || (lines[0] ? lines[0].replace(/^#+\s*/, '') : 'Импортированная заметка'),
         content: content,
         updatedAt: meta.updated || Date.now(),
+        createdAt: meta.created || meta.updated || Date.now(),
         tags: [],
         folderId: defaultFolderId,
         isPinned: !!meta.pinned

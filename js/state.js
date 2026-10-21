@@ -9,7 +9,7 @@ export const state = {
     activeFilterId: null,
     saveTimeout: null,
     saveStatus: 'idle',
-    viewMode: 'folder',
+    viewMode: 'folder', // 'folder', 'editor', 'calendar'
     editorMode: 'preview',
     activePrompt: null,
     activePromptRawName: null,
@@ -20,10 +20,13 @@ export const state = {
     searchOpen: false,
     draftFilter: [],
     pickerType: null,
-    // Новые поля для Спринта 1
+    // Sprint 1
     history: [],
     historyIndex: -1,
-    isFocusMode: false
+    isFocusMode: false,
+    // Sprint 2 (Calendar)
+    calendarDate: new Date(),
+    selectedDate: null
 };
 
 export const PROMPTS = [
@@ -59,12 +62,15 @@ export const els = {
     
     viewEditor: document.getElementById('view-editor'),
     viewFolder: document.getElementById('view-folder'),
+    viewCalendar: document.getElementById('view-calendar'),
     
     titleInput: document.getElementById('note-title'),
     contentInput: document.getElementById('note-content'),
     preview: document.getElementById('note-preview'),
     statusText: document.getElementById('save-status'),
     chipPalette: document.getElementById('chip-palette'),
+    
+    // AI Panel
     aiPanel: document.getElementById('ai-panel'),
     aiPanelEmpty: document.getElementById('ai-panel-empty'),
     aiPanelActive: document.getElementById('ai-panel-active'),
@@ -130,5 +136,15 @@ export const els = {
     outlineContainer: document.getElementById('outline-container'),
     outlineList: document.getElementById('outline-list'),
     backlinksContainer: document.getElementById('backlinks-container'),
-    backlinksList: document.getElementById('backlinks-list')
+    backlinksList: document.getElementById('backlinks-list'),
+
+    // Calendar
+    btnOpenCalendar: document.getElementById('btn-open-calendar'),
+    calendarGrid: document.getElementById('calendar-grid'),
+    calendarMonthTitle: document.getElementById('calendar-month-title'),
+    btnPrevMonth: document.getElementById('btn-prev-month'),
+    btnNextMonth: document.getElementById('btn-next-month'),
+    calendarNotesContainer: document.getElementById('calendar-notes-container'),
+    calendarSelectedTitle: document.getElementById('calendar-selected-title'),
+    calendarNotesList: document.getElementById('calendar-notes-list')
 };

@@ -11,13 +11,13 @@ import {
     openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter,
     openPicker, closePicker, handlePickerSearch, insertPickedItem,
     shareNoteFile, exportAllData, handleImportFiles,
-    goBack, goForward, toggleFocusMode, goToFolderView
+    goBack, goForward, toggleFocusMode, goToFolderView,
+    openCalendar, prevMonth, nextMonth, selectCalendarDay
 } from './logic.js';
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
     
-    // Свайп для открытия левой панели с края экрана
     els.mainContent.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
@@ -31,7 +31,6 @@ function attachListeners() {
         }
     }, { passive: true });
 
-    // Свайп влево для закрытия левой панели
     if (els.leftPanel) {
         let panelTouchStartX = 0;
         els.leftPanel.addEventListener('touchstart', (e) => {
@@ -54,6 +53,23 @@ function attachListeners() {
     if (els.btnNavForward) els.btnNavForward.addEventListener('click', goForward);
     if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
     if (els.btnCloseFocus) els.btnCloseFocus.addEventListener('click', toggleFocusMode);
+
+    // Calendar buttons
+    if (els.btnOpenCalendar) els.btnOpenCalendar.addEventListener('click', openCalendar);
+    if (els.btnPrevMonth) els.btnPrevMonth.addEventListener('click', prevMonth);
+    if (els.btnNextMonth) els.btnNextMonth.addEventListener('click', nextMonth);
+    if (els.calendarGrid) {
+        els.calendarGrid.addEventListener('click', (e) => {
+            const dayDiv = e.target.closest('[data-date]');
+            if (dayDiv) selectCalendarDay(dayDiv.getAttribute('data-date'));
+        });
+    }
+    if (els.calendarNotesList) {
+        els.calendarNotesList.addEventListener('click', (e) => {
+            const card = e.target.closest('.note-card');
+            if (card) selectNote(card.getAttribute('data-note-id'));
+        });
+    }
 
     els.btnNewNote.addEventListener('click', createNote);
     if (els.fabNewNote) els.fabNewNote.addEventListener('click', createNote);
@@ -111,12 +127,10 @@ function attachListeners() {
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.contentInput.addEventListener('blur', () => { scheduleSave(); });
 
-    // Outline clicks
     els.outlineList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-outline-text]');
         if (!btn) return;
         const text = btn.getAttribute('data-outline-text');
-        // Ищем элемент заголовка в превью
         const headers = Array.from(els.preview.querySelectorAll('h2, h3'));
         const target = headers.find(h => h.textContent.trim() === text);
         if (target) {
@@ -124,7 +138,6 @@ function attachListeners() {
         }
     });
 
-    // Backlinks clicks
     els.backlinksList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-backlink-id]');
         if (btn) selectNote(btn.getAttribute('data-backlink-id'));
@@ -140,7 +153,8 @@ function attachListeners() {
         if (t.closest('.wiki-link-broken')) {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
             if (window.confirm(`Создать заметку «${title}»?`)) {
-                const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId, isPinned: false };
+                const now = Date.now();
+                const newNote = { id: genId(), title: title, content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId, isPinned: false };
                 state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit'; 
                 persistNotes(); renderAll();
             }
@@ -250,26 +264,21 @@ function attachListeners() {
 
     // --- ANDROID BACK BUTTON (POPSTATE) ---
     window.addEventListener('popstate', (e) => {
-        // 1. Если открыт Focus Mode - выключаем
         if (state.isFocusMode) {
             toggleFocusMode();
-            // Возвращаем состояние истории, чтобы кнопка назад сработала снова
             history.pushState({ state: 'focus' }, '');
             return;
         }
         
-        // 2. Если открыты модалки/шторки - закрываем
         if (state.actionMenuNoteId) { closeActionMenu(); history.pushState({ state: 'actionMenu' }, ''); return; }
         if (els.filterModal.classList.contains('open')) { closeFilterModal(); history.pushState({ state: 'filter' }, ''); return; }
         if (els.pickerModal.classList.contains('open')) { closePicker(); history.pushState({ state: 'picker' }, ''); return; }
         if (state.searchOpen) { closeSearch(); history.pushState({ state: 'search' }, ''); return; }
         if (state.leftPanelOpen) { closeLeftPanel(); history.pushState({ state: 'leftPanel' }, ''); return; }
 
-        // 3. Если открыта заметка - возвращаемся в папку (или назад по истории)
         if (state.viewMode === 'editor') {
             if (state.historyIndex > 0) {
                 goBack();
-                // Так как мы откатились по стеку, пушим состояние, чтобы не выйти из приложения
                 history.pushState({ state: 'editor' }, ''); 
             } else {
                 goToFolderView();
@@ -278,10 +287,13 @@ function attachListeners() {
             return;
         }
         
-        // Если мы в папке - ничего не делаем, пусть приложение закрывается (обычное поведение)
+        if (state.viewMode === 'calendar') {
+            goToFolderView();
+            history.pushState({ state: 'folder' }, '');
+            return;
+        }
     });
 
-    // Инициализируем стартовое состояние для корректной работы перехвата
     history.pushState({ state: 'root' }, '');
 
     document.addEventListener('keydown', (e) => {
@@ -323,6 +335,8 @@ function init() {
     state.history = [];
     state.historyIndex = -1;
     state.isFocusMode = false;
+    state.calendarDate = new Date();
+    state.selectedDate = null;
 
     renderAll(); attachListeners();
 }
