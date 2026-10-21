@@ -1,5 +1,9 @@
-const CACHE_NAME = 'mai-cache-v10';
-const ASSETS = ['./', './index.html', './manifest.json'];
+const CACHE_NAME = 'mai-cache-v11';
+const ASSETS = [
+  './', './index.html', './manifest.json',
+  './js/state.js', './js/utils.js', './js/storage.js',
+  './js/render.js', './js/logic.js', './js/app.js'
+];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
