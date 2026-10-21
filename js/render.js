@@ -2,7 +2,6 @@ import { state, els } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons } from './utils.js';
 
 export function renderSidebar() {
-    // Папки
     els.foldersList.innerHTML = sortedFolders().map(folder => {
         const isActive = folder.id === state.activeFolderId && state.activeTag === null && state.activeContext === null && state.activeFilterId === null && state.viewMode === 'folder';
         const isInbox = folder.id === 'inbox';
@@ -15,7 +14,6 @@ export function renderSidebar() {
         return `<div class="folder-item ${activeCls} flex items-center gap-1" data-folder-id="${escapeHtml(folder.id)}"><button type="button" class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-folder-select="${escapeHtml(folder.id)}"><i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0 text-outline"></i><span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(folder.name)}</span><span class="folder-count text-xs opacity-60 text-outline">${folderNotesCount(folder.id)}</span></button>${actions}</div>`;
     }).join('');
 
-    // Теги
     const tags = collectAllTags();
     els.tagsList.style.display = tags.length ? 'flex' : 'none';
     els.tagsSectionLabel.style.display = tags.length ? 'block' : 'none';
@@ -24,7 +22,6 @@ export function renderSidebar() {
         return `<button type="button" class="${cls}" data-tag="${escapeHtml(item.tag)}"><span>#${escapeHtml(item.tag)}</span></button>`;
     }).join('');
 
-    // Контексты
     const contexts = collectAllContexts();
     els.contextsList.style.display = contexts.length ? 'flex' : 'none';
     els.contextsSectionLabel.style.display = contexts.length ? 'block' : 'none';
@@ -33,7 +30,6 @@ export function renderSidebar() {
         return `<button type="button" class="${cls}" data-context="${escapeHtml(item.context)}"><i data-lucide="link" class="w-3 h-3"></i><span>${escapeHtml(item.context)}</span></button>`;
     }).join('');
 
-    // Смарт-фильтры
     els.filtersList.innerHTML = state.savedFilters.map(f => {
         const isActive = f.id === state.activeFilterId;
         const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
@@ -47,20 +43,6 @@ export function renderSidebar() {
     }).join('');
 
     updateIcons();
-}
-
-export function renderNotesSectionLabel() {
-    if (state.activeFilterId) {
-        const f = state.savedFilters.find(x => x.id === state.activeFilterId);
-        els.notesSectionLabel.textContent = 'Фильтр: ' + (f ? f.name : '...');
-    } else if (state.activeTag) {
-        els.notesSectionLabel.textContent = 'Тег: #' + state.activeTag;
-    } else if (state.activeContext) {
-        els.notesSectionLabel.textContent = 'Контекст: [[' + state.activeContext + ']]';
-    } else {
-        const folder = getFolderById(state.activeFolderId);
-        els.notesSectionLabel.textContent = folder ? folder.name : 'Заметки';
-    }
 }
 
 export function renderBreadcrumbs() {
@@ -95,7 +77,6 @@ export function renderBreadcrumbs() {
 
 export function renderFolderView() {
     let notes = [];
-
     if (state.activeFilterId) {
         const f = state.savedFilters.find(x => x.id === state.activeFilterId);
         if (f && f.rules) {
@@ -110,8 +91,7 @@ export function renderFolderView() {
                         cond = contexts.includes(rule.value);
                     }
                     if (rule.logic === 'exclude') cond = !cond;
-                    
-                    if (!cond) match = false; // AND logic
+                    if (!cond) match = false;
                 }
                 return match;
             });
@@ -145,7 +125,6 @@ export function renderFolderView() {
     els.viewFolder.innerHTML = notes.map(note => {
         const tags = (note.tags || []).slice(0, 3);
         const contexts = (note.content.match(/\[\[([^\]\n]+)\]\]/g) || []).slice(0, 2);
-        
         const tagsHtml = tags.map(t => `<span class="text-[10px] bg-black/5 text-primary px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('');
         const contextHtml = contexts.map(c => `<span class="text-[10px] bg-black/5 text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
         const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3.5 h-3.5 text-primary fill-primary absolute top-4 right-12"></i>` : '';
@@ -283,8 +262,6 @@ export function renderHighlightsInPreview() {
     updateIcons();
 }
 
-// --- UI HELPERS ---
-
 export function renderActionSheetFolders() {
     els.sheetFoldersList.innerHTML = sortedFolders().map(f => `
         <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-sheet-move-to="${f.id}">
@@ -329,4 +306,54 @@ export function renderFilterRuleRow(index, rule) {
         </select>
         <button class="btn-remove-rule p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>`;
+}
+
+// --- PICKER RENDER ---
+export function renderPickerList(query) {
+    const q = query.toLowerCase().trim();
+    
+    let items = [];
+    if (state.pickerType === 'tag') {
+        items = collectAllTags().map(t => t.tag);
+    } else {
+        items = collectAllContexts().map(c => c.context);
+    }
+    
+    // Фильтруем по вводу
+    const filtered = items.filter(i => i.toLowerCase().includes(q));
+    
+    let html = '';
+    
+    // Кнопка создания нового, если такого еще нет
+    if (q && !filtered.includes(q)) {
+        const icon = state.pickerType === 'tag' ? 'hash' : 'link';
+        const prefix = state.pickerType === 'tag' ? '#' : '[[';
+        const suffix = state.pickerType === 'tag' ? '' : ']]';
+        
+        html += `
+            <button class="flex items-center gap-3 p-3 hover:bg-[var(--md-primary)]/10 text-[var(--md-primary)] rounded-xl text-left w-full font-bold" data-pick-value="${escapeHtml(q)}">
+                <i data-lucide="${icon}" class="w-5 h-5"></i>
+                <span>Создать: ${prefix}${escapeHtml(q)}${suffix}</span>
+            </button>
+            <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-2"></div>
+        `;
+    }
+
+    if (filtered.length === 0 && !q) {
+        html += `<div class="text-center text-outline italic p-4">Список пуст. Начните печатать...</div>`;
+    } else {
+        html += filtered.map(item => {
+            const icon = state.pickerType === 'tag' ? 'hash' : 'link';
+            const prefix = state.pickerType === 'tag' ? '#' : '';
+            return `
+                <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-pick-value="${escapeHtml(item)}">
+                    <i data-lucide="${icon}" class="w-5 h-5 text-outline"></i>
+                    <span>${prefix}${escapeHtml(item)}</span>
+                </button>
+            `;
+        }).join('');
+    }
+
+    els.pickerList.innerHTML = html;
+    updateIcons();
 }

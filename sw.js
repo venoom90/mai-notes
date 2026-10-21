@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mai-cache-v17'; // БАМП!
+const CACHE_NAME = 'mai-cache-v18'; // БАМП!
 const ASSETS = [
   './', './index.html', './manifest.json',
   './js/state.js', './js/utils.js', './js/storage.js',

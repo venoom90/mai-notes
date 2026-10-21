@@ -1,16 +1,16 @@
 export const state = {
     notes: [],
     folders: [],
-    savedFilters: [], // NEW
+    savedFilters: [],
     activeId: null,
     activeFolderId: 'inbox',
     activeTag: null,
-    activeContext: null, // NEW
-    activeFilterId: null, // NEW
+    activeContext: null,
+    activeFilterId: null,
     saveTimeout: null,
     saveStatus: 'idle',
-    viewMode: 'folder', // 'folder' | 'editor'
-    editorMode: 'preview', // 'edit' | 'preview'
+    viewMode: 'folder',
+    editorMode: 'preview',
     activePrompt: null,
     activePromptRawName: null,
     aiPanelOpen: false,
@@ -18,7 +18,8 @@ export const state = {
     actionMenuNoteId: null,
     actionMenuMode: 'main',
     searchOpen: false,
-    draftFilter: [] // Для создания нового фильтра
+    draftFilter: [],
+    pickerType: null // 'tag' | 'context'
 };
 
 export const PROMPTS = [
@@ -29,7 +30,7 @@ export const PROMPTS = [
 
 export const STORAGE_KEY = 'mai_notes';
 export const FOLDERS_KEY = 'mai_folders';
-export const FILTERS_KEY = 'mai_filters'; // NEW
+export const FILTERS_KEY = 'mai_filters';
 export const LEGACY_TITLE_KEY = 'mai_title';
 export const LEGACY_CONTENT_KEY = 'mai_content';
 
@@ -39,7 +40,6 @@ export const els = {
     leftPanelBackdrop: document.getElementById('left-panel-backdrop'),
     btnMenu: document.getElementById('btn-menu'),
     
-    // Sidebar
     foldersList: document.getElementById('folders-list'),
     tagsList: document.getElementById('tags-list'),
     tagsSectionLabel: document.getElementById('tags-section-label'),
@@ -98,12 +98,19 @@ export const els = {
     btnDesktopSearch: document.getElementById('btn-desktop-search'),
     btnMobileSearch: document.getElementById('btn-mobile-search'),
 
-    // Filter Modal
     filterBackdrop: document.getElementById('filter-backdrop'),
     filterModal: document.getElementById('filter-modal'),
     filterNameInput: document.getElementById('filter-name-input'),
     filterRulesContainer: document.getElementById('filter-rules-container'),
     btnAddFilterRule: document.getElementById('btn-add-filter-rule'),
     btnSaveFilter: document.getElementById('btn-save-filter'),
-    btnCloseFilter: document.getElementById('btn-close-filter')
+    btnCloseFilter: document.getElementById('btn-close-filter'),
+
+    // Picker
+    pickerBackdrop: document.getElementById('picker-backdrop'),
+    pickerModal: document.getElementById('picker-modal'),
+    pickerTitle: document.getElementById('picker-title'),
+    pickerSearch: document.getElementById('picker-search'),
+    pickerList: document.getElementById('picker-list'),
+    btnClosePicker: document.getElementById('btn-close-picker')
 };

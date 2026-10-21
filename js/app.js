@@ -5,14 +5,15 @@ import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, render
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
-    insertChipAtCursor, toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
+    insertChipAtCursor, moveNoteToFolder, toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
     openSearch, closeSearch, handleSearchInput, insertFormatting,
-    openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter
+    openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter,
+    openPicker, closePicker, handlePickerSearch, insertPickedItem
 } from './logic.js';
 
 function attachListeners() {
-    // --- SWIPE TO OPEN SIDEBAR ---
+    // --- SWIPE ---
     let touchStartX = 0, touchStartY = 0;
     els.mainContent.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
@@ -22,7 +23,6 @@ function attachListeners() {
     els.mainContent.addEventListener('touchend', (e) => {
         const deltaX = touchStartX - e.changedTouches[0].screenX;
         const deltaY = Math.abs(touchStartY - e.changedTouches[0].screenY);
-        // Свайп вправо (открыть) если начали у левого края (< 50px) и провели больше 80px
         if (touchStartX < 50 && deltaX < -80 && deltaY < 50 && !state.leftPanelOpen) {
             toggleLeftPanel();
         }
@@ -37,7 +37,6 @@ function attachListeners() {
     els.btnPreview.addEventListener('click', togglePreviewMode);
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
     
-    // Обработка перемещения из шапки
     if (els.folderMoveSelect) {
         els.folderMoveSelect.addEventListener('change', (e) => {
             const note = getNoteById(state.activeId);
@@ -98,7 +97,6 @@ function attachListeners() {
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.contentInput.addEventListener('blur', () => { scheduleSave(); });
 
-    // STRICT READ-FIRST: Никакого перехода в Edit при клике на контент
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
@@ -110,8 +108,7 @@ function attachListeners() {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
             if (window.confirm(`Создать заметку «${title}»?`)) {
                 const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId, isPinned: false };
-                state.notes.unshift(newNote); state.activeId = newNote.id; 
-                state.editorMode = 'edit'; // Сразу в Edit для заполнения
+                state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit'; 
                 persistNotes(); renderAll();
             }
             return;
@@ -120,7 +117,6 @@ function attachListeners() {
             e.preventDefault(); filterByTag(t.closest('.tag-highlight').getAttribute('data-tag')); return;
         }
         if (t.closest('input[type="checkbox"]')) {
-            // Обработка чекбоксов остается, но без выхода в Edit
             setTimeout(() => {
                 const checkboxes = Array.from(els.preview.querySelectorAll('input[type="checkbox"]'));
                 const idx = checkboxes.indexOf(t);
@@ -137,7 +133,7 @@ function attachListeners() {
                 if (newLine === line) return;
                 lines[lineIdx] = newLine;
                 note.content = lines.join('\n'); note.updatedAt = Date.now();
-                persistNotes(); renderEditor(); // Перерисовываем превью
+                persistNotes(); renderEditor(); 
             }, 0);
             return;
         }
@@ -195,6 +191,15 @@ function attachListeners() {
         if (e.target.classList.contains('rule-value')) updateFilterRule(idx, 'value', e.target.value);
     });
 
+    // --- PICKER ---
+    els.pickerBackdrop.addEventListener('click', closePicker);
+    els.btnClosePicker.addEventListener('click', closePicker);
+    els.pickerSearch.addEventListener('input', handlePickerSearch);
+    els.pickerList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-pick-value]');
+        if (btn) insertPickedItem(btn.getAttribute('data-pick-value'));
+    });
+
     // --- SEARCH ---
     if (els.btnDesktopSearch) els.btnDesktopSearch.addEventListener('click', openSearch);
     if (els.btnMobileSearch) els.btnMobileSearch.addEventListener('click', openSearch);
@@ -209,6 +214,7 @@ function attachListeners() {
     // --- KEYBOARD ---
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            if (els.pickerModal.classList.contains('open')) { e.preventDefault(); closePicker(); return; }
             if (state.searchOpen) { e.preventDefault(); closeSearch(); return; }
             if (els.filterModal.classList.contains('open')) { e.preventDefault(); closeFilterModal(); return; }
             if (state.actionMenuNoteId) { e.preventDefault(); closeActionMenu(); return; }
@@ -240,6 +246,7 @@ function init() {
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.activeId = null; state.viewMode = 'folder';
     state.editorMode = 'preview'; 
+    state.pickerType = null;
 
     renderAll(); attachListeners();
 }
