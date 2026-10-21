@@ -36,7 +36,17 @@ export function isValidNote(n) {
 }
 
 export function sortedNotes() { return state.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt); }
-export function notesInFolder(folderId) { return state.notes.filter(n => n.folderId === folderId).sort((a, b) => b.updatedAt - a.updatedAt); }
+
+// Обновлено: учитываем isPinned при сортировке
+export function notesInFolder(folderId) { 
+    return state.notes
+        .filter(n => n.folderId === folderId)
+        .sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return b.updatedAt - a.updatedAt;
+        });
+}
 
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
@@ -44,6 +54,13 @@ export function autoResizeTextarea() {
     ta.style.height = 'auto';
     const max = Math.max(200, window.innerHeight * 0.6);
     ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
+}
+
+export function autoResizeTitle() {
+    const ta = document.getElementById('note-title');
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
 }
 
 export function notePreview(note) {

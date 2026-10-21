@@ -1,11 +1,13 @@
 import { state, els } from './state.js';
-import { autoResizeTextarea, syncNoteTags, getNoteById, genId } from './utils.js';
+import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, validateFolderRefs } from './storage.js';
-import { renderAll, updateAIPanel, renderSaveStatus, renderTags, updateActiveNoteInList } from './render.js';
+import { renderAll, updateAIPanel, renderSaveStatus, renderTags, updateActiveNoteInList, renderSearchResults } from './render.js';
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     clearTagFilter, selectTag, insertChipAtCursor, openPromptPanel, closePromptPanel, moveNoteToFolder, 
-    toggleLeftPanel, closeLeftPanel, exitPreviewMode, onEdit, scheduleSave 
+    toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
+    openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
+    openSearch, closeSearch, handleSearchInput, insertFormatting
 } from './logic.js';
 
 function attachListeners() {
@@ -13,43 +15,98 @@ function attachListeners() {
     if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);
 
     els.btnNewNote.addEventListener('click', createNote);
+    if (els.fabNewNote) els.fabNewNote.addEventListener('click', createNote);
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
     els.btnPreview.addEventListener('click', togglePreviewMode);
     if (els.btnClearTagFilter) els.btnClearTagFilter.addEventListener('click', clearTagFilter);
-
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
     
-    // Слушатель перемещения
     if (els.folderMoveSelect) {
         els.folderMoveSelect.addEventListener('change', (e) => moveNoteToFolder(e.target.value));
     }
 
-    // Клик по КРОШКЕ папки (возврат к карточкам)
     if (els.crumbFolderBtn) {
         els.crumbFolderBtn.addEventListener('click', () => {
-            state.viewMode = 'folder';
-            state.activeId = null;
-            state.activeTag = null;
-            renderAll();
+            state.viewMode = 'folder'; state.activeId = null; state.activeTag = null; renderAll();
         });
     }
 
+    // Клики по списку слева (свайпы и контекстное меню)
+    let touchStartX = 0, touchStartY = 0, currentSwipedItem = null;
+    
+    els.notesList.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    els.notesList.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        const deltaX = touchStartX - touchEndX;
+        const deltaY = Math.abs(touchStartY - touchEndY);
+        
+        if (deltaY > Math.abs(deltaX)) return; // Вертикальный скролл
+
+        const noteItem = e.target.closest('.note-item');
+        if (!noteItem) return;
+        
+        if (deltaX > 40) { // Свайп влево
+            if (currentSwipedItem && currentSwipedItem !== noteItem) {
+                currentSwipedItem.style.transform = 'translateX(0)';
+            }
+            noteItem.style.transform = 'translateX(-100px)';
+            currentSwipedItem = noteItem;
+        } else if (deltaX < -40) { // Свайп вправо (закрыть)
+            if (noteItem.style.transform === 'translateX(-100px)') {
+                noteItem.style.transform = 'translateX(0)';
+                currentSwipedItem = null;
+            }
+        }
+    }, { passive: true });
+
     els.notesList.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-note-id]');
-        if (btn) selectNote(btn.getAttribute('data-note-id'));
+        const actionBtn = e.target.closest('[data-action-menu]');
+        if (actionBtn) {
+            e.preventDefault(); e.stopPropagation();
+            openActionMenu(actionBtn.getAttribute('data-action-menu'));
+            return;
+        }
+        const swipeAct = e.target.closest('[data-swipe-action]');
+        if (swipeAct) {
+            e.preventDefault();
+            const id = swipeAct.getAttribute('data-id');
+            if (swipeAct.getAttribute('data-swipe-action') === 'delete') deleteNote(id);
+            else if (swipeAct.getAttribute('data-swipe-action') === 'move') openActionMenu(id), setActionMenuMode('move');
+            return;
+        }
+        const btn = e.target.closest('.note-item');
+        if (btn) {
+            if (btn.style.transform && btn.style.transform.includes('-100px')) {
+                btn.style.transform = 'translateX(0)';
+                currentSwipedItem = null;
+                return;
+            }
+            selectNote(btn.getAttribute('data-note-id'));
+        }
     });
 
     els.viewFolder.addEventListener('click', (e) => {
+        const actionBtn = e.target.closest('[data-action-menu]');
+        if (actionBtn) {
+            e.preventDefault(); e.stopPropagation();
+            openActionMenu(actionBtn.getAttribute('data-action-menu'));
+            return;
+        }
         const card = e.target.closest('.note-card');
         if (card) selectNote(card.getAttribute('data-note-id'));
     });
 
+    // Папки
     els.foldersList.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-folder-action]');
         if (actionBtn) {
             e.stopPropagation();
             const folderItem = actionBtn.closest('[data-folder-id]');
-            if (!folderItem) return;
             const id = folderItem.getAttribute('data-folder-id');
             const action = actionBtn.getAttribute('data-folder-action');
             if (action === 'edit') renameFolder(id);
@@ -60,6 +117,7 @@ function attachListeners() {
         if (selectBtn) selectFolder(selectBtn.getAttribute('data-folder-select'));
     });
 
+    // Теги
     if (els.tagsList) {
         els.tagsList.addEventListener('click', (e) => {
             const chip = e.target.closest('[data-tag]');
@@ -67,12 +125,13 @@ function attachListeners() {
         });
     }
 
-    els.titleInput.addEventListener('input', onEdit);
+    // Ввод в редакторе
+    els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.titleInput.addEventListener('blur', updateActiveNoteInList);
-    // V1.5.2: авто-preview по blur удалён — preview только через кнопку «Глаз» / Ctrl+Enter
     els.contentInput.addEventListener('blur', () => { updateActiveNoteInList(); });
 
+    // Рендер превью (интерактивность)
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
@@ -90,10 +149,11 @@ function attachListeners() {
         if (t.closest('.wiki-link-broken')) {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
             if (window.confirm(`Создать заметку «${title}»?`)) {
-                // V1.5.2 (fix): используем genId() с fallback вместо прямого crypto.randomUUID()
-                const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId };
+                const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId, isPinned: false };
                 state.notes.unshift(newNote); state.activeId = newNote.id; 
-                persistNotes(); renderAll(); exitPreviewMode();
+                persistNotes(); renderAll(); 
+                // После создания переходим в режим редактирования
+                state.editorMode = 'edit'; renderAll();
             }
             return;
         }
@@ -101,7 +161,7 @@ function attachListeners() {
             e.preventDefault(); selectTag(t.closest('.tag-highlight').getAttribute('data-tag')); return;
         }
         if (t.closest('a') || t.closest('input') || t.closest('button')) return;
-        exitPreviewMode();
+        togglePreviewMode(); // При клике на пустое место в превью переходим в редактор
     });
 
     els.preview.addEventListener('change', (e) => {
@@ -131,16 +191,61 @@ function attachListeners() {
         if (btn) insertChipAtCursor(btn.getAttribute('data-prompt-insert'));
     });
 
+    // Панель форматирования
+    if (els.formatToolbar) {
+        els.formatToolbar.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-format]');
+            if (btn) insertFormatting(btn.getAttribute('data-format'));
+        });
+    }
+
     els.btnAiClose.addEventListener('click', closePromptPanel);
     els.aiBackdrop.addEventListener('click', closePromptPanel);
 
+    // --- ACTION SHEET LISTENERS ---
+    els.actionSheetBackdrop.addEventListener('click', closeActionMenu);
+    els.actionSheetMain.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        if (action === 'pin') togglePinFromMenu();
+        else if (action === 'rename') renameNoteFromMenu();
+        else if (action === 'move') setActionMenuMode('move');
+        else if (action === 'delete') deleteNoteFromMenu();
+    });
+    els.btnSheetBack.addEventListener('click', () => setActionMenuMode('main'));
+    els.sheetFoldersList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-sheet-move-to]');
+        if (btn) moveNoteFromMenu(btn.getAttribute('data-sheet-move-to'));
+    });
+
+    // --- SEARCH LISTENERS ---
+    if (els.btnDesktopSearch) els.btnDesktopSearch.addEventListener('click', openSearch);
+    if (els.btnMobileSearch) els.btnMobileSearch.addEventListener('click', openSearch);
+    els.btnCloseSearch.addEventListener('click', closeSearch);
+    els.searchInput.addEventListener('input', handleSearchInput);
+    els.btnClearSearch.addEventListener('click', () => {
+        els.searchInput.value = ''; handleSearchInput({target:{value:''}}); els.searchInput.focus();
+    });
+    els.searchResults.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-search-id]');
+        if (btn) {
+            closeSearch();
+            selectNote(btn.getAttribute('data-search-id'));
+        }
+    });
+
+    // Горячие клавиши
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            if (state.searchOpen) { e.preventDefault(); closeSearch(); return; }
+            if (state.actionMenuNoteId) { e.preventDefault(); closeActionMenu(); return; }
             if (state.aiPanelOpen) { e.preventDefault(); closePromptPanel(); return; }
             if (state.leftPanelOpen) { e.preventDefault(); closeLeftPanel(); return; }
-            if (state.editorMode === 'preview') { e.preventDefault(); exitPreviewMode(); return; }
+            if (state.editorMode === 'preview') { e.preventDefault(); togglePreviewMode(); return; }
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); togglePreviewMode(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
     });
 
     window.addEventListener('resize', () => {
@@ -164,6 +269,7 @@ function init() {
     state.activeId = null; state.viewMode = 'folder';
     state.editorMode = 'edit'; state.activePrompt = null; state.activePromptRawName = null;
     state.aiPanelOpen = false; state.leftPanelOpen = false;
+    state.actionMenuNoteId = null; state.searchOpen = false;
 
     renderAll(); attachListeners(); updateAIPanel();
 }

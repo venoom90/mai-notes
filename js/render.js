@@ -45,19 +45,46 @@ export function renderNotesSectionLabel() {
 
 export function renderNotes() {
     const filtered = state.activeTag 
-        ? state.notes.filter(n => n.tags && n.tags.includes(state.activeTag)).sort((a, b) => b.updatedAt - a.updatedAt)
+        ? state.notes.filter(n => n.tags && n.tags.includes(state.activeTag)).sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return b.updatedAt - a.updatedAt;
+        })
         : notesInFolder(state.activeFolderId);
 
     if (filtered.length === 0) {
         els.notesList.innerHTML = ''; els.notesList.style.display = 'none'; els.notesEmpty.style.display = 'flex';
-        els.notesEmpty.innerHTML = state.activeTag ? `Нет заметок с тегом #${escapeHtml(state.activeTag)}.` : 'В этой папке пока пусто.<br>Нажмите «+», чтобы создать.';
+        els.notesEmpty.innerHTML = state.activeTag 
+            ? `<i data-lucide="search-x" class="w-12 h-12 text-outline opacity-20 mb-3"></i><div class="text-sm text-outline font-medium">Нет заметок с тегом #${escapeHtml(state.activeTag)}.</div>` 
+            : `<i data-lucide="book-open" class="w-12 h-12 text-outline opacity-20 mb-3"></i><div class="text-sm text-outline font-medium">Здесь пока тихо...</div><button class="mt-3 text-primary text-sm font-bold hover:underline" onclick="document.getElementById('btn-new-note').click()">Создать первую заметку</button>`;
+        updateIcons();
         return;
     }
     els.notesEmpty.style.display = 'none'; els.notesList.style.display = 'flex';
+    
     els.notesList.innerHTML = filtered.map(note => {
         const isActive = note.id === state.activeId && state.viewMode === 'editor';
         const activeCls = isActive ? 'bg-black/5 text-primary font-semibold' : 'text-outline hover:bg-black/5';
-        return `<button type="button" class="note-item w-full text-left p-3 min-h-[48px] rounded-lg transition-colors ${activeCls}" data-note-id="${escapeHtml(note.id)}"><div class="font-medium truncate text-sm">${escapeHtml(noteTitle(note))}</div><div class="text-xs truncate opacity-80 mt-0.5">${escapeHtml(notePreview(note))}</div><div class="text-[10px] opacity-60 mt-1">${relativeTime(note.updatedAt)}</div></button>`;
+        const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3 h-3 text-primary fill-primary shrink-0"></i>` : '';
+        
+        return `
+        <div class="note-item-wrapper group">
+            <div class="note-actions-swipe">
+                <button type="button" class="swipe-btn swipe-btn-move" data-swipe-action="move" data-id="${note.id}"><i data-lucide="folder-input" class="w-5 h-5"></i></button>
+                <button type="button" class="swipe-btn swipe-btn-delete" data-swipe-action="delete" data-id="${note.id}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            </div>
+            <button type="button" class="note-item w-full text-left p-3 min-h-[48px] rounded-lg transition-colors ${activeCls} flex items-center gap-2" data-note-id="${escapeHtml(note.id)}">
+                ${pinHtml}
+                <div class="flex-1 min-w-0 pointer-events-none">
+                    <div class="font-medium truncate text-sm">${escapeHtml(noteTitle(note))}</div>
+                    <div class="text-xs truncate opacity-80 mt-0.5">${escapeHtml(notePreview(note))}</div>
+                    <div class="text-[10px] opacity-60 mt-1">${relativeTime(note.updatedAt)}</div>
+                </div>
+                <div class="action-dots p-2 rounded-full hover:bg-black/10 shrink-0 text-outline" data-action-menu="${note.id}">
+                    <i data-lucide="more-vertical" class="w-4 h-4 pointer-events-none"></i>
+                </div>
+            </button>
+        </div>`;
     }).join('');
     updateIcons();
 }
@@ -78,7 +105,6 @@ export function renderBreadcrumbs() {
             els.crumbTitle.textContent = noteTitle(note);
             els.crumbSeparator.classList.remove('hidden');
             
-            // Включаем кнопку перемещения в шапке
             if (els.moveNoteContainer) {
                 els.moveNoteContainer.style.display = 'block';
                 if (els.folderMoveSelect) {
@@ -93,12 +119,15 @@ export function renderBreadcrumbs() {
 export function renderFolderView() {
     if (!els.viewFolder) return;
 
-    // V1.5.2 (fix): учитываем activeTag — глобальный фильтр по тегу (снапшот §5.4)
     let notes;
     if (state.activeTag) {
         notes = state.notes
             .filter(n => n.tags && n.tags.includes(state.activeTag))
-            .sort((a, b) => b.updatedAt - a.updatedAt);
+            .sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return b.updatedAt - a.updatedAt;
+            });
     } else {
         notes = notesInFolder(state.activeFolderId);
     }
@@ -106,8 +135,12 @@ export function renderFolderView() {
     if (notes.length === 0) {
         const emptyMsg = state.activeTag
             ? `Нет заметок с тегом #${escapeHtml(state.activeTag)}.`
-            : 'В этой папке пока пусто.';
-        els.viewFolder.innerHTML = `<div class="col-span-full text-center text-outline italic py-10">${emptyMsg}</div>`;
+            : 'В этой папке пока тихо... Создайте что-нибудь!';
+        els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
+            <i data-lucide="${state.activeTag ? 'search-x' : 'folder-open'}" class="w-16 h-16 opacity-20 mb-4"></i>
+            <div class="italic">${emptyMsg}</div>
+        </div>`;
+        updateIcons();
         return;
     }
 
@@ -117,19 +150,25 @@ export function renderFolderView() {
         
         const tagsHtml = tags.map(t => `<span class="text-[10px] bg-black/5 text-primary px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('');
         const contextHtml = contexts.map(c => `<span class="text-[10px] bg-black/5 text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
+        const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3.5 h-3.5 text-primary fill-primary absolute top-4 right-12"></i>` : '';
 
         return `
             <div class="note-card" data-note-id="${escapeHtml(note.id)}">
-                <div class="note-card-title">${escapeHtml(noteTitle(note))}</div>
+                ${pinHtml}
+                <div class="note-card-title truncate">${escapeHtml(noteTitle(note))}</div>
                 <div class="note-card-preview">${escapeHtml(notePreview(note))}</div>
                 <div class="note-card-meta">
                     <span class="text-[10px] text-outline mr-auto">${relativeTime(note.updatedAt)}</span>
                     ${tagsHtml}
                     ${contextHtml}
                 </div>
+                <button class="note-card-actions action-dots p-1.5 rounded-full hover:bg-black/10 bg-[var(--md-surface)] text-outline shadow-sm" data-action-menu="${note.id}">
+                    <i data-lucide="more-vertical" class="w-4 h-4 pointer-events-none"></i>
+                </button>
             </div>
         `;
     }).join('');
+    updateIcons();
 }
 
 export function renderEditor() {
@@ -140,12 +179,15 @@ export function renderEditor() {
         return;
     }
     els.titleInput.value = note.title; els.contentInput.value = note.content;
+    els.titleInput.style.height = 'auto'; els.titleInput.style.height = els.titleInput.scrollHeight + 'px';
     
     if (state.editorMode === 'preview') {
         els.contentInput.classList.add('hidden'); els.preview.classList.remove('hidden');
+        els.titleInput.readOnly = true;
         renderMarkdown(note.content);
     } else {
         els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
+        els.titleInput.readOnly = false;
         els.contentInput.style.height = 'auto';
         els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
     }
@@ -173,6 +215,17 @@ export function renderAll() {
         els.btnDeleteNote.style.display = 'none';
         renderFolderView();
     }
+    
+    if (els.fabNewNote) {
+        els.fabNewNote.style.display = (state.viewMode === 'editor' && state.editorMode === 'edit') ? 'none' : 'flex';
+    }
+    if (els.formatToolbar) {
+        if (state.viewMode === 'editor' && state.editorMode === 'edit') {
+            els.formatToolbar.classList.add('active');
+        } else {
+            els.formatToolbar.classList.remove('active');
+        }
+    }
 }
 
 export function updateActiveNoteInList() {
@@ -181,9 +234,12 @@ export function updateActiveNoteInList() {
     if (!note) return;
     const btn = els.notesList.querySelector(`[data-note-id="${state.activeId}"]`);
     if (!btn || btn.children.length < 3) return;
-    btn.children[0].textContent = noteTitle(note);
-    btn.children[1].textContent = notePreview(note);
-    btn.children[2].textContent = relativeTime(note.updatedAt);
+    const innerDivs = btn.children[1].children; // Учитывая wrapper пин-иконки и структуры
+    if (innerDivs.length >= 3) {
+        innerDivs[0].textContent = noteTitle(note);
+        innerDivs[1].textContent = notePreview(note);
+        innerDivs[2].textContent = relativeTime(note.updatedAt);
+    }
 }
 
 export function updatePreviewButton() {
@@ -192,6 +248,7 @@ export function updatePreviewButton() {
     els.btnPreview.disabled = !hasNote;
     els.btnPreview.style.opacity = hasNote ? '1' : '0.4';
     const isPreview = state.editorMode === 'preview';
+    // V1.6.0: Read-first логика иконки
     els.btnPreview.innerHTML = isPreview ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>' : '<i data-lucide="eye" class="w-5 h-5 text-outline"></i>';
     updateIcons();
 }
@@ -201,7 +258,7 @@ export function renderSaveStatus() {
         idle: { text: 'Готово', color: 'var(--md-outline)' },
         saving: { text: 'Сохранение...', color: 'var(--md-primary)' },
         saved: { text: 'Сохранено', color: 'var(--md-outline)' },
-        error: { text: 'Ошибка сохранения', color: '#B3261E' }
+        error: { text: 'Ошибка', color: '#B3261E' }
     };
     const s = map[state.saveStatus] || map.idle;
     els.statusText.innerText = s.text; els.statusText.style.color = s.color;
@@ -292,4 +349,41 @@ export function renderHighlightsInPreview() {
         if (textNode.parentNode) textNode.parentNode.replaceChild(frag, textNode);
     });
     updateIcons();
+}
+
+export function renderActionSheetFolders() {
+    if (!els.sheetFoldersList) return;
+    els.sheetFoldersList.innerHTML = sortedFolders().map(f => `
+        <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-sheet-move-to="${f.id}">
+            <i data-lucide="${f.id === 'inbox' ? 'inbox' : 'folder'}" class="w-5 h-5 text-primary"></i>
+            <span class="flex-1 font-medium">${escapeHtml(f.name)}</span>
+            <span class="text-xs text-outline">${folderNotesCount(f.id)}</span>
+        </button>
+    `).join('');
+    updateIcons();
+}
+
+export function renderSearchResults(query) {
+    if (!els.searchResults) return;
+    if (!query.trim()) {
+        els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Введите запрос для поиска...</div>`;
+        return;
+    }
+    const q = query.toLowerCase();
+    const results = state.notes.filter(n => 
+        n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)
+    ).slice(0, 20);
+    
+    if (results.length === 0) {
+        els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Ничего не найдено по запросу «${escapeHtml(query)}»</div>`;
+        return;
+    }
+    
+    els.searchResults.innerHTML = results.map(n => `
+        <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
+            <div class="font-bold text-base">${escapeHtml(noteTitle(n))}</div>
+            <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(notePreview(n))}</div>
+            <div class="text-xs text-primary mt-1 opacity-80">${escapeHtml(getFolderById(n.folderId)?.name || 'Входящие')}</div>
+        </button>
+    `).join('');
 }

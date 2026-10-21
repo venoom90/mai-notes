@@ -10,7 +10,11 @@ export function loadNotes() {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
                 return parsed.filter(isValidNote).map(n => {
-                    const note = { id: n.id, title: n.title, content: n.content, updatedAt: n.updatedAt, tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox' };
+                    const note = { 
+                        id: n.id, title: n.title, content: n.content, updatedAt: n.updatedAt, 
+                        tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox',
+                        isPinned: !!n.isPinned // V1.6.0 Миграция
+                    };
                     syncNoteTags(note);
                     return note;
                 });
@@ -26,7 +30,7 @@ export function loadNotes() {
     } catch (e) { return []; }
 
     if (legacyTitle || legacyContent) {
-        const note = { id: genId(), title: legacyTitle || 'Без названия', content: legacyContent, updatedAt: Date.now(), tags: [], folderId: 'inbox' };
+        const note = { id: genId(), title: legacyTitle || 'Без названия', content: legacyContent, updatedAt: Date.now(), tags: [], folderId: 'inbox', isPinned: false };
         syncNoteTags(note);
         return [note];
     }

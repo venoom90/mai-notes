@@ -11,7 +11,10 @@ export const state = {
     activePrompt: null,
     activePromptRawName: null,
     aiPanelOpen: false,
-    leftPanelOpen: false
+    leftPanelOpen: false,
+    actionMenuNoteId: null,
+    actionMenuMode: 'main', // 'main' | 'move'
+    searchOpen: false
 };
 
 export const PROMPTS = [
@@ -57,11 +60,34 @@ export const els = {
     btnAiClose: document.getElementById('btn-ai-close'),
     aiBackdrop: document.getElementById('ai-backdrop'),
     
-    crumbFolderBtn: document.getElementById('crumb-folder-btn'), // Новая кнопка крошки
+    crumbFolderBtn: document.getElementById('crumb-folder-btn'),
     crumbFolderName: document.getElementById('crumb-folder-name'),
     crumbSeparator: document.getElementById('breadcrumb-separator'),
     crumbTitle: document.getElementById('breadcrumb-title'),
     
-    moveNoteContainer: document.getElementById('move-note-container'), // Новый контейнер кнопки перемещения
-    folderMoveSelect: document.getElementById('folder-move-select')
+    moveNoteContainer: document.getElementById('move-note-container'),
+    folderMoveSelect: document.getElementById('folder-move-select'),
+
+    fabNewNote: document.getElementById('fab-new-note'),
+    formatToolbar: document.getElementById('format-toolbar'),
+
+    // Action Sheet
+    actionSheetBackdrop: document.getElementById('action-sheet-backdrop'),
+    actionSheet: document.getElementById('action-sheet'),
+    actionSheetMain: document.getElementById('action-sheet-main'),
+    actionSheetMove: document.getElementById('action-sheet-move'),
+    actionSheetTitle: document.getElementById('action-sheet-title'),
+    sheetFoldersList: document.getElementById('sheet-folders-list'),
+    btnSheetBack: document.getElementById('btn-sheet-back'),
+    pinLabel: document.getElementById('pin-label'),
+
+    // Search
+    searchBackdrop: document.getElementById('search-backdrop'),
+    searchModal: document.getElementById('search-modal'),
+    searchInput: document.getElementById('search-input'),
+    searchResults: document.getElementById('search-results'),
+    btnCloseSearch: document.getElementById('btn-close-search'),
+    btnClearSearch: document.getElementById('btn-clear-search'),
+    btnDesktopSearch: document.getElementById('btn-desktop-search'),
+    btnMobileSearch: document.getElementById('btn-mobile-search')
 };
