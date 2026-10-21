@@ -66,7 +66,35 @@
         #ai-panel { display: none; flex-direction: column; }
         @media (min-width: 1024px) { #ai-panel { display: flex; } }
         @media (max-width: 1023px) { #ai-panel.mobile-active { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; max-width: 100%; border-left: none; } }
-        @media (max-width: 767px) { #left-panel.mobile-active { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; width: 300px; max-width: 85vw; box-shadow: 4px 0 24px rgba(0,0,0,0.2); } }
+        
+        /* Плавный выезд левой панели (Mobile Drawer) */
+        #left-panel { transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1); }
+        @media (max-width: 767px) { 
+            #left-panel { 
+                position: fixed; 
+                top: 0; left: 0; bottom: 0; 
+                z-index: 50; 
+                width: 300px; max-width: 85vw; 
+                box-shadow: 4px 0 24px rgba(0,0,0,0.2); 
+                transform: translateX(-100%); 
+            } 
+            #left-panel.mobile-active { 
+                transform: translateX(0); 
+            } 
+            #left-panel-backdrop {
+                display: block !important;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s;
+            }
+            #left-panel-backdrop.mobile-active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+        @media (min-width: 768px) {
+            #left-panel-backdrop { display: none !important; }
+        }
 
         /* Папки и Теги */
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
@@ -89,7 +117,7 @@
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        /* Bottom Sheet & Modals - ФИКС ЗАВИСАНИЯ МОДАЛОК */
+        /* Bottom Sheet & Modals */
         .bottom-sheet { 
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
             transform: translateY(100%); 
@@ -117,14 +145,14 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <div id="left-panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+    <div id="left-panel-backdrop" class="fixed inset-0 bg-black/50 z-40"></div>
     <div id="action-sheet-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="search-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="picker-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
 
     <!-- ЛЕВАЯ ПАНЕЛЬ -->
-    <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]">
+    <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)]">
         <div class="p-4 flex justify-between items-center shrink-0">
             <span class="font-bold text-lg text-primary">MAi</span>
             <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
@@ -248,7 +276,6 @@
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="pin"><i data-lucide="pin" class="w-5 h-5 text-outline"></i><span id="pin-label">Закрепить</span></button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="rename"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i> Переименовать</button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="move"><i data-lucide="folder-input" class="w-5 h-5 text-outline"></i> Переместить</button>
-            <!-- Кнопка Поделиться (Экспорт заметки) -->
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="share"><i data-lucide="share-2" class="w-5 h-5 text-outline"></i> Поделиться (.md)</button>
             
             <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-4"></div>
