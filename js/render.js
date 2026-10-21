@@ -1,144 +1,142 @@
 import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, getPromptById, getPromptByName, findNoteByTitle, updateIcons } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons } from './utils.js';
 
-export function renderTags() {
-    if (!els.tagsList) return;
-    const tags = collectAllTags();
-    if (tags.length === 0) {
-        els.tagsList.innerHTML = ''; els.tagsList.style.display = 'none'; if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'none'; return;
-    }
-    els.tagsList.style.display = 'flex'; if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'block';
-    els.tagsList.innerHTML = tags.map(item => {
-        const cls = 'tag-chip' + (item.tag === state.activeTag ? ' tag-chip-active' : '');
-        return `<button type="button" class="${cls}" data-tag="${escapeHtml(item.tag)}"><span>#${escapeHtml(item.tag)}</span><span class="tag-chip-count">${item.count}</span></button>`;
-    }).join('');
-}
-
-export function renderFolders() {
-    if (!els.foldersList) return;
+export function renderSidebar() {
+    // Папки
     els.foldersList.innerHTML = sortedFolders().map(folder => {
-        const isActive = folder.id === state.activeFolderId && state.activeTag === null && state.viewMode === 'folder';
+        const isActive = folder.id === state.activeFolderId && state.activeTag === null && state.activeContext === null && state.activeFilterId === null && state.viewMode === 'folder';
         const isInbox = folder.id === 'inbox';
-        const count = folderNotesCount(folder.id);
         const icon = isInbox ? 'inbox' : 'folder';
         const activeCls = isActive ? 'folder-item-active' : '';
         let actions = '';
         if (!isInbox && isActive) {
             actions = `<button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="edit"><i data-lucide="pencil" class="w-3.5 h-3.5 text-outline"></i></button><button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="delete"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-outline"></i></button>`;
         }
-        return `<div class="folder-item ${activeCls} flex items-center gap-1" data-folder-id="${escapeHtml(folder.id)}"><button type="button" class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-folder-select="${escapeHtml(folder.id)}"><i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0 text-outline"></i><span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(folder.name)}</span><span class="folder-count text-xs opacity-60 text-outline">${count}</span></button>${actions}</div>`;
+        return `<div class="folder-item ${activeCls} flex items-center gap-1" data-folder-id="${escapeHtml(folder.id)}"><button type="button" class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-folder-select="${escapeHtml(folder.id)}"><i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0 text-outline"></i><span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(folder.name)}</span><span class="folder-count text-xs opacity-60 text-outline">${folderNotesCount(folder.id)}</span></button>${actions}</div>`;
     }).join('');
+
+    // Теги
+    const tags = collectAllTags();
+    els.tagsList.style.display = tags.length ? 'flex' : 'none';
+    els.tagsSectionLabel.style.display = tags.length ? 'block' : 'none';
+    els.tagsList.innerHTML = tags.map(item => {
+        const cls = 'nav-chip' + (item.tag === state.activeTag ? ' nav-chip-active' : '');
+        return `<button type="button" class="${cls}" data-tag="${escapeHtml(item.tag)}"><span>#${escapeHtml(item.tag)}</span></button>`;
+    }).join('');
+
+    // Контексты
+    const contexts = collectAllContexts();
+    els.contextsList.style.display = contexts.length ? 'flex' : 'none';
+    els.contextsSectionLabel.style.display = contexts.length ? 'block' : 'none';
+    els.contextsList.innerHTML = contexts.map(item => {
+        const cls = 'nav-chip' + (item.context === state.activeContext ? ' nav-chip-active' : '');
+        return `<button type="button" class="${cls}" data-context="${escapeHtml(item.context)}"><i data-lucide="link" class="w-3 h-3"></i><span>${escapeHtml(item.context)}</span></button>`;
+    }).join('');
+
+    // Смарт-фильтры
+    els.filtersList.innerHTML = state.savedFilters.map(f => {
+        const isActive = f.id === state.activeFilterId;
+        const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
+        return `<div class="${cls} flex items-center gap-1">
+            <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-filter-select="${f.id}">
+                <i data-lucide="filter" class="w-4 h-4 text-outline"></i>
+                <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(f.name)}</span>
+            </button>
+            <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${f.id}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>`;
+    }).join('');
+
     updateIcons();
 }
 
 export function renderNotesSectionLabel() {
-    if (!els.notesSectionLabel) return;
-    if (state.activeTag) {
+    if (state.activeFilterId) {
+        const f = state.savedFilters.find(x => x.id === state.activeFilterId);
+        els.notesSectionLabel.textContent = 'Фильтр: ' + (f ? f.name : '...');
+    } else if (state.activeTag) {
         els.notesSectionLabel.textContent = 'Тег: #' + state.activeTag;
-        if (els.btnClearTagFilter) els.btnClearTagFilter.style.display = 'flex';
+    } else if (state.activeContext) {
+        els.notesSectionLabel.textContent = 'Контекст: [[' + state.activeContext + ']]';
     } else {
         const folder = getFolderById(state.activeFolderId);
-        els.notesSectionLabel.textContent = folder ? 'Заметки: ' + folder.name : 'Заметки';
-        if (els.btnClearTagFilter) els.btnClearTagFilter.style.display = 'none';
+        els.notesSectionLabel.textContent = folder ? folder.name : 'Заметки';
     }
-}
-
-export function renderNotes() {
-    const filtered = state.activeTag 
-        ? state.notes.filter(n => n.tags && n.tags.includes(state.activeTag)).sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            return b.updatedAt - a.updatedAt;
-        })
-        : notesInFolder(state.activeFolderId);
-
-    if (filtered.length === 0) {
-        els.notesList.innerHTML = ''; els.notesList.style.display = 'none'; els.notesEmpty.style.display = 'flex';
-        els.notesEmpty.innerHTML = state.activeTag 
-            ? `<i data-lucide="search-x" class="w-12 h-12 text-outline opacity-20 mb-3"></i><div class="text-sm text-outline font-medium">Нет заметок с тегом #${escapeHtml(state.activeTag)}.</div>` 
-            : `<i data-lucide="book-open" class="w-12 h-12 text-outline opacity-20 mb-3"></i><div class="text-sm text-outline font-medium">Здесь пока тихо...</div><button class="mt-3 text-primary text-sm font-bold hover:underline" onclick="document.getElementById('btn-new-note').click()">Создать первую заметку</button>`;
-        updateIcons();
-        return;
-    }
-    els.notesEmpty.style.display = 'none'; els.notesList.style.display = 'flex';
-    
-    els.notesList.innerHTML = filtered.map(note => {
-        const isActive = note.id === state.activeId && state.viewMode === 'editor';
-        const activeCls = isActive ? 'bg-black/5 text-primary font-semibold' : 'text-outline hover:bg-black/5';
-        const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3 h-3 text-primary fill-primary shrink-0"></i>` : '';
-        
-        return `
-        <div class="note-item-wrapper group">
-            <div class="note-actions-swipe">
-                <button type="button" class="swipe-btn swipe-btn-move" data-swipe-action="move" data-id="${note.id}"><i data-lucide="folder-input" class="w-5 h-5"></i></button>
-                <button type="button" class="swipe-btn swipe-btn-delete" data-swipe-action="delete" data-id="${note.id}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-            </div>
-            <button type="button" class="note-item w-full text-left p-3 min-h-[48px] rounded-lg transition-colors ${activeCls} flex items-center gap-2" data-note-id="${escapeHtml(note.id)}">
-                ${pinHtml}
-                <div class="flex-1 min-w-0 pointer-events-none">
-                    <div class="font-medium truncate text-sm">${escapeHtml(noteTitle(note))}</div>
-                    <div class="text-xs truncate opacity-80 mt-0.5">${escapeHtml(notePreview(note))}</div>
-                    <div class="text-[10px] opacity-60 mt-1">${relativeTime(note.updatedAt)}</div>
-                </div>
-                <div class="action-dots p-2 rounded-full hover:bg-black/10 shrink-0 text-outline" data-action-menu="${note.id}">
-                    <i data-lucide="more-vertical" class="w-4 h-4 pointer-events-none"></i>
-                </div>
-            </button>
-        </div>`;
-    }).join('');
-    updateIcons();
 }
 
 export function renderBreadcrumbs() {
-    if (!els.crumbFolderName || !els.crumbTitle) return;
     const folder = getFolderById(state.activeFolderId);
     els.crumbFolderName.textContent = folder ? folder.name : 'Входящие';
 
     if (state.viewMode === 'folder') {
-        els.crumbTitle.textContent = state.activeTag ? `#${state.activeTag}` : 'Все заметки';
+        if (state.activeFilterId) {
+            const f = state.savedFilters.find(x => x.id === state.activeFilterId);
+            els.crumbTitle.textContent = f ? f.name : 'Фильтр';
+        } else if (state.activeTag) {
+            els.crumbTitle.textContent = `#${state.activeTag}`;
+        } else if (state.activeContext) {
+            els.crumbTitle.textContent = `[[${state.activeContext}]]`;
+        } else {
+            els.crumbTitle.textContent = 'Все заметки';
+        }
         els.crumbSeparator.classList.add('hidden');
-        if (els.moveNoteContainer) els.moveNoteContainer.style.display = 'none'; 
+        els.moveNoteContainer.style.display = 'none'; 
     } 
     else if (state.viewMode === 'editor') {
         const note = getNoteById(state.activeId);
         if (note) {
             els.crumbTitle.textContent = noteTitle(note);
             els.crumbSeparator.classList.remove('hidden');
-            
-            if (els.moveNoteContainer) {
-                els.moveNoteContainer.style.display = 'block';
-                if (els.folderMoveSelect) {
-                    els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-                    els.folderMoveSelect.value = note.folderId;
-                }
-            }
+            els.moveNoteContainer.style.display = 'block';
+            els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+            els.folderMoveSelect.value = note.folderId;
         }
     }
 }
 
 export function renderFolderView() {
-    if (!els.viewFolder) return;
+    let notes = [];
 
-    let notes;
-    if (state.activeTag) {
-        notes = state.notes
-            .filter(n => n.tags && n.tags.includes(state.activeTag))
-            .sort((a, b) => {
-                if (a.isPinned && !b.isPinned) return -1;
-                if (!a.isPinned && b.isPinned) return 1;
-                return b.updatedAt - a.updatedAt;
+    if (state.activeFilterId) {
+        const f = state.savedFilters.find(x => x.id === state.activeFilterId);
+        if (f && f.rules) {
+            notes = state.notes.filter(n => {
+                let match = true;
+                for (const rule of f.rules) {
+                    let cond = false;
+                    if (rule.type === 'folder') cond = (n.folderId === rule.value);
+                    else if (rule.type === 'tag') cond = (n.tags || []).includes(rule.value);
+                    else if (rule.type === 'context') {
+                        const contexts = (n.content.match(/\[\[([^\]\n]+)\]\]/g) || []).map(m => m.slice(2, -2).trim());
+                        cond = contexts.includes(rule.value);
+                    }
+                    if (rule.logic === 'exclude') cond = !cond;
+                    
+                    if (!cond) match = false; // AND logic
+                }
+                return match;
             });
+        }
+    } else if (state.activeTag) {
+        notes = state.notes.filter(n => n.tags && n.tags.includes(state.activeTag));
+    } else if (state.activeContext) {
+        notes = state.notes.filter(n => {
+            const contexts = (n.content.match(/\[\[([^\]\n]+)\]\]/g) || []).map(m => m.slice(2, -2).trim());
+            return contexts.includes(state.activeContext);
+        });
     } else {
         notes = notesInFolder(state.activeFolderId);
     }
 
+    notes.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return b.updatedAt - a.updatedAt;
+    });
+
     if (notes.length === 0) {
-        const emptyMsg = state.activeTag
-            ? `Нет заметок с тегом #${escapeHtml(state.activeTag)}.`
-            : 'В этой папке пока тихо... Создайте что-нибудь!';
         els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
-            <i data-lucide="${state.activeTag ? 'search-x' : 'folder-open'}" class="w-16 h-16 opacity-20 mb-4"></i>
-            <div class="italic">${emptyMsg}</div>
+            <i data-lucide="search-x" class="w-16 h-16 opacity-20 mb-4"></i>
+            <div class="italic">Ничего не найдено по этому запросу.</div>
         </div>`;
         updateIcons();
         return;
@@ -159,8 +157,7 @@ export function renderFolderView() {
                 <div class="note-card-preview">${escapeHtml(notePreview(note))}</div>
                 <div class="note-card-meta">
                     <span class="text-[10px] text-outline mr-auto">${relativeTime(note.updatedAt)}</span>
-                    ${tagsHtml}
-                    ${contextHtml}
+                    ${tagsHtml}${contextHtml}
                 </div>
                 <button class="note-card-actions action-dots p-1.5 rounded-full hover:bg-black/10 bg-[var(--md-surface)] text-outline shadow-sm" data-action-menu="${note.id}">
                     <i data-lucide="more-vertical" class="w-4 h-4 pointer-events-none"></i>
@@ -173,11 +170,7 @@ export function renderFolderView() {
 
 export function renderEditor() {
     const note = getNoteById(state.activeId);
-    if (!note) {
-        els.titleInput.value = ''; els.contentInput.value = '';
-        els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
-        return;
-    }
+    if (!note) return;
     els.titleInput.value = note.title; els.contentInput.value = note.content;
     els.titleInput.style.height = 'auto'; els.titleInput.style.height = els.titleInput.scrollHeight + 'px';
     
@@ -191,15 +184,11 @@ export function renderEditor() {
         els.contentInput.style.height = 'auto';
         els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
     }
-    updatePreviewButton(); renderChipPalette(); updateAIPanel();
+    updatePreviewButton(); renderChipPalette();
 }
 
 export function renderAll() {
-    renderFolders(); 
-    renderNotesSectionLabel(); 
-    renderTags(); 
-    renderNotes(); 
-    renderSaveStatus();
+    renderSidebar(); 
     renderBreadcrumbs();
 
     if (state.viewMode === 'editor') {
@@ -220,117 +209,61 @@ export function renderAll() {
         els.fabNewNote.style.display = (state.viewMode === 'editor' && state.editorMode === 'edit') ? 'none' : 'flex';
     }
     if (els.formatToolbar) {
-        if (state.viewMode === 'editor' && state.editorMode === 'edit') {
-            els.formatToolbar.classList.add('active');
-        } else {
-            els.formatToolbar.classList.remove('active');
-        }
-    }
-}
-
-export function updateActiveNoteInList() {
-    if (!state.activeId) return;
-    const note = getNoteById(state.activeId);
-    if (!note) return;
-    const btn = els.notesList.querySelector(`[data-note-id="${state.activeId}"]`);
-    if (!btn || btn.children.length < 3) return;
-    const innerDivs = btn.children[1].children; // Учитывая wrapper пин-иконки и структуры
-    if (innerDivs.length >= 3) {
-        innerDivs[0].textContent = noteTitle(note);
-        innerDivs[1].textContent = notePreview(note);
-        innerDivs[2].textContent = relativeTime(note.updatedAt);
+        if (state.viewMode === 'editor' && state.editorMode === 'edit') els.formatToolbar.classList.add('active');
+        else els.formatToolbar.classList.remove('active');
     }
 }
 
 export function updatePreviewButton() {
-    if (!els.btnPreview) return;
-    const hasNote = !!getNoteById(state.activeId);
-    els.btnPreview.disabled = !hasNote;
-    els.btnPreview.style.opacity = hasNote ? '1' : '0.4';
+    const note = getNoteById(state.activeId);
+    if (!note) return;
     const isPreview = state.editorMode === 'preview';
-    // V1.6.0: Read-first логика иконки
     els.btnPreview.innerHTML = isPreview ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>' : '<i data-lucide="eye" class="w-5 h-5 text-outline"></i>';
     updateIcons();
 }
 
 export function renderSaveStatus() {
-    const map = {
-        idle: { text: 'Готово', color: 'var(--md-outline)' },
-        saving: { text: 'Сохранение...', color: 'var(--md-primary)' },
-        saved: { text: 'Сохранено', color: 'var(--md-outline)' },
-        error: { text: 'Ошибка', color: '#B3261E' }
-    };
+    const map = { idle: { text: 'Готово' }, saving: { text: 'Сохранение...' }, saved: { text: 'Сохранено' }, error: { text: 'Ошибка', color: '#B3261E' } };
     const s = map[state.saveStatus] || map.idle;
-    els.statusText.innerText = s.text; els.statusText.style.color = s.color;
+    els.statusText.innerText = s.text; if (s.color) els.statusText.style.color = s.color;
 }
 
 export function renderChipPalette() {
-    if (!els.chipPalette) return;
-    if (!state.activeId || state.editorMode === 'preview' || state.viewMode !== 'editor') { els.chipPalette.style.display = 'none'; return; }
+    if (!state.activeId || state.editorMode === 'preview') { els.chipPalette.style.display = 'none'; return; }
     els.chipPalette.style.display = 'flex';
     els.chipPalette.innerHTML = (window.PROMPTS || []).map(p => `<button type="button" class="prompt-chip-palette-btn" data-prompt-insert="${escapeHtml(p.name)}"><i data-lucide="${escapeHtml(p.icon)}" class="w-3.5 h-3.5"></i><span>${escapeHtml(p.name)}</span></button>`).join('');
     updateIcons();
 }
 
-export function updateAIPanel() {
-    if (!els.aiPanel) return;
-    const prompt = getPromptById(state.activePrompt);
-    const rawName = state.activePromptRawName;
-    const hasActive = !!prompt || !!rawName;
-
-    if (hasActive) {
-        els.aiPanelEmpty.style.display = 'none'; els.aiPanelActive.style.display = 'flex';
-        els.aiPromptTitle.textContent = prompt ? prompt.name : (rawName || 'Неизвестный промпт');
-        els.aiPromptDescription.textContent = prompt ? prompt.description : 'Такого промпта нет в библиотеке';
-    } else {
-        els.aiPanelEmpty.style.display = 'flex'; els.aiPanelActive.style.display = 'none';
-    }
-    const isMobile = window.innerWidth < 1024;
-    if (isMobile && state.aiPanelOpen && hasActive) {
-        els.aiPanel.classList.add('mobile-active'); els.aiBackdrop.classList.remove('hidden');
-    } else {
-        els.aiPanel.classList.remove('mobile-active'); els.aiBackdrop.classList.add('hidden');
-    }
-    updateIcons();
-}
-
 export function renderMarkdown(text) {
     if (!text || !text.trim()) { els.preview.innerHTML = ''; return; }
-    if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') {
-        els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>'; renderHighlightsInPreview(); return;
-    }
+    if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') return;
     try {
         const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(text, { gfm: true, breaks: true }));
         els.preview.innerHTML = cleanHtml;
-        els.preview.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); });
+        els.preview.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });
         renderHighlightsInPreview();
-    } catch (e) {
-        els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>'; renderHighlightsInPreview();
-    }
+    } catch (e) {}
 }
 
 export function renderHighlightsInPreview() {
-    if (!els.preview) return;
     const regex = /(\[!prompt:([^\]\n]+)\])|(\[\[([^\]\n]+)\]\])|(^|[^\p{L}\p{N}_])(#[\p{L}\p{N}_]+)/giu;
     const walker = document.createTreeWalker(els.preview, NodeFilter.SHOW_TEXT, {
         acceptNode: (node) => {
-            if (node.parentElement && node.parentElement.closest('code, pre, a, button')) return NodeFilter.FILTER_REJECT;
-            regex.lastIndex = 0;
-            return regex.test(node.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            if (node.parentElement.closest('code, pre, a, button')) return NodeFilter.FILTER_REJECT;
+            regex.lastIndex = 0; return regex.test(node.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         }
     });
     const textNodes = []; let n; while ((n = walker.nextNode())) textNodes.push(n);
-
     textNodes.forEach(textNode => {
         const text = textNode.nodeValue || ''; const frag = document.createDocumentFragment();
         let lastIdx = 0, match; regex.lastIndex = 0;
         while ((match = regex.exec(text)) !== null) {
             if (match.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
             if (match[1]) {
-                const rawName = match[2].trim(), prompt = getPromptByName(rawName);
-                const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'prompt-chip'; chip.setAttribute('data-prompt-name', rawName);
-                if (prompt) { chip.setAttribute('data-prompt-id', prompt.id); const iconEl = document.createElement('i'); iconEl.setAttribute('data-lucide', prompt.icon); iconEl.className = 'w-3.5 h-3.5'; chip.appendChild(iconEl); }
-                const label = document.createElement('span'); label.textContent = rawName; chip.appendChild(label); frag.appendChild(chip);
+                const rawName = match[2].trim();
+                const chip = document.createElement('button'); chip.className = 'prompt-chip'; chip.setAttribute('data-prompt-name', rawName); chip.textContent = rawName;
+                frag.appendChild(chip);
             } else if (match[3]) {
                 const title = match[4].trim(), existingNote = findNoteByTitle(title);
                 const wikiBtn = document.createElement('button'); wikiBtn.type = 'button';
@@ -339,8 +272,7 @@ export function renderHighlightsInPreview() {
                 wikiBtn.textContent = title; frag.appendChild(wikiBtn);
             } else if (match[6]) {
                 if (match[5]) frag.appendChild(document.createTextNode(match[5]));
-                const tag = match[6].slice(1);
-                const tagBtn = document.createElement('button'); tagBtn.type = 'button'; tagBtn.className = 'tag-highlight'; tagBtn.setAttribute('data-tag', tag); tagBtn.textContent = '#' + tag;
+                const tagBtn = document.createElement('button'); tagBtn.className = 'tag-highlight'; tagBtn.setAttribute('data-tag', match[6].slice(1)); tagBtn.textContent = match[6];
                 frag.appendChild(tagBtn);
             }
             lastIdx = match.index + match[0].length;
@@ -351,39 +283,50 @@ export function renderHighlightsInPreview() {
     updateIcons();
 }
 
+// --- UI HELPERS ---
+
 export function renderActionSheetFolders() {
-    if (!els.sheetFoldersList) return;
     els.sheetFoldersList.innerHTML = sortedFolders().map(f => `
         <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-sheet-move-to="${f.id}">
             <i data-lucide="${f.id === 'inbox' ? 'inbox' : 'folder'}" class="w-5 h-5 text-primary"></i>
             <span class="flex-1 font-medium">${escapeHtml(f.name)}</span>
-            <span class="text-xs text-outline">${folderNotesCount(f.id)}</span>
         </button>
     `).join('');
     updateIcons();
 }
 
 export function renderSearchResults(query) {
-    if (!els.searchResults) return;
-    if (!query.trim()) {
-        els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Введите запрос для поиска...</div>`;
-        return;
-    }
+    if (!query.trim()) { els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Введите запрос...</div>`; return; }
     const q = query.toLowerCase();
-    const results = state.notes.filter(n => 
-        n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)
-    ).slice(0, 20);
-    
-    if (results.length === 0) {
-        els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Ничего не найдено по запросу «${escapeHtml(query)}»</div>`;
-        return;
-    }
-    
+    const results = state.notes.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)).slice(0, 20);
+    if (results.length === 0) { els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Ничего не найдено.</div>`; return; }
     els.searchResults.innerHTML = results.map(n => `
         <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
             <div class="font-bold text-base">${escapeHtml(noteTitle(n))}</div>
             <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(notePreview(n))}</div>
-            <div class="text-xs text-primary mt-1 opacity-80">${escapeHtml(getFolderById(n.folderId)?.name || 'Входящие')}</div>
         </button>
     `).join('');
+}
+
+export function renderFilterRuleRow(index, rule) {
+    const folders = sortedFolders().map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+    const tags = collectAllTags().map(t => `<option value="${t.tag}">#${t.tag}</option>`).join('');
+    const contexts = collectAllContexts().map(c => `<option value="${c.context}">${c.context}</option>`).join('');
+    
+    return `
+    <div class="filter-rule-row" data-rule-index="${index}">
+        <select class="rule-logic bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none" style="width: 100px;">
+            <option value="include" ${rule.logic === 'include' ? 'selected' : ''}>Включая</option>
+            <option value="exclude" ${rule.logic === 'exclude' ? 'selected' : ''}>Исключая</option>
+        </select>
+        <select class="rule-type bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none" style="width: 110px;">
+            <option value="folder" ${rule.type === 'folder' ? 'selected' : ''}>Папку</option>
+            <option value="tag" ${rule.type === 'tag' ? 'selected' : ''}>Тег</option>
+            <option value="context" ${rule.type === 'context' ? 'selected' : ''}>Контекст</option>
+        </select>
+        <select class="rule-value flex-1 bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none">
+            ${rule.type === 'folder' ? folders : rule.type === 'tag' ? tags : contexts}
+        </select>
+        <button class="btn-remove-rule p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>`;
 }

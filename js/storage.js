@@ -1,10 +1,9 @@
-import { state, STORAGE_KEY, FOLDERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY } from './state.js';
+import { state, STORAGE_KEY, FOLDERS_KEY, FILTERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY } from './state.js';
 import { genId, isValidNote, syncNoteTags, makeDefaultFolder } from './utils.js';
 
 export function loadNotes() {
     let raw = null;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return []; }
-
     if (raw !== null) {
         try {
             const parsed = JSON.parse(raw);
@@ -13,7 +12,7 @@ export function loadNotes() {
                     const note = { 
                         id: n.id, title: n.title, content: n.content, updatedAt: n.updatedAt, 
                         tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox',
-                        isPinned: !!n.isPinned // V1.6.0 Миграция
+                        isPinned: !!n.isPinned
                     };
                     syncNoteTags(note);
                     return note;
@@ -22,13 +21,11 @@ export function loadNotes() {
         } catch (e) { console.warn('Повреждён ' + STORAGE_KEY); }
         return [];
     }
-
     let legacyTitle = '', legacyContent = '';
     try {
         legacyTitle = localStorage.getItem(LEGACY_TITLE_KEY) || '';
         legacyContent = localStorage.getItem(LEGACY_CONTENT_KEY) || '';
     } catch (e) { return []; }
-
     if (legacyTitle || legacyContent) {
         const note = { id: genId(), title: legacyTitle || 'Без названия', content: legacyContent, updatedAt: Date.now(), tags: [], folderId: 'inbox', isPinned: false };
         syncNoteTags(note);
@@ -38,20 +35,13 @@ export function loadNotes() {
 }
 
 export function persistNotes() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes));
-        return true;
-    } catch (e) {
-        console.error('persistNotes failed:', e);
-        state.saveStatus = 'error';
-        return false;
-    }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes)); return true; } 
+    catch (e) { console.error(e); state.saveStatus = 'error'; return false; }
 }
 
 export function loadFolders() {
     let raw = null;
     try { raw = localStorage.getItem(FOLDERS_KEY); } catch (e) { return [makeDefaultFolder()]; }
-
     if (raw !== null) {
         try {
             const parsed = JSON.parse(raw);
@@ -67,10 +57,20 @@ export function loadFolders() {
 }
 
 export function persistFolders() {
+    try { localStorage.setItem(FOLDERS_KEY, JSON.stringify(state.folders)); return true; } 
+    catch (e) { return false; }
+}
+
+export function loadFilters() {
     try {
-        localStorage.setItem(FOLDERS_KEY, JSON.stringify(state.folders));
-        return true;
-    } catch (e) { console.error('persistFolders failed:', e); return false; }
+        const raw = localStorage.getItem(FILTERS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+}
+
+export function persistFilters() {
+    try { localStorage.setItem(FILTERS_KEY, JSON.stringify(state.savedFilters)); return true; } 
+    catch (e) { return false; }
 }
 
 export function validateFolderRefs() {

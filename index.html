@@ -36,11 +36,10 @@
         textarea#note-title { resize: none; overflow: hidden; line-height: 1.2; font-weight: bold; font-size: 2rem; margin-bottom: 1rem; }
 
         /* Markdown */
-        .markdown-body { line-height: 1.7; font-size: 1rem; cursor: text; min-height: 200px; }
+        .markdown-body { line-height: 1.7; font-size: 1rem; cursor: default; min-height: 200px; }
         .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5em 0 0.5em; }
         .markdown-body h2 { font-size: 1.4rem; font-weight: 700; margin: 1.3em 0 0.5em; }
         .markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1.1em 0 0.4em; }
-        .markdown-body h1:first-child, .markdown-body h2:first-child, .markdown-body h3:first-child { margin-top: 0; }
         .markdown-body p { margin: 0.75em 0; }
         .markdown-body ul, .markdown-body ol { padding-left: 1.5em; margin: 0.75em 0; }
         .markdown-body ul { list-style: disc; } .markdown-body ol { list-style: decimal; }
@@ -57,7 +56,6 @@
         /* Chips & Highlights */
         .prompt-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.15em 0.6em; font-size: 0.9em; line-height: 1.4; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.15s; vertical-align: middle; }
         .prompt-chip:hover { opacity: 0.8; }
-        .prompt-chip-palette-btn { display: inline-flex; align-items: center; gap: 0.35em; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.4em 0.85em; font-size: 0.85em; cursor: pointer; border: none; font-family: inherit; min-height: 32px; }
         .tag-highlight { display: inline-flex; align-items: center; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.1em 0.5em; font-size: 0.9em; cursor: pointer; border: none; margin: 0 0.1em; }
         .wiki-link { color: var(--md-primary); text-decoration: underline; text-decoration-style: dotted; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; font-size: inherit; text-align: left; }
         .wiki-link:hover { text-decoration-style: solid; }
@@ -67,23 +65,19 @@
         #ai-panel { display: none; flex-direction: column; }
         @media (min-width: 1024px) { #ai-panel { display: flex; } }
         @media (max-width: 1023px) { #ai-panel.mobile-active { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; max-width: 100%; border-left: none; } }
-        @media (max-width: 767px) { #left-panel.mobile-active { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; width: 280px; max-width: 85vw; box-shadow: 4px 0 24px rgba(0,0,0,0.2); } }
+        @media (max-width: 767px) { #left-panel.mobile-active { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; width: 300px; max-width: 85vw; box-shadow: 4px 0 24px rgba(0,0,0,0.2); } }
 
         /* Папки и Теги */
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
         .folder-item:hover { background: rgba(0,0,0,0.03); }
         .folder-item-active { background: rgba(0,0,0,0.05); }
         .folder-item-active .folder-name { font-weight: 600; color: var(--md-primary); }
-        .folder-item-active .folder-select-btn > i { color: var(--md-primary); }
-        .folder-action-btn { display: none; }
-        .folder-item-active .folder-action-btn { display: inline-flex; }
+        
+        .nav-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface); color: var(--md-outline); border-radius: 999px; padding: 0.35em 0.7em; font-size: 0.8em; min-height: 32px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
+        .nav-chip:hover { border-color: var(--md-outline); }
+        .nav-chip.nav-chip-active { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
 
-        .tag-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface); color: var(--md-outline); border-radius: 999px; padding: 0.35em 0.7em; font-size: 0.8em; min-height: 32px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
-        .tag-chip:hover { border-color: var(--md-outline); }
-        .tag-chip.tag-chip-active { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
-        .tag-chip-count { font-size: 0.75em; opacity: 0.7; }
-
-        /* Карточки заметок (Папка) */
+        /* Карточки заметок */
         .note-card { background: var(--md-surface-variant); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 1px solid transparent; display: flex; flex-direction: column; gap: 8px; position: relative; }
         .note-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: var(--md-outline); }
         .note-card-title { font-weight: 700; font-size: 1.1rem; padding-right: 32px; }
@@ -93,14 +87,6 @@
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        /* Свайпы в списке */
-        .note-item-wrapper { position: relative; overflow: hidden; border-radius: 8px; }
-        .note-item { position: relative; z-index: 10; background: var(--md-surface); transition: transform 0.2s ease-out; }
-        .note-actions-swipe { position: absolute; right: 0; top: 0; bottom: 0; display: flex; z-index: 1; }
-        .swipe-btn { padding: 0 16px; display: flex; align-items: center; justify-content: center; color: white; border: none; height: 100%; }
-        .swipe-btn-delete { background: #B3261E; }
-        .swipe-btn-move { background: var(--md-primary); }
-
         /* Bottom Sheet & Modals */
         .bottom-sheet { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(100%); }
         .bottom-sheet.open { transform: translateY(0); }
@@ -109,8 +95,8 @@
         #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; }
         #format-toolbar.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
-        /* Pin icon */
-        .pin-icon { position: absolute; top: 12px; right: 12px; color: var(--md-primary); transform: rotate(45deg); }
+        /* Filter Modal */
+        .filter-rule-row { display: flex; gap: 8px; align-items: center; background: var(--md-surface-variant); padding: 8px; border-radius: 12px; margin-bottom: 8px; }
     </style>
     <link rel="manifest" href="manifest.json">
 </head>
@@ -119,37 +105,40 @@
     <div id="left-panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
     <div id="action-sheet-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="search-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+    <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
 
-    <aside id="left-panel" class="w-64 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]">
-        <div class="p-4 flex justify-between items-center">
+    <!-- ОБНОВЛЕННАЯ ЛЕВАЯ ПАНЕЛЬ -->
+    <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col hidden md:flex bg-[var(--md-surface-variant)]">
+        <div class="p-4 flex justify-between items-center shrink-0">
             <span class="font-bold text-lg text-primary">MAi</span>
-            <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" onclick="alert('Настройки в разработке')"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
+            <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
         </div>
-        <div class="px-4 pb-4 flex-1 flex flex-col min-h-0">
-            <button id="btn-new-note" type="button" class="w-full flex items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity">
+        <div class="px-4 pb-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
+            <button id="btn-new-note" type="button" class="w-full flex items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
             </button>
-            <div class="flex items-center justify-between px-1 mb-1">
+            
+            <div class="flex items-center justify-between px-1 mb-1 mt-2">
                 <div class="text-xs font-bold text-outline uppercase tracking-wider">Папки</div>
                 <button id="btn-new-folder" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="folder-plus" class="w-4 h-4 text-outline"></i></button>
             </div>
-            <div id="folders-list" class="flex flex-col gap-0.5 mb-3 max-h-[220px] overflow-y-auto"></div>
+            <div id="folders-list" class="flex flex-col gap-0.5 mb-4"></div>
+
             <div id="tags-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Теги</div>
-            <div id="tags-list" class="flex flex-wrap gap-1 mb-3 max-h-[120px] overflow-y-auto" style="display:none;"></div>
-            <div class="flex items-center justify-between mb-2 px-1 gap-1">
-                <div id="notes-section-label" class="text-xs font-bold text-outline uppercase tracking-wider truncate">Заметки: Входящие</div>
-                <button id="btn-clear-tag-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 flex-shrink-0" style="display:none;"><i data-lucide="x" class="w-4 h-4 text-outline"></i></button>
+            <div id="tags-list" class="flex flex-wrap gap-1 mb-4" style="display:none;"></div>
+
+            <div id="contexts-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Контексты</div>
+            <div id="contexts-list" class="flex flex-wrap gap-1 mb-4" style="display:none;"></div>
+
+            <div class="flex items-center justify-between px-1 mb-1 mt-2">
+                <div class="text-xs font-bold text-outline uppercase tracking-wider">Смарт-фильтры</div>
+                <button id="btn-new-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="filter" class="w-4 h-4 text-outline"></i></button>
             </div>
-            <div id="notes-list" class="flex-1 flex flex-col gap-1 overflow-y-auto min-h-0 relative" style="display:none;"></div>
-            <div id="notes-empty" class="flex-1 flex flex-col items-center justify-center text-center px-4">
-                <i data-lucide="book-open" class="w-12 h-12 text-outline opacity-20 mb-3"></i>
-                <div class="text-sm text-outline font-medium">Здесь пока тихо...</div>
-                <button class="mt-3 text-primary text-sm font-bold hover:underline" onclick="document.getElementById('btn-new-note').click()">Создать первую заметку</button>
-            </div>
+            <div id="filters-list" class="flex flex-col gap-1 mb-4"></div>
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col min-w-0 bg-surface relative">
+    <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-surface relative">
         <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-2 justify-between shrink-0">
             <div class="flex items-center gap-1">
                 <button id="btn-menu" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
@@ -160,10 +149,10 @@
                 <span id="save-status" class="text-xs text-outline italic mr-2 hidden md:inline">Готово</span>
                 
                 <div class="relative" id="move-note-container" style="display:none;">
-                    <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить в папку">
+                    <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить">
                         <i data-lucide="folder-input" class="w-5 h-5 text-outline"></i>
                     </button>
-                    <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" title="Переместить заметку"></select>
+                    <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></select>
                 </div>
 
                 <button id="btn-preview" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i></button>
@@ -187,52 +176,18 @@
             <div id="view-editor" class="pb-24">
                 <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
                 <textarea id="note-title" rows="1" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6"></textarea>
-                <textarea id="note-content" placeholder="Начните печатать свою мысль здесь..."></textarea>
+                <textarea id="note-content" placeholder="Текст заметки..."></textarea>
                 <div id="note-preview" class="markdown-body hidden"></div>
             </div>
 
             <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-24"></div>
         </div>
 
-        <!-- FAB Mobile -->
         <button id="fab-new-note" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center z-40 active:scale-95 transition-transform">
             <i data-lucide="plus" class="w-6 h-6"></i>
         </button>
 
-        <!-- Bottom Sheet Actions -->
-        <div id="action-sheet" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]">
-            <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
-            
-            <div id="action-sheet-main" class="flex flex-col p-2 pb-6">
-                <div class="px-4 py-2 font-bold text-lg truncate border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
-                <button class="action-btn flex items-center gap-4 p-4 text-base hover:bg-black/5 rounded-xl" data-action="pin"><i data-lucide="pin" class="w-5 h-5 text-outline"></i><span id="pin-label">Закрепить</span></button>
-                <button class="action-btn flex items-center gap-4 p-4 text-base hover:bg-black/5 rounded-xl" data-action="rename"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i> Переименовать</button>
-                <button class="action-btn flex items-center gap-4 p-4 text-base hover:bg-black/5 rounded-xl" data-action="move"><i data-lucide="folder-input" class="w-5 h-5 text-outline"></i> Переместить</button>
-                <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-4"></div>
-                <button class="action-btn flex items-center gap-4 p-4 text-base hover:bg-red-500/10 text-red-600 rounded-xl" data-action="delete"><i data-lucide="trash-2" class="w-5 h-5"></i> Удалить</button>
-            </div>
-
-            <div id="action-sheet-move" class="hidden flex-col p-2 pb-6 h-full overflow-hidden">
-                <div class="flex items-center gap-2 px-2 py-2 border-b border-[var(--md-outline)]/20 mb-2 shrink-0">
-                    <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" id="btn-sheet-back"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                    <div class="font-bold text-lg">Переместить в...</div>
-                </div>
-                <div id="sheet-folders-list" class="overflow-y-auto flex flex-col gap-1 px-2 pb-4"></div>
-            </div>
-        </div>
-
-        <!-- Search Modal -->
-        <div id="search-modal" class="hidden fixed inset-0 z-[70] bg-[var(--md-surface)] flex flex-col">
-            <div class="flex items-center gap-2 p-4 border-b border-[var(--md-outline)]">
-                <button id="btn-close-search" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                <input type="text" id="search-input" placeholder="Поиск по заметкам..." class="flex-1 text-lg bg-transparent outline-none">
-                <button id="btn-clear-search" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 hidden"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-            <div id="search-results" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2"></div>
-        </div>
-
-        <!-- Format Toolbar -->
-        <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-40 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-40 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold" data-format="bold">B</button>
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif" data-format="italic">I</button>
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="h2"><i data-lucide="heading-2" class="w-5 h-5"></i></button>
@@ -246,14 +201,66 @@
             <div class="font-bold text-sm text-outline uppercase flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini</div>
             <button id="btn-ai-close" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="x" class="w-5 h-5 text-outline"></i></button>
         </div>
-        <div id="ai-panel-empty" class="flex-1 p-4 text-sm text-outline italic flex items-center justify-center text-center">Нажмите на чип в тексте, чтобы запустить ассистента.</div>
+        <div id="ai-panel-empty" class="flex-1 p-4 text-sm text-outline italic flex items-center justify-center text-center">Выберите чип в тексте, чтобы запустить.</div>
         <div id="ai-panel-active" class="flex-1 flex-col p-4 gap-3 overflow-y-auto" style="display:none;">
             <div id="ai-prompt-title" class="font-bold text-primary text-lg"></div>
             <div id="ai-prompt-description" class="text-sm text-outline"></div>
-            <div class="mt-2 pt-3 border-t border-[var(--md-outline)] text-xs italic text-outline">⚡ Ответ ассистента появится в V1.6 — после подключения GAS-прокси к Gemini.</div>
         </div>
     </aside>
     <div id="ai-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+
+    <!-- ACTION SHEET (MENU) -->
+    <div id="action-sheet" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
+        <div id="action-sheet-main" class="flex flex-col p-2 pb-6">
+            <div class="px-4 py-2 font-bold text-lg truncate border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="pin"><i data-lucide="pin" class="w-5 h-5 text-outline"></i><span id="pin-label">Закрепить</span></button>
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="rename"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i> Переименовать</button>
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="move"><i data-lucide="folder-input" class="w-5 h-5 text-outline"></i> Переместить</button>
+            <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-4"></div>
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-red-500/10 text-red-600 rounded-xl" data-action="delete"><i data-lucide="trash-2" class="w-5 h-5"></i> Удалить</button>
+        </div>
+        <div id="action-sheet-move" class="hidden flex-col p-2 pb-6 h-full overflow-hidden">
+            <div class="flex items-center gap-2 px-2 py-2 border-b border-[var(--md-outline)]/20 mb-2 shrink-0">
+                <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" id="btn-sheet-back"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                <div class="font-bold text-lg">Переместить в...</div>
+            </div>
+            <div id="sheet-folders-list" class="overflow-y-auto flex flex-col gap-1 px-2 pb-4"></div>
+        </div>
+    </div>
+
+    <!-- SMART FILTER CREATION MODAL -->
+    <div id="filter-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90vh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
+        <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center">
+            <div class="font-bold text-lg">Создать Смарт-фильтр</div>
+            <button id="btn-close-filter" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="p-4 overflow-y-auto">
+            <label class="text-xs font-bold text-outline uppercase mb-1 block">Название фильтра</label>
+            <input type="text" id="filter-name-input" placeholder="Например: Работа с #проект" class="bg-[var(--md-surface-variant)] p-3 rounded-xl mb-4">
+            
+            <label class="text-xs font-bold text-outline uppercase mb-1 block">Условия поиска</label>
+            <div id="filter-rules-container" class="flex flex-col gap-2 mb-4">
+                <!-- Rows will be injected here -->
+            </div>
+            <button id="btn-add-filter-rule" class="w-full flex items-center justify-center gap-2 p-3 border border-dashed border-[var(--md-primary)] text-[var(--md-primary)] rounded-xl font-medium hover:bg-[var(--md-primary)]/5 transition-colors">
+                <i data-lucide="plus" class="w-4 h-4"></i> Добавить условие
+            </button>
+        </div>
+        <div class="p-4 border-t border-[var(--md-outline)]">
+            <button id="btn-save-filter" class="w-full bg-primary text-white p-3 rounded-xl font-medium shadow-md">Сохранить фильтр</button>
+        </div>
+    </div>
+
+    <!-- SEARCH MODAL -->
+    <div id="search-modal" class="hidden fixed inset-0 z-[70] bg-[var(--md-surface)] flex flex-col">
+        <div class="flex items-center gap-2 p-4 border-b border-[var(--md-outline)]">
+            <button id="btn-close-search" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+            <input type="text" id="search-input" placeholder="Поиск по заметкам..." class="flex-1 text-lg bg-transparent outline-none">
+            <button id="btn-clear-search" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 hidden"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div id="search-results" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2"></div>
+    </div>
 
     <script type="module" src="js/app.js"></script>
 </body>

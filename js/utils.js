@@ -37,7 +37,6 @@ export function isValidNote(n) {
 
 export function sortedNotes() { return state.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt); }
 
-// Обновлено: учитываем isPinned при сортировке
 export function notesInFolder(folderId) { 
     return state.notes
         .filter(n => n.folderId === folderId)
@@ -83,6 +82,17 @@ export function parseTagsFromContent(text) {
     return Array.from(set);
 }
 
+export function parseContextsFromContent(text) {
+    if (!text || typeof text !== 'string') return [];
+    const regex = /\[\[([^\]\n]+)\]\]/g;
+    const set = new Set();
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        set.add(match[1].trim());
+    }
+    return Array.from(set);
+}
+
 export function syncNoteTags(note) {
     if (!note) return;
     const titleTags = parseTagsFromContent(note.title || '');
@@ -96,6 +106,15 @@ export function collectAllTags() {
     const counts = new Map();
     state.notes.forEach(note => (note.tags || []).forEach(tag => counts.set(tag, (counts.get(tag) || 0) + 1)));
     return Array.from(counts.entries()).map(entry => ({ tag: entry[0], count: entry[1] })).sort((a, b) => a.tag.localeCompare(b.tag, 'ru'));
+}
+
+export function collectAllContexts() {
+    const counts = new Map();
+    state.notes.forEach(note => {
+        const contexts = parseContextsFromContent(note.content);
+        contexts.forEach(c => counts.set(c, (counts.get(c) || 0) + 1));
+    });
+    return Array.from(counts.entries()).map(entry => ({ context: entry[0], count: entry[1] })).sort((a, b) => a.context.localeCompare(b.context, 'ru'));
 }
 
 export function getFolderById(id) { return id ? (state.folders.find(f => f.id === id) || null) : null; }

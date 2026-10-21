@@ -1,20 +1,24 @@
 export const state = {
     notes: [],
     folders: [],
+    savedFilters: [], // NEW
     activeId: null,
     activeFolderId: 'inbox',
     activeTag: null,
+    activeContext: null, // NEW
+    activeFilterId: null, // NEW
     saveTimeout: null,
     saveStatus: 'idle',
     viewMode: 'folder', // 'folder' | 'editor'
-    editorMode: 'edit', // 'edit' | 'preview'
+    editorMode: 'preview', // 'edit' | 'preview'
     activePrompt: null,
     activePromptRawName: null,
     aiPanelOpen: false,
     leftPanelOpen: false,
     actionMenuNoteId: null,
-    actionMenuMode: 'main', // 'main' | 'move'
-    searchOpen: false
+    actionMenuMode: 'main',
+    searchOpen: false,
+    draftFilter: [] // Для создания нового фильтра
 };
 
 export const PROMPTS = [
@@ -25,20 +29,25 @@ export const PROMPTS = [
 
 export const STORAGE_KEY = 'mai_notes';
 export const FOLDERS_KEY = 'mai_folders';
+export const FILTERS_KEY = 'mai_filters'; // NEW
 export const LEGACY_TITLE_KEY = 'mai_title';
 export const LEGACY_CONTENT_KEY = 'mai_content';
 
 export const els = {
+    mainContent: document.getElementById('main-content'),
     leftPanel: document.getElementById('left-panel'),
     leftPanelBackdrop: document.getElementById('left-panel-backdrop'),
     btnMenu: document.getElementById('btn-menu'),
-    notesList: document.getElementById('notes-list'),
-    notesEmpty: document.getElementById('notes-empty'),
-    notesSectionLabel: document.getElementById('notes-section-label'),
-    btnClearTagFilter: document.getElementById('btn-clear-tag-filter'),
+    
+    // Sidebar
     foldersList: document.getElementById('folders-list'),
     tagsList: document.getElementById('tags-list'),
     tagsSectionLabel: document.getElementById('tags-section-label'),
+    contextsList: document.getElementById('contexts-list'),
+    contextsSectionLabel: document.getElementById('contexts-section-label'),
+    filtersList: document.getElementById('filters-list'),
+    btnNewFilter: document.getElementById('btn-new-filter'),
+
     btnNewNote: document.getElementById('btn-new-note'),
     btnNewFolder: document.getElementById('btn-new-folder'),
     btnDeleteNote: document.getElementById('btn-delete-note'),
@@ -71,7 +80,6 @@ export const els = {
     fabNewNote: document.getElementById('fab-new-note'),
     formatToolbar: document.getElementById('format-toolbar'),
 
-    // Action Sheet
     actionSheetBackdrop: document.getElementById('action-sheet-backdrop'),
     actionSheet: document.getElementById('action-sheet'),
     actionSheetMain: document.getElementById('action-sheet-main'),
@@ -81,7 +89,6 @@ export const els = {
     btnSheetBack: document.getElementById('btn-sheet-back'),
     pinLabel: document.getElementById('pin-label'),
 
-    // Search
     searchBackdrop: document.getElementById('search-backdrop'),
     searchModal: document.getElementById('search-modal'),
     searchInput: document.getElementById('search-input'),
@@ -89,5 +96,14 @@ export const els = {
     btnCloseSearch: document.getElementById('btn-close-search'),
     btnClearSearch: document.getElementById('btn-clear-search'),
     btnDesktopSearch: document.getElementById('btn-desktop-search'),
-    btnMobileSearch: document.getElementById('btn-mobile-search')
+    btnMobileSearch: document.getElementById('btn-mobile-search'),
+
+    // Filter Modal
+    filterBackdrop: document.getElementById('filter-backdrop'),
+    filterModal: document.getElementById('filter-modal'),
+    filterNameInput: document.getElementById('filter-name-input'),
+    filterRulesContainer: document.getElementById('filter-rules-container'),
+    btnAddFilterRule: document.getElementById('btn-add-filter-rule'),
+    btnSaveFilter: document.getElementById('btn-save-filter'),
+    btnCloseFilter: document.getElementById('btn-close-filter')
 };

@@ -1,16 +1,33 @@
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
-import { loadFolders, persistFolders, loadNotes, persistNotes, validateFolderRefs } from './storage.js';
-import { renderAll, updateAIPanel, renderSaveStatus, renderTags, updateActiveNoteInList, renderSearchResults } from './render.js';
+import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs } from './storage.js';
+import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
-    clearTagFilter, selectTag, insertChipAtCursor, openPromptPanel, closePromptPanel, moveNoteToFolder, 
-    toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
+    filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
+    insertChipAtCursor, moveNoteToFolder, toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
-    openSearch, closeSearch, handleSearchInput, insertFormatting
+    openSearch, closeSearch, handleSearchInput, insertFormatting,
+    openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter
 } from './logic.js';
 
 function attachListeners() {
+    // --- SWIPE TO OPEN SIDEBAR ---
+    let touchStartX = 0, touchStartY = 0;
+    els.mainContent.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    
+    els.mainContent.addEventListener('touchend', (e) => {
+        const deltaX = touchStartX - e.changedTouches[0].screenX;
+        const deltaY = Math.abs(touchStartY - e.changedTouches[0].screenY);
+        // Свайп вправо (открыть) если начали у левого края (< 50px) и провели больше 80px
+        if (touchStartX < 50 && deltaX < -80 && deltaY < 50 && !state.leftPanelOpen) {
+            toggleLeftPanel();
+        }
+    }, { passive: true });
+
     if (els.btnMenu) els.btnMenu.addEventListener('click', toggleLeftPanel);
     if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);
 
@@ -18,131 +35,73 @@ function attachListeners() {
     if (els.fabNewNote) els.fabNewNote.addEventListener('click', createNote);
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
     els.btnPreview.addEventListener('click', togglePreviewMode);
-    if (els.btnClearTagFilter) els.btnClearTagFilter.addEventListener('click', clearTagFilter);
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
     
     if (els.folderMoveSelect) {
-        els.folderMoveSelect.addEventListener('change', (e) => moveNoteToFolder(e.target.value));
-    }
-
-    if (els.crumbFolderBtn) {
-        els.crumbFolderBtn.addEventListener('click', () => {
-            state.viewMode = 'folder'; state.activeId = null; state.activeTag = null; renderAll();
+        els.folderMoveSelect.addEventListener('change', (e) => {
+            const note = getNoteById(state.activeId);
+            if(note) {
+                note.folderId = e.target.value; note.updatedAt = Date.now();
+                persistNotes(); renderAll();
+            }
         });
     }
 
-    // Клики по списку слева (свайпы и контекстное меню)
-    let touchStartX = 0, touchStartY = 0, currentSwipedItem = null;
-    
-    els.notesList.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-    }, { passive: true });
-
-    els.notesList.addEventListener('touchend', (e) => {
-        const touchEndX = e.changedTouches[0].screenX;
-        const touchEndY = e.changedTouches[0].screenY;
-        const deltaX = touchStartX - touchEndX;
-        const deltaY = Math.abs(touchStartY - touchEndY);
-        
-        if (deltaY > Math.abs(deltaX)) return; // Вертикальный скролл
-
-        const noteItem = e.target.closest('.note-item');
-        if (!noteItem) return;
-        
-        if (deltaX > 40) { // Свайп влево
-            if (currentSwipedItem && currentSwipedItem !== noteItem) {
-                currentSwipedItem.style.transform = 'translateX(0)';
-            }
-            noteItem.style.transform = 'translateX(-100px)';
-            currentSwipedItem = noteItem;
-        } else if (deltaX < -40) { // Свайп вправо (закрыть)
-            if (noteItem.style.transform === 'translateX(-100px)') {
-                noteItem.style.transform = 'translateX(0)';
-                currentSwipedItem = null;
-            }
-        }
-    }, { passive: true });
-
-    els.notesList.addEventListener('click', (e) => {
-        const actionBtn = e.target.closest('[data-action-menu]');
-        if (actionBtn) {
-            e.preventDefault(); e.stopPropagation();
-            openActionMenu(actionBtn.getAttribute('data-action-menu'));
-            return;
-        }
-        const swipeAct = e.target.closest('[data-swipe-action]');
-        if (swipeAct) {
-            e.preventDefault();
-            const id = swipeAct.getAttribute('data-id');
-            if (swipeAct.getAttribute('data-swipe-action') === 'delete') deleteNote(id);
-            else if (swipeAct.getAttribute('data-swipe-action') === 'move') openActionMenu(id), setActionMenuMode('move');
-            return;
-        }
-        const btn = e.target.closest('.note-item');
-        if (btn) {
-            if (btn.style.transform && btn.style.transform.includes('-100px')) {
-                btn.style.transform = 'translateX(0)';
-                currentSwipedItem = null;
-                return;
-            }
-            selectNote(btn.getAttribute('data-note-id'));
-        }
+    els.crumbFolderBtn.addEventListener('click', () => {
+        state.viewMode = 'folder'; state.activeId = null; 
+        state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
+        renderAll();
     });
 
-    els.viewFolder.addEventListener('click', (e) => {
-        const actionBtn = e.target.closest('[data-action-menu]');
-        if (actionBtn) {
-            e.preventDefault(); e.stopPropagation();
-            openActionMenu(actionBtn.getAttribute('data-action-menu'));
-            return;
-        }
-        const card = e.target.closest('.note-card');
-        if (card) selectNote(card.getAttribute('data-note-id'));
-    });
-
-    // Папки
+    // --- SIDEBAR CLICKS ---
     els.foldersList.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-folder-action]');
         if (actionBtn) {
             e.stopPropagation();
-            const folderItem = actionBtn.closest('[data-folder-id]');
-            const id = folderItem.getAttribute('data-folder-id');
-            const action = actionBtn.getAttribute('data-folder-action');
-            if (action === 'edit') renameFolder(id);
-            else if (action === 'delete') deleteFolder(id);
+            const id = actionBtn.closest('[data-folder-id]').getAttribute('data-folder-id');
+            if (actionBtn.getAttribute('data-folder-action') === 'edit') renameFolder(id);
+            else if (actionBtn.getAttribute('data-folder-action') === 'delete') deleteFolder(id);
             return;
         }
         const selectBtn = e.target.closest('[data-folder-select]');
         if (selectBtn) selectFolder(selectBtn.getAttribute('data-folder-select'));
     });
 
-    // Теги
-    if (els.tagsList) {
-        els.tagsList.addEventListener('click', (e) => {
-            const chip = e.target.closest('[data-tag]');
-            if (chip) selectTag(chip.getAttribute('data-tag'));
-        });
-    }
+    els.tagsList.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-tag]');
+        if (chip) filterByTag(chip.getAttribute('data-tag'));
+    });
 
-    // Ввод в редакторе
+    els.contextsList.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-context]');
+        if (chip) filterByContext(chip.getAttribute('data-context'));
+    });
+
+    els.filtersList.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('[data-filter-delete]');
+        if (delBtn) { e.stopPropagation(); deleteSavedFilter(delBtn.getAttribute('data-filter-delete')); return; }
+        const selBtn = e.target.closest('[data-filter-select]');
+        if (selBtn) applySavedFilter(selBtn.getAttribute('data-filter-select'));
+    });
+
+    // --- MAIN VIEW CLICKS ---
+    els.viewFolder.addEventListener('click', (e) => {
+        const actionBtn = e.target.closest('[data-action-menu]');
+        if (actionBtn) { e.preventDefault(); e.stopPropagation(); openActionMenu(actionBtn.getAttribute('data-action-menu')); return; }
+        const card = e.target.closest('.note-card');
+        if (card) selectNote(card.getAttribute('data-note-id'));
+    });
+
+    // --- EDITOR ---
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
-    els.titleInput.addEventListener('blur', updateActiveNoteInList);
-    els.contentInput.addEventListener('blur', () => { updateActiveNoteInList(); });
+    els.contentInput.addEventListener('blur', () => { scheduleSave(); });
 
-    // Рендер превью (интерактивность)
+    // STRICT READ-FIRST: Никакого перехода в Edit при клике на контент
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
-
-        if (t.closest('[data-prompt-name]')) {
-            e.preventDefault();
-            const rawName = t.closest('[data-prompt-name]').getAttribute('data-prompt-name');
-            const prompt = window.PROMPTS ? window.PROMPTS.find(p => p.name.toLowerCase() === rawName.toLowerCase()) : null;
-            openPromptPanel(prompt ? prompt.id : null, rawName);
-            return;
-        }
+        if (t.closest('[data-prompt-name]')) { e.preventDefault(); return; }
         if (t.closest('.wiki-link') && t.closest('.wiki-link').hasAttribute('data-target-id')) {
             e.preventDefault(); selectNote(t.closest('.wiki-link').getAttribute('data-target-id')); return;
         }
@@ -151,38 +110,35 @@ function attachListeners() {
             if (window.confirm(`Создать заметку «${title}»?`)) {
                 const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId, isPinned: false };
                 state.notes.unshift(newNote); state.activeId = newNote.id; 
-                persistNotes(); renderAll(); 
-                // После создания переходим в режим редактирования
-                state.editorMode = 'edit'; renderAll();
+                state.editorMode = 'edit'; // Сразу в Edit для заполнения
+                persistNotes(); renderAll();
             }
             return;
         }
         if (t.closest('.tag-highlight')) {
-            e.preventDefault(); selectTag(t.closest('.tag-highlight').getAttribute('data-tag')); return;
+            e.preventDefault(); filterByTag(t.closest('.tag-highlight').getAttribute('data-tag')); return;
         }
-        if (t.closest('a') || t.closest('input') || t.closest('button')) return;
-        togglePreviewMode(); // При клике на пустое место в превью переходим в редактор
-    });
-
-    els.preview.addEventListener('change', (e) => {
-        if (e.target.matches('input[type="checkbox"]')) {
-            const note = getNoteById(state.activeId); if (!note) return;
-            const checkboxes = Array.from(els.preview.querySelectorAll('input[type="checkbox"]'));
-            const idx = checkboxes.indexOf(e.target);
-            const lines = note.content.split('\n');
-            const taskLineIndices = [];
-            for (let i = 0; i < lines.length; i++) {
-                if (/^\s*[-*+]\s+\[[ xX]\]/.test(lines[i])) taskLineIndices.push(i);
-            }
-            if (idx >= taskLineIndices.length) return;
-            const lineIdx = taskLineIndices[idx];
-            const line = lines[lineIdx];
-            const newLine = e.target.checked ? line.replace(/\[ \]/, '[x]') : line.replace(/\[[xX]\]/, '[ ]');
-            if (newLine === line) return;
-            lines[lineIdx] = newLine;
-            note.content = lines.join('\n'); note.updatedAt = Date.now();
-            syncNoteTags(note); renderTags(); updateActiveNoteInList();
-            state.saveStatus = 'saving'; renderSaveStatus(); scheduleSave();
+        if (t.closest('input[type="checkbox"]')) {
+            // Обработка чекбоксов остается, но без выхода в Edit
+            setTimeout(() => {
+                const checkboxes = Array.from(els.preview.querySelectorAll('input[type="checkbox"]'));
+                const idx = checkboxes.indexOf(t);
+                const note = getNoteById(state.activeId); if (!note) return;
+                const lines = note.content.split('\n');
+                const taskLineIndices = [];
+                for (let i = 0; i < lines.length; i++) {
+                    if (/^\s*[-*+]\s+\[[ xX]\]/.test(lines[i])) taskLineIndices.push(i);
+                }
+                if (idx >= taskLineIndices.length) return;
+                const lineIdx = taskLineIndices[idx];
+                const line = lines[lineIdx];
+                const newLine = t.checked ? line.replace(/\[ \]/, '[x]') : line.replace(/\[[xX]\]/, '[ ]');
+                if (newLine === line) return;
+                lines[lineIdx] = newLine;
+                note.content = lines.join('\n'); note.updatedAt = Date.now();
+                persistNotes(); renderEditor(); // Перерисовываем превью
+            }, 0);
+            return;
         }
     });
 
@@ -191,7 +147,6 @@ function attachListeners() {
         if (btn) insertChipAtCursor(btn.getAttribute('data-prompt-insert'));
     });
 
-    // Панель форматирования
     if (els.formatToolbar) {
         els.formatToolbar.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-format]');
@@ -199,10 +154,7 @@ function attachListeners() {
         });
     }
 
-    els.btnAiClose.addEventListener('click', closePromptPanel);
-    els.aiBackdrop.addEventListener('click', closePromptPanel);
-
-    // --- ACTION SHEET LISTENERS ---
+    // --- ACTION SHEET ---
     els.actionSheetBackdrop.addEventListener('click', closeActionMenu);
     els.actionSheetMain.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action]');
@@ -219,37 +171,54 @@ function attachListeners() {
         if (btn) moveNoteFromMenu(btn.getAttribute('data-sheet-move-to'));
     });
 
-    // --- SEARCH LISTENERS ---
+    // --- SMART FILTER MODAL ---
+    if (els.btnNewFilter) els.btnNewFilter.addEventListener('click', openFilterModal);
+    els.btnCloseFilter.addEventListener('click', closeFilterModal);
+    els.filterBackdrop.addEventListener('click', closeFilterModal);
+    els.btnAddFilterRule.addEventListener('click', addFilterRule);
+    els.btnSaveFilter.addEventListener('click', saveFilter);
+    
+    els.filterRulesContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-remove-rule');
+        if (btn) {
+            const row = btn.closest('[data-rule-index]');
+            removeFilterRule(parseInt(row.getAttribute('data-rule-index')));
+        }
+    });
+    els.filterRulesContainer.addEventListener('change', (e) => {
+        const row = e.target.closest('[data-rule-index]');
+        if (!row) return;
+        const idx = parseInt(row.getAttribute('data-rule-index'));
+        if (e.target.classList.contains('rule-logic')) updateFilterRule(idx, 'logic', e.target.value);
+        if (e.target.classList.contains('rule-type')) updateFilterRule(idx, 'type', e.target.value);
+        if (e.target.classList.contains('rule-value')) updateFilterRule(idx, 'value', e.target.value);
+    });
+
+    // --- SEARCH ---
     if (els.btnDesktopSearch) els.btnDesktopSearch.addEventListener('click', openSearch);
     if (els.btnMobileSearch) els.btnMobileSearch.addEventListener('click', openSearch);
     els.btnCloseSearch.addEventListener('click', closeSearch);
     els.searchInput.addEventListener('input', handleSearchInput);
-    els.btnClearSearch.addEventListener('click', () => {
-        els.searchInput.value = ''; handleSearchInput({target:{value:''}}); els.searchInput.focus();
-    });
+    els.btnClearSearch.addEventListener('click', () => { els.searchInput.value = ''; handleSearchInput({target:{value:''}}); els.searchInput.focus(); });
     els.searchResults.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-search-id]');
-        if (btn) {
-            closeSearch();
-            selectNote(btn.getAttribute('data-search-id'));
-        }
+        if (btn) { closeSearch(); selectNote(btn.getAttribute('data-search-id')); }
     });
 
-    // Горячие клавиши
+    // --- KEYBOARD ---
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (state.searchOpen) { e.preventDefault(); closeSearch(); return; }
+            if (els.filterModal.classList.contains('open')) { e.preventDefault(); closeFilterModal(); return; }
             if (state.actionMenuNoteId) { e.preventDefault(); closeActionMenu(); return; }
-            if (state.aiPanelOpen) { e.preventDefault(); closePromptPanel(); return; }
             if (state.leftPanelOpen) { e.preventDefault(); closeLeftPanel(); return; }
-            if (state.editorMode === 'preview') { e.preventDefault(); togglePreviewMode(); return; }
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); togglePreviewMode(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); togglePreviewMode(); }
     });
 
     window.addEventListener('resize', () => {
-        autoResizeTextarea(); updateAIPanel();
+        autoResizeTextarea(); 
         if (window.innerWidth >= 768 && state.leftPanelOpen) closeLeftPanel();
     });
 
@@ -263,15 +232,15 @@ function attachListeners() {
 function init() {
     state.folders = loadFolders(); persistFolders();
     state.notes = loadNotes(); validateFolderRefs();
+    state.savedFilters = loadFilters();
     try { persistNotes(); } catch (_) {}
 
-    state.activeFolderId = 'inbox'; state.activeTag = null;
+    state.activeFolderId = 'inbox'; 
+    state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.activeId = null; state.viewMode = 'folder';
-    state.editorMode = 'edit'; state.activePrompt = null; state.activePromptRawName = null;
-    state.aiPanelOpen = false; state.leftPanelOpen = false;
-    state.actionMenuNoteId = null; state.searchOpen = false;
+    state.editorMode = 'preview'; 
 
-    renderAll(); attachListeners(); updateAIPanel();
+    renderAll(); attachListeners();
 }
 
 init();
