@@ -12,6 +12,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Иконки -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Markdown + XSS-санитайзер (пиннутые версии) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
 
     <style>
         :root {
@@ -57,6 +60,70 @@
             overflow-y: auto;
             line-height: 1.6;
         }
+
+        /* === Markdown preview (свой минимальный аналог prose, т.к. @tailwindcss/typography не в CDN) === */
+        .markdown-body { line-height: 1.7; font-size: 1rem; cursor: text; }
+        .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5em 0 0.5em; }
+        .markdown-body h2 { font-size: 1.4rem; font-weight: 700; margin: 1.3em 0 0.5em; }
+        .markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1.1em 0 0.4em; }
+        .markdown-body h4 { font-size: 1rem; font-weight: 600; margin: 1em 0 0.4em; }
+        .markdown-body h1:first-child,
+        .markdown-body h2:first-child,
+        .markdown-body h3:first-child,
+        .markdown-body h4:first-child { margin-top: 0; }
+        .markdown-body p { margin: 0.75em 0; }
+        .markdown-body ul,
+        .markdown-body ol { padding-left: 1.5em; margin: 0.75em 0; }
+        .markdown-body ul { list-style: disc; }
+        .markdown-body ol { list-style: decimal; }
+        .markdown-body li { margin: 0.25em 0; }
+        .markdown-body code {
+            background: var(--md-surface-variant);
+            padding: 0.15em 0.4em;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.9em;
+        }
+        .markdown-body pre {
+            background: var(--md-surface-variant);
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.75em 0;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            padding: 0;
+            font-size: 0.85em;
+            white-space: pre;
+        }
+        .markdown-body blockquote {
+            border-left: 3px solid var(--md-primary);
+            padding-left: 1em;
+            margin: 0.75em 0;
+            color: var(--md-outline);
+            font-style: italic;
+        }
+        .markdown-body a { color: var(--md-primary); text-decoration: underline; }
+        .markdown-body a:hover { opacity: 0.8; }
+        .markdown-body hr { border: none; border-top: 1px solid var(--md-outline); opacity: 0.5; margin: 1.5em 0; }
+        .markdown-body img { max-width: 100%; height: auto; border-radius: 6px; }
+        .markdown-body table { border-collapse: collapse; margin: 0.75em 0; width: 100%; }
+        .markdown-body th,
+        .markdown-body td { border: 1px solid var(--md-outline); padding: 0.4em 0.7em; text-align: left; }
+        .markdown-body th { background: var(--md-surface-variant); font-weight: 600; }
+
+        /* Чек-боксы (GFM task list) — интерактивные, увеличены под Touch Target */
+        .markdown-body input[type="checkbox"] {
+            transform: scale(1.15);
+            margin-right: 0.5em;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+        .markdown-body li:has(input[type="checkbox"]) {
+            list-style: none;
+            margin-left: -1.5em;
+        }
     </style>
 
     <link rel="manifest" href="manifest.json">
@@ -100,6 +167,7 @@
         <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto w-full">
             <input id="note-title" type="text" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6">
             <textarea id="note-content" placeholder="Начните печатать свою мысль здесь..."></textarea>
+            <div id="note-preview" class="markdown-body hidden"></div>
         </div>
     </main>
 
@@ -120,7 +188,8 @@
             notes: [],
             activeId: null,
             saveTimeout: null,
-            saveStatus: 'idle' // 'idle' | 'saving' | 'saved' | 'error'
+            saveStatus: 'idle',   // 'idle' | 'saving' | 'saved' | 'error'
+            editorMode: 'edit'    // 'edit' | 'preview'
         };
 
         const STORAGE_KEY = 'mai_notes';
@@ -135,6 +204,7 @@
             btnDeleteNote: document.getElementById('btn-delete-note'),
             titleInput: document.getElementById('note-title'),
             contentInput: document.getElementById('note-content'),
+            preview: document.getElementById('note-preview'),
             statusText: document.getElementById('save-status')
         };
 
@@ -184,6 +254,7 @@
 
         function autoResizeTextarea() {
             const ta = els.contentInput;
+            if (!ta || ta.classList.contains('hidden')) return;
             ta.style.height = 'auto';
             const max = Math.max(200, window.innerHeight * 0.6);
             ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
@@ -264,6 +335,112 @@
             }
         }
 
+        // === MARKDOWN ===
+        function renderMarkdown(text) {
+            if (!text || !text.trim()) {
+                els.preview.innerHTML = '';
+                return;
+            }
+
+            if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') {
+                // CDN упал — безопасный fallback без парсинга
+                els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
+                return;
+            }
+
+            try {
+                const rawHtml = window.marked.parse(text, { gfm: true, breaks: true });
+                const cleanHtml = window.DOMPurify.sanitize(rawHtml);
+                els.preview.innerHTML = cleanHtml;
+
+                // Все ссылки — в новой вкладке, без opener
+                els.preview.querySelectorAll('a').forEach(function (a) {
+                    a.setAttribute('target', '_blank');
+                    a.setAttribute('rel', 'noopener noreferrer');
+                });
+
+                makeCheckboxesInteractive();
+            } catch (e) {
+                console.error('Markdown render error:', e);
+                els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
+            }
+        }
+
+        function makeCheckboxesInteractive() {
+            const note = getNoteById(state.activeId);
+            if (!note) return;
+
+            const lines = note.content.split('\n');
+            const taskLineIndices = [];
+            for (let i = 0; i < lines.length; i++) {
+                if (/^\s*[-*+]\s+\[[ xX]\]/.test(lines[i])) {
+                    taskLineIndices.push(i);
+                }
+            }
+
+            const checkboxes = els.preview.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(function (cb, i) {
+                cb.removeAttribute('disabled');
+                if (i >= taskLineIndices.length) return;
+
+                const lineIdx = taskLineIndices[i];
+
+                cb.addEventListener('change', function () {
+                    const current = getNoteById(state.activeId);
+                    if (!current) return;
+
+                    const currLines = current.content.split('\n');
+                    if (lineIdx >= currLines.length) return;
+
+                    const line = currLines[lineIdx];
+                    const newLine = cb.checked
+                        ? line.replace(/\[ \]/, '[x]')
+                        : line.replace(/\[[xX]\]/, '[ ]');
+
+                    if (newLine === line) return;
+
+                    currLines[lineIdx] = newLine;
+                    current.content = currLines.join('\n');
+                    current.updatedAt = Date.now();
+
+                    state.saveStatus = 'saving';
+                    renderSaveStatus();
+                    scheduleSave();
+                });
+            });
+        }
+
+        function enterPreviewMode() {
+            const note = getNoteById(state.activeId);
+            if (!note) return;
+            if (!note.content.trim()) return;       // пустую заметку в превью не гоним
+            if (state.editorMode === 'preview') return;
+            state.editorMode = 'preview';
+            renderEditor();
+        }
+
+        function exitPreviewMode() {
+            if (state.editorMode !== 'preview') return;
+            state.editorMode = 'edit';
+            renderEditor();
+            try {
+                els.contentInput.focus();
+                const len = els.contentInput.value.length;
+                els.contentInput.setSelectionRange(len, len);
+            } catch (_) { /* noop */ }
+        }
+
+        function schedulePreview(noteIdAtBlur) {
+            setTimeout(function () {
+                if (state.activeId !== noteIdAtBlur) return;    // переключили заметку
+                if (state.editorMode === 'preview') return;     // уже в превью
+                const active = document.activeElement;
+                if (active === els.titleInput || active === els.contentInput) return;
+                if (els.preview.contains(active)) return;
+                enterPreviewMode();
+            }, 0);
+        }
+
         // === RENDER ===
         function renderNotes() {
             const sorted = sortedNotes();
@@ -316,18 +493,34 @@
             const note = getNoteById(state.activeId);
 
             if (!note) {
+                // Нет активной заметки — принудительно edit, пустые поля
+                state.editorMode = 'edit';
                 els.titleInput.value = '';
                 els.contentInput.value = '';
                 els.titleInput.placeholder = 'Выберите заметку или создайте новую';
                 els.contentInput.placeholder = 'Здесь появится текст заметки...';
-            } else {
-                els.titleInput.value = note.title;
-                els.contentInput.value = note.content;
-                els.titleInput.placeholder = 'Заголовок заметки...';
-                els.contentInput.placeholder = 'Начните печатать свою мысль здесь...';
+                els.contentInput.classList.remove('hidden');
+                els.preview.classList.add('hidden');
+                els.preview.innerHTML = '';
+                autoResizeTextarea();
+                return;
             }
 
-            autoResizeTextarea();
+            els.titleInput.value = note.title;
+            els.contentInput.value = note.content;
+            els.titleInput.placeholder = 'Заголовок заметки...';
+            els.contentInput.placeholder = 'Начните печатать свою мысль здесь...';
+
+            if (state.editorMode === 'preview') {
+                els.contentInput.classList.add('hidden');
+                els.preview.classList.remove('hidden');
+                renderMarkdown(note.content);
+            } else {
+                els.contentInput.classList.remove('hidden');
+                els.preview.classList.add('hidden');
+                els.preview.innerHTML = '';
+                autoResizeTextarea();
+            }
         }
 
         function renderSaveStatus() {
@@ -383,6 +576,7 @@
             };
             state.notes.unshift(note);
             state.activeId = note.id;
+            state.editorMode = 'edit';
 
             const ok = persistNotes();
             if (ok) state.saveStatus = 'idle';
@@ -392,10 +586,15 @@
         }
 
         function selectNote(id) {
-            if (id === state.activeId) return;
+            if (id === state.activeId) {
+                // Клик по уже активной заметке из превью = вернуться в режим правки
+                if (state.editorMode === 'preview') exitPreviewMode();
+                return;
+            }
             if (!getNoteById(id)) return;
 
             state.activeId = id;
+            state.editorMode = 'edit';
             state.saveStatus = 'idle';
             renderAll();
         }
@@ -414,6 +613,7 @@
                 state.activeId = sorted.length > 0 ? sorted[0].id : null;
             }
 
+            state.editorMode = 'edit';
             const ok = persistNotes();
             if (ok) state.saveStatus = 'idle';
 
@@ -440,9 +640,22 @@
                 onEdit();
             });
 
-            // In-place обновление активной карточки (без пересборки DOM — не ломает click по списку).
-            els.titleInput.addEventListener('blur', updateActiveNoteInList);
-            els.contentInput.addEventListener('blur', updateActiveNoteInList);
+            // Blur → in-place обновление карточки в списке + попытка перейти в preview
+            els.titleInput.addEventListener('blur', function () {
+                updateActiveNoteInList();
+            });
+            els.contentInput.addEventListener('blur', function () {
+                updateActiveNoteInList();
+                schedulePreview(state.activeId);
+            });
+
+            // Клик по превью (не по ссылке / чек-боксу) → назад в edit
+            els.preview.addEventListener('click', function (e) {
+                const t = e.target;
+                if (!t || typeof t.closest !== 'function') return;
+                if (t.closest('a') || t.closest('input') || t.closest('button')) return;
+                exitPreviewMode();
+            });
 
             window.addEventListener('resize', autoResizeTextarea);
 
@@ -469,6 +682,7 @@
                 state.activeId = sortedNotes()[0].id;
             }
 
+            state.editorMode = 'edit';
             renderAll();
             attachListeners();
 
