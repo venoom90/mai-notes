@@ -5,14 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MAi</title>
 
-    <!-- Иконка сайта (эмодзи) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
 
-    <!-- Material 3 (Tailwind CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Иконки -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Markdown + XSS-санитайзер (пиннутые версии) -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
 
@@ -61,8 +57,8 @@
             line-height: 1.6;
         }
 
-        /* === Markdown preview (свой минимальный аналог prose, т.к. @tailwindcss/typography не в CDN) === */
-        .markdown-body { line-height: 1.7; font-size: 1rem; cursor: text; }
+        /* === Markdown preview === */
+        .markdown-body { line-height: 1.7; font-size: 1rem; cursor: text; min-height: 200px; }
         .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5em 0 0.5em; }
         .markdown-body h2 { font-size: 1.4rem; font-weight: 700; margin: 1.3em 0 0.5em; }
         .markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1.1em 0 0.4em; }
@@ -113,7 +109,6 @@
         .markdown-body td { border: 1px solid var(--md-outline); padding: 0.4em 0.7em; text-align: left; }
         .markdown-body th { background: var(--md-surface-variant); font-weight: 600; }
 
-        /* Чек-боксы (GFM task list) — интерактивные, увеличены под Touch Target */
         .markdown-body input[type="checkbox"] {
             transform: scale(1.15);
             margin-right: 0.5em;
@@ -156,6 +151,9 @@
             </button>
             <div class="flex items-center gap-1">
                 <span id="save-status" class="text-xs text-outline italic mr-2">Готово</span>
+                <button id="btn-preview" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Показать превью" title="Превью (Ctrl+Enter)">
+                    <i data-lucide="eye" class="w-5 h-5 text-outline"></i>
+                </button>
                 <button id="btn-delete-note" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Удалить заметку" title="Удалить заметку">
                     <i data-lucide="trash-2" class="w-5 h-5 text-outline"></i>
                 </button>
@@ -188,8 +186,8 @@
             notes: [],
             activeId: null,
             saveTimeout: null,
-            saveStatus: 'idle',   // 'idle' | 'saving' | 'saved' | 'error'
-            editorMode: 'edit'    // 'edit' | 'preview'
+            saveStatus: 'idle',
+            editorMode: 'edit'   // 'edit' | 'preview'
         };
 
         const STORAGE_KEY = 'mai_notes';
@@ -202,6 +200,7 @@
             notesEmpty: document.getElementById('notes-empty'),
             btnNewNote: document.getElementById('btn-new-note'),
             btnDeleteNote: document.getElementById('btn-delete-note'),
+            btnPreview: document.getElementById('btn-preview'),
             titleInput: document.getElementById('note-title'),
             contentInput: document.getElementById('note-content'),
             preview: document.getElementById('note-preview'),
@@ -301,7 +300,6 @@
                 return [];
             }
 
-            // Миграция legacy-ключей (mai_title / mai_content). Сами legacy-ключи НЕ удаляем.
             let legacyTitle = '';
             let legacyContent = '';
             try {
@@ -343,7 +341,6 @@
             }
 
             if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') {
-                // CDN упал — безопасный fallback без парсинга
                 els.preview.innerHTML = '<p>' + escapeHtml(text) + '</p>';
                 return;
             }
@@ -353,7 +350,6 @@
                 const cleanHtml = window.DOMPurify.sanitize(rawHtml);
                 els.preview.innerHTML = cleanHtml;
 
-                // Все ссылки — в новой вкладке, без opener
                 els.preview.querySelectorAll('a').forEach(function (a) {
                     a.setAttribute('target', '_blank');
                     a.setAttribute('rel', 'noopener noreferrer');
@@ -410,10 +406,11 @@
             });
         }
 
+        // === PREVIEW / EDIT MODE ===
         function enterPreviewMode() {
             const note = getNoteById(state.activeId);
             if (!note) return;
-            if (!note.content.trim()) return;       // пустую заметку в превью не гоним
+            if (!note.content.trim()) return;
             if (state.editorMode === 'preview') return;
             state.editorMode = 'preview';
             renderEditor();
@@ -430,15 +427,27 @@
             } catch (_) { /* noop */ }
         }
 
+        function togglePreviewMode() {
+            if (state.editorMode === 'preview') {
+                exitPreviewMode();
+            } else {
+                enterPreviewMode();
+            }
+        }
+
         function schedulePreview(noteIdAtBlur) {
             setTimeout(function () {
-                if (state.activeId !== noteIdAtBlur) return;    // переключили заметку
-                if (state.editorMode === 'preview') return;     // уже в превью
+                if (state.activeId !== noteIdAtBlur) return;
+                if (state.editorMode === 'preview') return;
                 const active = document.activeElement;
-                if (active === els.titleInput || active === els.contentInput) return;
-                if (els.preview.contains(active)) return;
+                // Если фокус всё ещё в textarea — не переключаем (иначе «моргание»)
+                if (active === els.contentInput) return;
+                // Если фокус на кнопке-toggle — не переключаем (там свой обработчик)
+                if (active === els.btnPreview) return;
+                // Если фокус внутри preview (чек-бокс, ссылка) — не переключаем
+                if (active && els.preview.contains(active)) return;
                 enterPreviewMode();
-            }, 0);
+            }, 50);
         }
 
         // === RENDER ===
@@ -489,11 +498,23 @@
             btn.children[2].textContent = relativeTime(note.updatedAt);
         }
 
+        function updatePreviewButton() {
+            if (!els.btnPreview) return;
+            const isPreview = state.editorMode === 'preview';
+            els.btnPreview.innerHTML = isPreview
+                ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>'
+                : '<i data-lucide="eye" class="w-5 h-5 text-outline"></i>';
+            els.btnPreview.setAttribute('aria-label', isPreview ? 'Редактировать' : 'Показать превью');
+            els.btnPreview.setAttribute('title', isPreview ? 'Редактировать (Ctrl+Enter)' : 'Превью (Ctrl+Enter)');
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
         function renderEditor() {
             const note = getNoteById(state.activeId);
 
             if (!note) {
-                // Нет активной заметки — принудительно edit, пустые поля
                 state.editorMode = 'edit';
                 els.titleInput.value = '';
                 els.contentInput.value = '';
@@ -503,6 +524,7 @@
                 els.preview.classList.add('hidden');
                 els.preview.innerHTML = '';
                 autoResizeTextarea();
+                updatePreviewButton();
                 return;
             }
 
@@ -521,6 +543,8 @@
                 els.preview.innerHTML = '';
                 autoResizeTextarea();
             }
+
+            updatePreviewButton();
         }
 
         function renderSaveStatus() {
@@ -587,7 +611,6 @@
 
         function selectNote(id) {
             if (id === state.activeId) {
-                // Клик по уже активной заметке из превью = вернуться в режим правки
                 if (state.editorMode === 'preview') exitPreviewMode();
                 return;
             }
@@ -623,6 +646,7 @@
         // === BOOTSTRAP ===
         function attachListeners() {
             els.btnNewNote.addEventListener('click', createNote);
+            els.btnPreview.addEventListener('click', togglePreviewMode);
 
             els.btnDeleteNote.addEventListener('click', function () {
                 if (state.activeId) deleteNote(state.activeId);
@@ -640,7 +664,6 @@
                 onEdit();
             });
 
-            // Blur → in-place обновление карточки в списке + попытка перейти в preview
             els.titleInput.addEventListener('blur', function () {
                 updateActiveNoteInList();
             });
@@ -649,12 +672,25 @@
                 schedulePreview(state.activeId);
             });
 
-            // Клик по превью (не по ссылке / чек-боксу) → назад в edit
+            // Клик по превью (не по ссылке / чек-боксу / кнопке) → назад в edit
             els.preview.addEventListener('click', function (e) {
                 const t = e.target;
                 if (!t || typeof t.closest !== 'function') return;
                 if (t.closest('a') || t.closest('input') || t.closest('button')) return;
                 exitPreviewMode();
+            });
+
+            // Клавиатура: Ctrl+Enter / Cmd+Enter → toggle preview; Escape → exit
+            document.addEventListener('keydown', function (e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    togglePreviewMode();
+                    return;
+                }
+                if (e.key === 'Escape' && state.editorMode === 'preview') {
+                    e.preventDefault();
+                    exitPreviewMode();
+                }
             });
 
             window.addEventListener('resize', autoResizeTextarea);
@@ -671,7 +707,6 @@
         function init() {
             state.notes = loadNotes();
 
-            // Если была миграция из legacy и mai_notes ещё нет — фиксируем новую структуру в хранилище.
             try {
                 if (state.notes.length > 0 && localStorage.getItem(STORAGE_KEY) === null) {
                     persistNotes();
