@@ -181,6 +181,34 @@
         .folder-item-active .folder-select-btn > i { color: var(--md-primary); }
         .folder-action-btn { display: none; }
         .folder-item-active .folder-action-btn { display: inline-flex; }
+
+        /* === Tags === */
+        .tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25em;
+            background: var(--md-surface);
+            color: var(--md-outline);
+            border-radius: 999px;
+            padding: 0.35em 0.7em;
+            font-size: 0.8em;
+            min-height: 32px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: inherit;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .tag-chip:hover { border-color: var(--md-outline); }
+        .tag-chip.tag-chip-active {
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            border-color: transparent;
+        }
+        .tag-chip-count {
+            font-size: 0.75em;
+            opacity: 0.7;
+        }
     </style>
 
     <link rel="manifest" href="manifest.json">
@@ -208,7 +236,15 @@
             </div>
             <div id="folders-list" class="flex flex-col gap-0.5 mb-3 max-h-[220px] overflow-y-auto"></div>
 
-            <div id="notes-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-2 px-1">Заметки: Входящие</div>
+            <div id="tags-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Теги</div>
+            <div id="tags-list" class="flex flex-wrap gap-1 mb-3 max-h-[120px] overflow-y-auto" style="display:none;"></div>
+
+            <div class="flex items-center justify-between mb-2 px-1 gap-1">
+                <div id="notes-section-label" class="text-xs font-bold text-outline uppercase tracking-wider truncate">Заметки: Входящие</div>
+                <button id="btn-clear-tag-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 flex-shrink-0" style="display:none;" aria-label="Сбросить фильтр тега" title="Сбросить фильтр">
+                    <i data-lucide="x" class="w-4 h-4 text-outline"></i>
+                </button>
+            </div>
             <div id="notes-list" class="flex-1 flex flex-col gap-1 overflow-y-auto min-h-0" style="display:none;"></div>
             <div id="notes-empty" class="flex-1 flex items-center justify-center text-center text-sm text-outline italic px-4">
                 В этой папке пока пусто.<br>Нажмите «+», чтобы создать.
@@ -258,7 +294,7 @@
             <div id="ai-prompt-title" class="font-bold text-primary text-lg"></div>
             <div id="ai-prompt-description" class="text-sm text-outline"></div>
             <div class="mt-2 pt-3 border-t border-[var(--md-outline)] text-xs italic text-outline">
-                ⚡ Ответ ассистента появится в V1.4 — после подключения GAS-прокси к Gemini.
+                ⚡ Ответ ассистента появится в V1.5 — после подключения GAS-прокси к Gemini.
             </div>
         </div>
     </aside>
@@ -274,6 +310,7 @@
             folders: [],
             activeId: null,
             activeFolderId: 'inbox',
+            activeTag: null,
             saveTimeout: null,
             saveStatus: 'idle',
             editorMode: 'edit',
@@ -282,8 +319,6 @@
             aiPanelOpen: false
         };
 
-        // Временная заглушка. Будет заменена пользовательской библиотекой промптов
-        // (roadmap). Контракт элемента: { id, name, icon, description }.
         const PROMPTS = [
             { id: 'coach',     name: 'Тренер',    icon: 'compass',     description: 'Задаёт вопросы, помогает развить мысль' },
             { id: 'analyst',   name: 'Аналитик',  icon: 'bar-chart-3', description: 'Структурирует, находит паттерны и связи' },
@@ -300,7 +335,10 @@
             notesList: document.getElementById('notes-list'),
             notesEmpty: document.getElementById('notes-empty'),
             notesSectionLabel: document.getElementById('notes-section-label'),
+            btnClearTagFilter: document.getElementById('btn-clear-tag-filter'),
             foldersList: document.getElementById('folders-list'),
+            tagsList: document.getElementById('tags-list'),
+            tagsSectionLabel: document.getElementById('tags-section-label'),
             btnNewNote: document.getElementById('btn-new-note'),
             btnNewFolder: document.getElementById('btn-new-folder'),
             btnDeleteNote: document.getElementById('btn-delete-note'),
@@ -391,6 +429,111 @@
             return { id: 'inbox', name: 'Входящие', updatedAt: Date.now() };
         }
 
+        // === TAGS ===
+        function parseTagsFromContent(content) {
+            if (!content || typeof content !== 'string') return [];
+            const regex = /(^|[^\p{L}\p{N}_])(#[\p{L}\p{N}_]+)/giu;
+            const set = new Set();
+            let match;
+            while ((match = regex.exec(content)) !== null) {
+                const tag = match[2].slice(1);
+                if (tag.length > 0) set.add(tag);
+            }
+            return Array.from(set);
+        }
+
+        function syncNoteTags(note) {
+            if (!note) return;
+            note.tags = parseTagsFromContent(note.content);
+        }
+
+        function syncAllNotesTags() {
+            state.notes.forEach(syncNoteTags);
+        }
+
+        function hasNoteTag(note, tag) {
+            if (!note || !tag) return false;
+            return Array.isArray(note.tags) && note.tags.indexOf(tag) !== -1;
+        }
+
+        function collectAllTags() {
+            const counts = new Map();
+            state.notes.forEach(function (note) {
+                (note.tags || []).forEach(function (tag) {
+                    counts.set(tag, (counts.get(tag) || 0) + 1);
+                });
+            });
+            return Array.from(counts.entries())
+                .map(function (entry) { return { tag: entry[0], count: entry[1] }; })
+                .sort(function (a, b) { return a.tag.localeCompare(b.tag, 'ru'); });
+        }
+
+        function renderTags() {
+            if (!els.tagsList) return;
+            const tags = collectAllTags();
+
+            if (tags.length === 0) {
+                els.tagsList.innerHTML = '';
+                els.tagsList.style.display = 'none';
+                if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'none';
+                return;
+            }
+
+            els.tagsList.style.display = 'flex';
+            if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'block';
+
+            const html = tags.map(function (item) {
+                const tag = item.tag;
+                const count = item.count;
+                const isActive = tag === state.activeTag;
+                const cls = 'tag-chip' + (isActive ? ' tag-chip-active' : '');
+                return '<button type="button" class="' + cls + '" data-tag="' + escapeHtml(tag) + '" title="#' + escapeHtml(tag) + '">'
+                    + '<span>#' + escapeHtml(tag) + '</span>'
+                    + '<span class="tag-chip-count">' + count + '</span>'
+                    + '</button>';
+            }).join('');
+            els.tagsList.innerHTML = html;
+        }
+
+        function selectTag(tag) {
+            if (!tag) return;
+            if (state.activeTag === tag) {
+                clearTagFilter();
+                return;
+            }
+            state.activeTag = tag;
+            state.editorMode = 'edit';
+            resetAIPanel();
+
+            const candidates = state.notes
+                .filter(function (n) { return hasNoteTag(n, tag); })
+                .sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+            state.activeId = candidates.length > 0 ? candidates[0].id : null;
+
+            renderAll();
+        }
+
+        function clearTagFilter() {
+            if (state.activeTag === null) return;
+            state.activeTag = null;
+            state.editorMode = 'edit';
+            resetAIPanel();
+
+            const candidates = notesInFolder(state.activeFolderId);
+            state.activeId = candidates.length > 0 ? candidates[0].id : null;
+
+            renderAll();
+        }
+
+        function getFilteredNotes() {
+            if (state.activeTag) {
+                return state.notes
+                    .filter(function (n) { return hasNoteTag(n, state.activeTag); })
+                    .sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+            }
+            return notesInFolder(state.activeFolderId);
+        }
+
         // === STORAGE — NOTES ===
         function loadNotes() {
             let raw = null;
@@ -408,14 +551,16 @@
                         return parsed
                             .filter(isValidNote)
                             .map(function (n) {
-                                return {
+                                const note = {
                                     id: n.id,
                                     title: n.title,
                                     content: n.content,
                                     updatedAt: n.updatedAt,
-                                    tags: Array.isArray(n.tags) ? n.tags : [],
+                                    tags: [],
                                     folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox'
                                 };
+                                syncNoteTags(note);
+                                return note;
                             });
                     }
                 } catch (e) {
@@ -434,14 +579,16 @@
             }
 
             if (legacyTitle || legacyContent) {
-                return [{
+                const note = {
                     id: genId(),
                     title: legacyTitle || 'Без названия',
                     content: legacyContent,
                     updatedAt: Date.now(),
                     tags: [],
                     folderId: 'inbox'
-                }];
+                };
+                syncNoteTags(note);
+                return [note];
             }
 
             return [];
@@ -591,7 +738,7 @@
 
             if (state.activeFolderId === id) {
                 state.activeFolderId = 'inbox';
-                const candidates = notesInFolder('inbox');
+                const candidates = getFilteredNotes();
                 state.activeId = candidates.length > 0 ? candidates[0].id : null;
             } else {
                 const note = getNoteById(state.activeId);
@@ -605,10 +752,11 @@
         }
 
         function selectFolder(id) {
-            if (id === state.activeFolderId) return;
             if (!getFolderById(id)) return;
+            if (id === state.activeFolderId && state.activeTag === null) return;
 
             state.activeFolderId = id;
+            state.activeTag = null;
             state.editorMode = 'edit';
             resetAIPanel();
 
@@ -868,6 +1016,8 @@
                     currLines[lineIdx] = newLine;
                     current.content = currLines.join('\n');
                     current.updatedAt = Date.now();
+                    syncNoteTags(current);
+                    renderTags();
 
                     state.saveStatus = 'saving';
                     renderSaveStatus();
@@ -922,7 +1072,7 @@
             if (!els.foldersList) return;
             const sorted = sortedFolders();
             const html = sorted.map(function (folder) {
-                const isActive = folder.id === state.activeFolderId;
+                const isActive = folder.id === state.activeFolderId && state.activeTag === null;
                 const isInbox = folder.id === 'inbox';
                 const count = folderNotesCount(folder.id);
                 const icon = isInbox ? 'inbox' : 'folder';
@@ -953,24 +1103,35 @@
 
         function renderNotesSectionLabel() {
             if (!els.notesSectionLabel) return;
-            const folder = getFolderById(state.activeFolderId);
-            els.notesSectionLabel.textContent = folder ? 'Заметки: ' + folder.name : 'Заметки';
+            if (state.activeTag) {
+                els.notesSectionLabel.textContent = 'Тег: #' + state.activeTag;
+                if (els.btnClearTagFilter) els.btnClearTagFilter.style.display = 'flex';
+            } else {
+                const folder = getFolderById(state.activeFolderId);
+                els.notesSectionLabel.textContent = folder ? 'Заметки: ' + folder.name : 'Заметки';
+                if (els.btnClearTagFilter) els.btnClearTagFilter.style.display = 'none';
+            }
         }
 
         function renderNotes() {
-            const sorted = notesInFolder(state.activeFolderId);
+            const filtered = getFilteredNotes();
 
-            if (sorted.length === 0) {
+            if (filtered.length === 0) {
                 els.notesList.innerHTML = '';
                 els.notesList.style.display = 'none';
                 els.notesEmpty.style.display = 'flex';
+                if (state.activeTag) {
+                    els.notesEmpty.innerHTML = 'Нет заметок с тегом #' + escapeHtml(state.activeTag) + '.';
+                } else {
+                    els.notesEmpty.innerHTML = 'В этой папке пока пусто.<br>Нажмите «+», чтобы создать.';
+                }
                 return;
             }
 
             els.notesEmpty.style.display = 'none';
             els.notesList.style.display = 'flex';
 
-            const html = sorted.map(function (note) {
+            const html = filtered.map(function (note) {
                 const isActive = note.id === state.activeId;
                 const activeCls = isActive
                     ? 'bg-black/5 text-primary font-semibold'
@@ -1072,6 +1233,7 @@
         function renderAll() {
             renderFolders();
             renderNotesSectionLabel();
+            renderTags();
             renderNotes();
             renderEditor();
             renderSaveStatus();
@@ -1096,6 +1258,8 @@
             note.title = els.titleInput.value;
             note.content = els.contentInput.value;
             note.updatedAt = Date.now();
+            syncNoteTags(note);
+            renderTags();
 
             state.saveStatus = 'saving';
             renderSaveStatus();
@@ -1113,6 +1277,7 @@
             };
             state.notes.unshift(note);
             state.activeId = note.id;
+            state.activeTag = null;
             state.editorMode = 'edit';
             resetAIPanel();
 
@@ -1128,9 +1293,11 @@
                 if (state.editorMode === 'preview') exitPreviewMode();
                 return;
             }
-            if (!getNoteById(id)) return;
+            const note = getNoteById(id);
+            if (!note) return;
 
             state.activeId = id;
+            state.activeFolderId = note.folderId;
             state.editorMode = 'edit';
             state.saveStatus = 'idle';
             resetAIPanel();
@@ -1144,11 +1311,15 @@
             const label = noteTitle(note);
             if (!window.confirm('Удалить заметку «' + label + '»?')) return;
 
-            const folderIdOfNote = note.folderId;
             state.notes = state.notes.filter(function (n) { return n.id !== id; });
 
+            if (state.activeTag) {
+                const stillExists = state.notes.some(function (n) { return hasNoteTag(n, state.activeTag); });
+                if (!stillExists) state.activeTag = null;
+            }
+
             if (state.activeId === id) {
-                const candidates = notesInFolder(folderIdOfNote);
+                const candidates = getFilteredNotes();
                 state.activeId = candidates.length > 0 ? candidates[0].id : null;
             }
 
@@ -1165,6 +1336,9 @@
             els.btnNewNote.addEventListener('click', createNote);
             els.btnNewFolder.addEventListener('click', createFolder);
             els.btnPreview.addEventListener('click', togglePreviewMode);
+            if (els.btnClearTagFilter) {
+                els.btnClearTagFilter.addEventListener('click', clearTagFilter);
+            }
 
             els.btnDeleteNote.addEventListener('click', function () {
                 if (state.activeId) deleteNote(state.activeId);
@@ -1196,6 +1370,14 @@
                     return;
                 }
             });
+
+            if (els.tagsList) {
+                els.tagsList.addEventListener('click', function (e) {
+                    const chip = e.target.closest('[data-tag]');
+                    if (!chip) return;
+                    selectTag(chip.getAttribute('data-tag'));
+                });
+            }
 
             els.titleInput.addEventListener('input', onEdit);
             els.contentInput.addEventListener('input', function () {
@@ -1272,18 +1454,15 @@
 
         function init() {
             state.folders = loadFolders();
-            persistFolders(); // гарантируем наличие inbox в хранилище
+            persistFolders();
 
             state.notes = loadNotes();
             validateFolderRefs();
-
-            try {
-                if (state.notes.length > 0 && localStorage.getItem(STORAGE_KEY) === null) {
-                    persistNotes();
-                }
-            } catch (_) { /* noop */ }
+            // V1.4.1 → V1.4.2: пересчитанные tags[] фиксируем в хранилище
+            try { persistNotes(); } catch (_) { /* noop */ }
 
             state.activeFolderId = 'inbox';
+            state.activeTag = null;
             const candidates = notesInFolder('inbox');
             state.activeId = candidates.length > 0 ? candidates[0].id : null;
 
