@@ -6,7 +6,8 @@ export const state = {
     activeTag: null,
     saveTimeout: null,
     saveStatus: 'idle',
-    editorMode: 'edit',
+    viewMode: 'folder', // 'folder' | 'editor'
+    editorMode: 'edit', // 'edit' | 'preview'
     activePrompt: null,
     activePromptRawName: null,
     aiPanelOpen: false,
@@ -39,6 +40,10 @@ export const els = {
     btnNewFolder: document.getElementById('btn-new-folder'),
     btnDeleteNote: document.getElementById('btn-delete-note'),
     btnPreview: document.getElementById('btn-preview'),
+    
+    viewEditor: document.getElementById('view-editor'),
+    viewFolder: document.getElementById('view-folder'),
+    
     titleInput: document.getElementById('note-title'),
     contentInput: document.getElementById('note-content'),
     preview: document.getElementById('note-preview'),
@@ -51,8 +56,9 @@ export const els = {
     aiPromptDescription: document.getElementById('ai-prompt-description'),
     btnAiClose: document.getElementById('btn-ai-close'),
     aiBackdrop: document.getElementById('ai-backdrop'),
-    breadcrumbFolder: document.getElementById('breadcrumb-folder'),
-    breadcrumbTitle: document.getElementById('breadcrumb-title'),
-    moveContainer: document.getElementById('move-container'),
+    
+    crumbFolderName: document.getElementById('crumb-folder-name'),
+    crumbSeparator: document.getElementById('breadcrumb-separator'),
+    crumbTitle: document.getElementById('breadcrumb-title'),
     folderMoveSelect: document.getElementById('folder-move-select')
 };

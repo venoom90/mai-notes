@@ -5,7 +5,7 @@ import { renderAll, updateAIPanel, renderSaveStatus, renderTags, updateActiveNot
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     clearTagFilter, selectTag, insertChipAtCursor, openPromptPanel, closePromptPanel, moveNoteToFolder, 
-    toggleLeftPanel, closeLeftPanel, exitPreviewMode, schedulePreview, onEdit, createNoteFromWikiLink, scheduleSave 
+    toggleLeftPanel, closeLeftPanel, exitPreviewMode, schedulePreview, onEdit, scheduleSave 
 } from './logic.js';
 
 function attachListeners() {
@@ -18,14 +18,29 @@ function attachListeners() {
     if (els.btnClearTagFilter) els.btnClearTagFilter.addEventListener('click', clearTagFilter);
 
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
+    if (els.folderMoveSelect) els.folderMoveSelect.addEventListener('change', (e) => moveNoteToFolder(e.target.value));
 
-    if (els.folderMoveSelect) {
-        els.folderMoveSelect.addEventListener('change', (e) => moveNoteToFolder(e.target.value));
-    }
-
+    // Клик по списку заметок слева
     els.notesList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-note-id]');
         if (btn) selectNote(btn.getAttribute('data-note-id'));
+    });
+
+    // Клик по карточке в папке
+    els.viewFolder.addEventListener('click', (e) => {
+        const card = e.target.closest('.note-card');
+        if (card) selectNote(card.getAttribute('data-note-id'));
+    });
+
+    // Клик по умной крошке папки (возврат в режим папки)
+    document.querySelector('#breadcrumbs .relative').addEventListener('click', (e) => {
+        // Если кликнули по селекту, не переключаем режим (он сам сработает)
+        if (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION') return;
+        if (state.viewMode !== 'folder') {
+            state.viewMode = 'folder';
+            state.activeId = null;
+            renderAll();
+        }
     });
 
     els.foldersList.addEventListener('click', (e) => {
@@ -72,7 +87,11 @@ function attachListeners() {
         }
         if (t.closest('.wiki-link-broken')) {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
-            if (window.confirm(`Создать заметку «${title}»?`)) createNoteFromWikiLink(title);
+            if (window.confirm(`Создать заметку «${title}»?`)) {
+                const newNote = { id: crypto.randomUUID(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId };
+                state.notes.unshift(newNote); state.activeId = newNote.id; 
+                persistNotes(); renderAll(); exitPreviewMode();
+            }
             return;
         }
         if (t.closest('.tag-highlight')) {
@@ -82,7 +101,6 @@ function attachListeners() {
         exitPreviewMode();
     });
 
-    // Делегирование событий чек-боксов (связь Markdown превью с логикой)
     els.preview.addEventListener('change', (e) => {
         if (e.target.matches('input[type="checkbox"]')) {
             const note = getNoteById(state.activeId); if (!note) return;
@@ -140,8 +158,7 @@ function init() {
     try { persistNotes(); } catch (_) {}
 
     state.activeFolderId = 'inbox'; state.activeTag = null;
-    const candidates = notesInFolder('inbox');
-    state.activeId = candidates.length > 0 ? candidates[0].id : null;
+    state.activeId = null; state.viewMode = 'folder'; // При запуске открываем папку "Входящие"
     state.editorMode = 'edit'; state.activePrompt = null; state.activePromptRawName = null;
     state.aiPanelOpen = false; state.leftPanelOpen = false;
 

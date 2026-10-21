@@ -1,33 +1,23 @@
 import { state, els } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, findNoteByTitle, syncNoteTags, getFolderById, sortedFolders, folderNotesCount } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount } from './utils.js';
 import { persistNotes, persistFolders } from './storage.js';
-// Убрали exitPreviewMode из импорта render.js
-import { renderAll, renderTags, updateActiveNoteInList, renderSaveStatus, renderBreadcrumbs, updateAIPanel, renderEditor } from './render.js';
+import { renderAll, renderTags, updateActiveNoteInList, renderSaveStatus, updateAIPanel, renderEditor } from './render.js';
 
-export function openLeftPanel() {
-    if (state.leftPanelOpen || window.innerWidth >= 768) return;
-    state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.remove('hidden');
-}
-export function closeLeftPanel() {
-    if (!state.leftPanelOpen) return;
-    state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.add('hidden');
-}
+export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.remove('hidden'); }
+export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.add('hidden'); }
 export function toggleLeftPanel() { state.leftPanelOpen ? closeLeftPanel() : openLeftPanel(); }
 
 export function scheduleSave() {
     if (state.saveTimeout) clearTimeout(state.saveTimeout);
     state.saveTimeout = setTimeout(() => {
         state.saveTimeout = null;
-        const ok = persistNotes();
-        if (ok) state.saveStatus = 'saved';
-        renderSaveStatus();
+        const ok = persistNotes(); if (ok) state.saveStatus = 'saved'; renderSaveStatus();
     }, 500);
 }
 
 export function onEdit() {
-    if (!state.activeId) return;
-    const note = getNoteById(state.activeId);
-    if (!note) return;
+    if (!state.activeId || state.viewMode !== 'editor') return;
+    const note = getNoteById(state.activeId); if (!note) return;
     note.title = els.titleInput.value; note.content = els.contentInput.value; note.updatedAt = Date.now();
     syncNoteTags(note); renderTags();
     state.saveStatus = 'saving'; renderSaveStatus(); scheduleSave();
@@ -35,22 +25,21 @@ export function onEdit() {
 
 export function createNote() {
     const note = { id: genId(), title: '', content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId || 'inbox' };
-    state.notes.unshift(note); state.activeId = note.id; state.activeTag = null; state.editorMode = 'edit';
+    state.notes.unshift(note); state.activeId = note.id; state.activeTag = null; 
+    state.viewMode = 'editor'; state.editorMode = 'edit';
     resetAIPanel(); persistNotes(); state.saveStatus = 'idle';
     renderAll(); closeLeftPanel();
     try { els.titleInput.focus(); } catch (_) {}
 }
 
-export function createNoteFromWikiLink(title) {
-    const newNote = { id: genId(), title: title, content: '', updatedAt: Date.now(), tags: [], folderId: state.activeFolderId };
-    state.notes.unshift(newNote); state.activeId = newNote.id; persistNotes(); renderAll(); exitPreviewMode();
-    try { els.contentInput.focus(); } catch (_) {}
-}
-
 export function selectNote(id) {
-    if (id === state.activeId) { if (state.editorMode === 'preview') exitPreviewMode(); closeLeftPanel(); return; }
     const note = getNoteById(id); if (!note) return;
-    state.activeId = id; state.activeFolderId = note.folderId; state.editorMode = 'edit'; state.saveStatus = 'idle';
+    if (id === state.activeId && state.viewMode === 'editor') { 
+        if (state.editorMode === 'preview') exitPreviewMode(); 
+        closeLeftPanel(); return; 
+    }
+    state.activeId = id; state.activeFolderId = note.folderId; 
+    state.viewMode = 'editor'; state.editorMode = 'edit'; state.saveStatus = 'idle';
     resetAIPanel(); renderAll(); closeLeftPanel();
 }
 
@@ -59,30 +48,25 @@ export function deleteNote(id) {
     if (!window.confirm(`Удалить заметку «${note.title || 'Без названия'}»?`)) return;
     state.notes = state.notes.filter(n => n.id !== id);
     if (state.activeTag) { const stillExists = state.notes.some(n => hasNoteTag(n, state.activeTag)); if (!stillExists) state.activeTag = null; }
-    if (state.activeId === id) { const candidates = getFilteredNotes(); state.activeId = candidates.length > 0 ? candidates[0].id : null; }
+    if (state.activeId === id) { 
+        const candidates = notesInFolder(state.activeFolderId); 
+        state.activeId = candidates.length > 0 ? candidates[0].id : null; 
+        state.viewMode = state.activeId ? 'editor' : 'folder'; // Если заметок не осталось — в папку
+    }
     state.editorMode = 'edit'; resetAIPanel(); persistNotes(); state.saveStatus = 'idle'; renderAll();
 }
 
 export function selectTag(tag) {
     if (!tag) return;
     if (state.activeTag === tag) { clearTagFilter(); return; }
-    state.activeTag = tag; state.editorMode = 'edit'; resetAIPanel();
-    const candidates = state.notes.filter(n => hasNoteTag(n, tag)).sort((a, b) => b.updatedAt - a.updatedAt);
-    state.activeId = candidates.length > 0 ? candidates[0].id : null;
+    state.activeTag = tag; state.viewMode = 'folder'; resetAIPanel(); // Фильтр по тегу показывает карточки
     renderAll(); closeLeftPanel();
 }
 
 export function clearTagFilter() {
     if (state.activeTag === null) return;
-    state.activeTag = null; state.editorMode = 'edit'; resetAIPanel();
-    const candidates = notesInFolder(state.activeFolderId);
-    state.activeId = candidates.length > 0 ? candidates[0].id : null;
+    state.activeTag = null; resetAIPanel();
     renderAll(); closeLeftPanel();
-}
-
-export function getFilteredNotes() {
-    if (state.activeTag) return state.notes.filter(n => hasNoteTag(n, state.activeTag)).sort((a, b) => b.updatedAt - a.updatedAt);
-    return notesInFolder(state.activeFolderId);
 }
 
 export function createFolder() {
@@ -112,16 +96,16 @@ export function deleteFolder(id) {
     if (!window.confirm(msg)) return;
     state.notes.forEach(n => { if (n.folderId === id) n.folderId = 'inbox'; });
     state.folders = state.folders.filter(f => f.id !== id);
-    if (state.activeFolderId === id) { state.activeFolderId = 'inbox'; const candidates = getFilteredNotes(); state.activeId = candidates.length > 0 ? candidates[0].id : null; }
-    else if (!getNoteById(state.activeId)) state.activeId = null;
-    state.editorMode = 'edit'; persistFolders(); persistNotes(); renderAll();
+    if (state.activeFolderId === id) { state.activeFolderId = 'inbox'; }
+    state.viewMode = 'folder'; state.activeId = null;
+    persistFolders(); persistNotes(); renderAll();
 }
 
 export function selectFolder(id) {
     if (!getFolderById(id)) return;
-    if (id === state.activeFolderId && state.activeTag === null) { closeLeftPanel(); return; }
-    state.activeFolderId = id; state.activeTag = null; state.editorMode = 'edit'; resetAIPanel();
-    const candidates = notesInFolder(id); state.activeId = candidates.length > 0 ? candidates[0].id : null;
+    state.activeFolderId = id; state.activeTag = null; state.activeId = null; 
+    state.viewMode = 'folder'; // Переключаем на карточки
+    resetAIPanel();
     renderAll(); closeLeftPanel();
 }
 
@@ -143,9 +127,7 @@ export function insertChipAtCursor(promptName) {
     ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.6) + 'px';
 }
 
-export function openPromptPanel(promptId, rawName) {
-    state.activePrompt = promptId || null; state.activePromptRawName = rawName || null; state.aiPanelOpen = true; updateAIPanel();
-}
+export function openPromptPanel(promptId, rawName) { state.activePrompt = promptId || null; state.activePromptRawName = rawName || null; state.aiPanelOpen = true; updateAIPanel(); }
 export function closePromptPanel() { state.activePrompt = null; state.activePromptRawName = null; state.aiPanelOpen = false; updateAIPanel(); }
 export function resetAIPanel() { closePromptPanel(); }
 
@@ -157,13 +139,11 @@ export function enterPreviewMode(showMessage) {
     state.editorMode = 'preview'; renderEditor();
 }
 
-export function togglePreviewMode() {
-    if (state.editorMode === 'preview') exitPreviewMode(); else enterPreviewMode(true);
-}
+export function togglePreviewMode() { if (state.editorMode === 'preview') exitPreviewMode(); else enterPreviewMode(true); }
 
 export function schedulePreview(noteIdAtBlur) {
     setTimeout(() => {
-        if (state.activeId !== noteIdAtBlur || state.editorMode === 'preview') return;
+        if (state.activeId !== noteIdAtBlur || state.editorMode === 'preview' || state.viewMode !== 'editor') return;
         const active = document.activeElement;
         if (active === els.contentInput || active === els.btnPreview || (active && els.preview.contains(active))) return;
         enterPreviewMode(false);
@@ -172,11 +152,6 @@ export function schedulePreview(noteIdAtBlur) {
 
 export function exitPreviewMode() {
     if (state.editorMode !== 'preview') return;
-    state.editorMode = 'edit';
-    renderEditor();
-    try {
-        els.contentInput.focus();
-        const len = els.contentInput.value.length;
-        els.contentInput.setSelectionRange(len, len);
-    } catch (_) {}
+    state.editorMode = 'edit'; renderEditor();
+    try { els.contentInput.focus(); const len = els.contentInput.value.length; els.contentInput.setSelectionRange(len, len); } catch (_) {}
 }

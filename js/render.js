@@ -1,18 +1,16 @@
 import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, getPromptById, getPromptByName, findNoteByTitle, updateIcons } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, getPromptById, getPromptByName, findNoteByTitle, updateIcons, parseTagsFromContent } from './utils.js';
 
 export function renderTags() {
     if (!els.tagsList) return;
     const tags = collectAllTags();
     if (tags.length === 0) {
-        els.tagsList.innerHTML = ''; els.tagsList.style.display = 'none'; if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'none';
-        return;
+        els.tagsList.innerHTML = ''; els.tagsList.style.display = 'none'; if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'none'; return;
     }
     els.tagsList.style.display = 'flex'; if (els.tagsSectionLabel) els.tagsSectionLabel.style.display = 'block';
     els.tagsList.innerHTML = tags.map(item => {
-        const isActive = item.tag === state.activeTag;
-        const cls = 'tag-chip' + (isActive ? ' tag-chip-active' : '');
-        return `<button type="button" class="${cls}" data-tag="${escapeHtml(item.tag)}" title="#${escapeHtml(item.tag)}"><span>#${escapeHtml(item.tag)}</span><span class="tag-chip-count">${item.count}</span></button>`;
+        const cls = 'tag-chip' + (item.tag === state.activeTag ? ' tag-chip-active' : '');
+        return `<button type="button" class="${cls}" data-tag="${escapeHtml(item.tag)}"><span>#${escapeHtml(item.tag)}</span><span class="tag-chip-count">${item.count}</span></button>`;
     }).join('');
 }
 
@@ -26,7 +24,7 @@ export function renderFolders() {
         const activeCls = isActive ? 'folder-item-active' : '';
         let actions = '';
         if (!isInbox && isActive) {
-            actions = `<button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="edit" aria-label="Переименовать"><i data-lucide="pencil" class="w-3.5 h-3.5 text-outline"></i></button><button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="delete" aria-label="Удалить"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-outline"></i></button>`;
+            actions = `<button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="edit"><i data-lucide="pencil" class="w-3.5 h-3.5 text-outline"></i></button><button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="delete"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-outline"></i></button>`;
         }
         return `<div class="folder-item ${activeCls} flex items-center gap-1" data-folder-id="${escapeHtml(folder.id)}"><button type="button" class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-folder-select="${escapeHtml(folder.id)}"><i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0 text-outline"></i><span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(folder.name)}</span><span class="folder-count text-xs opacity-60 text-outline">${count}</span></button>${actions}</div>`;
     }).join('');
@@ -57,11 +55,112 @@ export function renderNotes() {
     }
     els.notesEmpty.style.display = 'none'; els.notesList.style.display = 'flex';
     els.notesList.innerHTML = filtered.map(note => {
-        const isActive = note.id === state.activeId;
+        const isActive = note.id === state.activeId && state.viewMode === 'editor';
         const activeCls = isActive ? 'bg-black/5 text-primary font-semibold' : 'text-outline hover:bg-black/5';
         return `<button type="button" class="note-item w-full text-left p-3 min-h-[48px] rounded-lg transition-colors ${activeCls}" data-note-id="${escapeHtml(note.id)}"><div class="font-medium truncate text-sm">${escapeHtml(noteTitle(note))}</div><div class="text-xs truncate opacity-80 mt-0.5">${escapeHtml(notePreview(note))}</div><div class="text-[10px] opacity-60 mt-1">${relativeTime(note.updatedAt)}</div></button>`;
     }).join('');
     updateIcons();
+}
+
+export function renderBreadcrumbs() {
+    if (!els.crumbFolderName || !els.crumbTitle) return;
+    const note = getNoteById(state.activeId);
+    const folder = getFolderById(state.activeFolderId);
+
+    els.crumbFolderName.textContent = folder ? folder.name : 'Входящие';
+
+    // Если мы в папке, крошка активна и кликабельна
+    if (state.viewMode === 'folder') {
+        els.crumbTitle.textContent = 'Все заметки';
+        els.crumbSeparator.classList.add('hidden');
+        if (els.folderMoveSelect) els.folderMoveSelect.style.display = 'none'; // Селект не нужен, мы и так в папке
+    } 
+    // Если в редакторе
+    else if (note) {
+        els.crumbTitle.textContent = noteTitle(note);
+        els.crumbSeparator.classList.remove('hidden');
+        
+        // Настраиваем селект перемещения
+        if (els.folderMoveSelect) {
+            els.folderMoveSelect.style.display = 'block';
+            els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+            els.folderMoveSelect.value = note.folderId;
+        }
+    }
+}
+
+export function renderFolderView() {
+    if (!els.viewFolder) return;
+    const notes = notesInFolder(state.activeFolderId);
+    
+    if (notes.length === 0) {
+        els.viewFolder.innerHTML = `<div class="col-span-full text-center text-outline italic py-10">В этой папке пока пусто.</div>`;
+        return;
+    }
+
+    els.viewFolder.innerHTML = notes.map(note => {
+        // Извлекаем первые 3 тега и 2 контекста для превью
+        const tags = (note.tags || []).slice(0, 3);
+        const contexts = (note.content.match(/\[\[([^\]\n]+)\]\]/g) || []).slice(0, 2);
+        
+        const tagsHtml = tags.map(t => `<span class="text-[10px] bg-black/5 text-primary px-2 py-0.5 rounded-full">#${escapeHtml(t)}</span>`).join('');
+        const contextHtml = contexts.map(c => `<span class="text-[10px] bg-black/5 text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
+
+        return `
+            <div class="note-card" data-note-id="${escapeHtml(note.id)}">
+                <div class="note-card-title">${escapeHtml(noteTitle(note))}</div>
+                <div class="note-card-preview">${escapeHtml(notePreview(note))}</div>
+                <div class="note-card-meta">
+                    <span class="text-[10px] text-outline mr-auto">${relativeTime(note.updatedAt)}</span>
+                    ${tagsHtml}
+                    ${contextHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+export function renderEditor() {
+    const note = getNoteById(state.activeId);
+    if (!note) {
+        els.titleInput.value = ''; els.contentInput.value = '';
+        els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
+        return;
+    }
+    els.titleInput.value = note.title; els.contentInput.value = note.content;
+    
+    if (state.editorMode === 'preview') {
+        els.contentInput.classList.add('hidden'); els.preview.classList.remove('hidden');
+        renderMarkdown(note.content);
+    } else {
+        els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
+        els.contentInput.style.height = 'auto';
+        els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
+    }
+    updatePreviewButton(); renderChipPalette(); updateAIPanel();
+}
+
+export function renderAll() {
+    renderFolders(); 
+    renderNotesSectionLabel(); 
+    renderTags(); 
+    renderNotes(); 
+    renderSaveStatus();
+    renderBreadcrumbs();
+
+    if (state.viewMode === 'editor') {
+        els.viewEditor.classList.remove('hidden');
+        els.viewFolder.classList.add('hidden');
+        els.btnPreview.style.display = 'flex';
+        els.btnDeleteNote.style.display = 'flex';
+        renderEditor();
+    } else {
+        els.viewEditor.classList.add('hidden');
+        els.viewFolder.classList.remove('hidden');
+        els.btnPreview.style.display = 'none';
+        els.btnDeleteNote.style.display = 'none';
+        renderFolderView();
+    }
 }
 
 export function updateActiveNoteInList() {
@@ -82,52 +181,7 @@ export function updatePreviewButton() {
     els.btnPreview.style.opacity = hasNote ? '1' : '0.4';
     const isPreview = state.editorMode === 'preview';
     els.btnPreview.innerHTML = isPreview ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>' : '<i data-lucide="eye" class="w-5 h-5 text-outline"></i>';
-    els.btnPreview.setAttribute('aria-label', isPreview ? 'Редактировать' : 'Показать превью');
     updateIcons();
-}
-
-export function renderEditor() {
-    const note = getNoteById(state.activeId);
-    if (!note) {
-        state.editorMode = 'edit';
-        els.titleInput.value = ''; els.contentInput.value = '';
-        els.titleInput.placeholder = 'Выберите заметку или создайте новую';
-        els.contentInput.placeholder = 'Здесь появится текст заметки...';
-        els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
-        els.statusText.innerText = 'Готово'; els.statusText.style.color = 'var(--md-outline)';
-        updatePreviewButton(); renderChipPalette(); updateAIPanel(); renderBreadcrumbs();
-        return;
-    }
-    els.titleInput.value = note.title; els.contentInput.value = note.content;
-    els.titleInput.placeholder = 'Заголовок заметки...'; els.contentInput.placeholder = 'Начните печатать свою мысль здесь...';
-    if (state.editorMode === 'preview') {
-        els.contentInput.classList.add('hidden'); els.preview.classList.remove('hidden');
-        renderMarkdown(note.content);
-    } else {
-        els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
-        els.contentInput.style.height = 'auto';
-        els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
-    }
-    updatePreviewButton(); renderChipPalette(); updateAIPanel(); renderBreadcrumbs();
-}
-
-export function renderBreadcrumbs() {
-    if (!els.breadcrumbFolder || !els.breadcrumbTitle) return;
-    const note = getNoteById(state.activeId);
-    const folder = getFolderById(state.activeFolderId);
-    els.breadcrumbFolder.textContent = folder ? folder.name : 'Входящие';
-
-    if (note) {
-        els.breadcrumbTitle.textContent = noteTitle(note);
-        if (els.moveContainer) els.moveContainer.style.display = 'block';
-        if (els.folderMoveSelect) {
-            els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-            els.folderMoveSelect.value = note.folderId;
-        }
-    } else {
-        els.breadcrumbTitle.textContent = '';
-        if (els.moveContainer) els.moveContainer.style.display = 'none';
-    }
 }
 
 export function renderSaveStatus() {
@@ -141,13 +195,9 @@ export function renderSaveStatus() {
     els.statusText.innerText = s.text; els.statusText.style.color = s.color;
 }
 
-export function renderAll() {
-    renderFolders(); renderNotesSectionLabel(); renderTags(); renderNotes(); renderEditor(); renderSaveStatus();
-}
-
 export function renderChipPalette() {
     if (!els.chipPalette) return;
-    if (!state.activeId || state.editorMode === 'preview') { els.chipPalette.style.display = 'none'; return; }
+    if (!state.activeId || state.editorMode === 'preview' || state.viewMode !== 'editor') { els.chipPalette.style.display = 'none'; return; }
     els.chipPalette.style.display = 'flex';
     els.chipPalette.innerHTML = (window.PROMPTS || []).map(p => `<button type="button" class="prompt-chip-palette-btn" data-prompt-insert="${escapeHtml(p.name)}"><i data-lucide="${escapeHtml(p.icon)}" class="w-3.5 h-3.5"></i><span>${escapeHtml(p.name)}</span></button>`).join('');
     updateIcons();
@@ -194,20 +244,17 @@ export function renderHighlightsInPreview() {
     if (!els.preview) return;
     const regex = /(\[!prompt:([^\]\n]+)\])|(\[\[([^\]\n]+)\]\])|(^|[^\p{L}\p{N}_])(#[\p{L}\p{N}_]+)/giu;
     const walker = document.createTreeWalker(els.preview, NodeFilter.SHOW_TEXT, {
-        acceptNode: function (node) {
+        acceptNode: (node) => {
             if (node.parentElement && node.parentElement.closest('code, pre, a, button')) return NodeFilter.FILTER_REJECT;
             regex.lastIndex = 0;
             return regex.test(node.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         }
     });
-    const textNodes = [];
-    let n; while ((n = walker.nextNode())) textNodes.push(n);
+    const textNodes = []; let n; while ((n = walker.nextNode())) textNodes.push(n);
 
     textNodes.forEach(textNode => {
-        const text = textNode.nodeValue || '';
-        const frag = document.createDocumentFragment();
-        let lastIdx = 0, match;
-        regex.lastIndex = 0;
+        const text = textNode.nodeValue || ''; const frag = document.createDocumentFragment();
+        let lastIdx = 0, match; regex.lastIndex = 0;
         while ((match = regex.exec(text)) !== null) {
             if (match.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
             if (match[1]) {
