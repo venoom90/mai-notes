@@ -137,6 +137,35 @@ export function updateIcons() {
     }
 }
 
+// --- Outline & Backlinks Utils ---
+
+export function getBacklinks(note) {
+    if (!note) return [];
+    const title = noteTitle(note);
+    const linkStr = `[[${title}]]`;
+    return state.notes.filter(n => n.id !== note.id && n.content.includes(linkStr));
+}
+
+export function getOutline(content) {
+    if (!content) return [];
+    const lines = content.split('\n');
+    const outline = [];
+    lines.forEach(line => {
+        const h2Match = line.match(/^##\s+(.+)$/);
+        if (h2Match) {
+            outline.push({ level: 2, text: h2Match[1].trim() });
+            return;
+        }
+        const h3Match = line.match(/^###\s+(.+)$/);
+        if (h3Match) {
+            outline.push({ level: 3, text: h3Match[1].trim() });
+        }
+    });
+    return outline;
+}
+
+// --- Markdown Export/Import Utils ---
+
 export function generateMarkdown(note, folderName) {
     const safeTitle = String(note.title || 'Без названия').replace(/"/g, '\\"');
     const safeFolder = String(folderName || 'Входящие').replace(/"/g, '\\"');

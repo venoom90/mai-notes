@@ -19,7 +19,11 @@ export const state = {
     actionMenuMode: 'main',
     searchOpen: false,
     draftFilter: [],
-    pickerType: null
+    pickerType: null,
+    // Новые поля для Спринта 1
+    history: [],
+    historyIndex: -1,
+    isFocusMode: false
 };
 
 export const PROMPTS = [
@@ -113,8 +117,18 @@ export const els = {
     pickerList: document.getElementById('picker-list'),
     btnClosePicker: document.getElementById('btn-close-picker'),
 
-    // V1.8.0 Backup
+    // Backup
     btnExportAll: document.getElementById('btn-export-all'),
     btnImportData: document.getElementById('btn-import-data'),
-    importFileInput: document.getElementById('import-file-input')
+    importFileInput: document.getElementById('import-file-input'),
+
+    // Navigation & Focus
+    btnNavBack: document.getElementById('btn-nav-back'),
+    btnNavForward: document.getElementById('btn-nav-forward'),
+    btnFocusMode: document.getElementById('btn-focus-mode'),
+    btnCloseFocus: document.getElementById('btn-close-focus'),
+    outlineContainer: document.getElementById('outline-container'),
+    outlineList: document.getElementById('outline-list'),
+    backlinksContainer: document.getElementById('backlinks-container'),
+    backlinksList: document.getElementById('backlinks-list')
 };

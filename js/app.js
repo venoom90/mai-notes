@@ -10,7 +10,8 @@ import {
     openSearch, closeSearch, handleSearchInput, insertFormatting,
     openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter,
     openPicker, closePicker, handlePickerSearch, insertPickedItem,
-    shareNoteFile, exportAllData, handleImportFiles
+    shareNoteFile, exportAllData, handleImportFiles,
+    goBack, goForward, toggleFocusMode, goToFolderView
 } from './logic.js';
 
 function attachListeners() {
@@ -48,6 +49,12 @@ function attachListeners() {
     if (els.btnMenu) els.btnMenu.addEventListener('click', toggleLeftPanel);
     if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);
 
+    // Nav buttons
+    if (els.btnNavBack) els.btnNavBack.addEventListener('click', goBack);
+    if (els.btnNavForward) els.btnNavForward.addEventListener('click', goForward);
+    if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
+    if (els.btnCloseFocus) els.btnCloseFocus.addEventListener('click', toggleFocusMode);
+
     els.btnNewNote.addEventListener('click', createNote);
     if (els.fabNewNote) els.fabNewNote.addEventListener('click', createNote);
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
@@ -61,11 +68,7 @@ function attachListeners() {
         });
     }
 
-    els.crumbFolderBtn.addEventListener('click', () => {
-        state.viewMode = 'folder'; state.activeId = null; 
-        state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
-        renderAll();
-    });
+    els.crumbFolderBtn.addEventListener('click', goToFolderView);
 
     els.foldersList.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-folder-action]');
@@ -107,6 +110,25 @@ function attachListeners() {
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.contentInput.addEventListener('blur', () => { scheduleSave(); });
+
+    // Outline clicks
+    els.outlineList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-outline-text]');
+        if (!btn) return;
+        const text = btn.getAttribute('data-outline-text');
+        // Ищем элемент заголовка в превью
+        const headers = Array.from(els.preview.querySelectorAll('h2, h3'));
+        const target = headers.find(h => h.textContent.trim() === text);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+
+    // Backlinks clicks
+    els.backlinksList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-backlink-id]');
+        if (btn) selectNote(btn.getAttribute('data-backlink-id'));
+    });
 
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
@@ -226,6 +248,42 @@ function attachListeners() {
         if (e.target.files.length > 0) handleImportFiles(Array.from(e.target.files));
     });
 
+    // --- ANDROID BACK BUTTON (POPSTATE) ---
+    window.addEventListener('popstate', (e) => {
+        // 1. Если открыт Focus Mode - выключаем
+        if (state.isFocusMode) {
+            toggleFocusMode();
+            // Возвращаем состояние истории, чтобы кнопка назад сработала снова
+            history.pushState({ state: 'focus' }, '');
+            return;
+        }
+        
+        // 2. Если открыты модалки/шторки - закрываем
+        if (state.actionMenuNoteId) { closeActionMenu(); history.pushState({ state: 'actionMenu' }, ''); return; }
+        if (els.filterModal.classList.contains('open')) { closeFilterModal(); history.pushState({ state: 'filter' }, ''); return; }
+        if (els.pickerModal.classList.contains('open')) { closePicker(); history.pushState({ state: 'picker' }, ''); return; }
+        if (state.searchOpen) { closeSearch(); history.pushState({ state: 'search' }, ''); return; }
+        if (state.leftPanelOpen) { closeLeftPanel(); history.pushState({ state: 'leftPanel' }, ''); return; }
+
+        // 3. Если открыта заметка - возвращаемся в папку (или назад по истории)
+        if (state.viewMode === 'editor') {
+            if (state.historyIndex > 0) {
+                goBack();
+                // Так как мы откатились по стеку, пушим состояние, чтобы не выйти из приложения
+                history.pushState({ state: 'editor' }, ''); 
+            } else {
+                goToFolderView();
+                history.pushState({ state: 'folder' }, '');
+            }
+            return;
+        }
+        
+        // Если мы в папке - ничего не делаем, пусть приложение закрывается (обычное поведение)
+    });
+
+    // Инициализируем стартовое состояние для корректной работы перехвата
+    history.pushState({ state: 'root' }, '');
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (els.pickerModal.classList.contains('open')) { e.preventDefault(); closePicker(); return; }
@@ -233,6 +291,7 @@ function attachListeners() {
             if (els.filterModal.classList.contains('open')) { e.preventDefault(); closeFilterModal(); return; }
             if (state.actionMenuNoteId) { e.preventDefault(); closeActionMenu(); return; }
             if (state.leftPanelOpen) { e.preventDefault(); closeLeftPanel(); return; }
+            if (state.isFocusMode) { e.preventDefault(); toggleFocusMode(); return; }
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); togglePreviewMode(); }
@@ -261,6 +320,9 @@ function init() {
     state.activeId = null; state.viewMode = 'folder';
     state.editorMode = 'preview'; 
     state.pickerType = null;
+    state.history = [];
+    state.historyIndex = -1;
+    state.isFocusMode = false;
 
     renderAll(); attachListeners();
 }

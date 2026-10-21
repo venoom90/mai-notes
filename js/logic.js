@@ -3,21 +3,66 @@ import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderB
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
-export function openLeftPanel() { 
-    if (state.leftPanelOpen || window.innerWidth >= 768) return; 
-    state.leftPanelOpen = true; 
-    els.leftPanel.classList.add('mobile-active'); 
-    els.leftPanelBackdrop.classList.add('mobile-active'); 
-}
-
-export function closeLeftPanel() { 
-    if (!state.leftPanelOpen) return; 
-    state.leftPanelOpen = false; 
-    els.leftPanel.classList.remove('mobile-active'); 
-    els.leftPanelBackdrop.classList.remove('mobile-active'); 
-}
-
+export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.add('mobile-active'); }
+export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.remove('mobile-active'); }
 export function toggleLeftPanel() { state.leftPanelOpen ? closeLeftPanel() : openLeftPanel(); }
+
+// --- NAVIGATION HISTORY ---
+
+export function pushToHistory(id) {
+    if (!id) return;
+    if (state.historyIndex < state.history.length - 1) {
+        state.history = state.history.slice(0, state.historyIndex + 1);
+    }
+    state.history.push(id);
+    state.historyIndex = state.history.length - 1;
+}
+
+export function goBack() {
+    if (state.historyIndex > 0) {
+        state.historyIndex--;
+        const id = state.history[state.historyIndex];
+        const note = getNoteById(id);
+        if (note) {
+            state.activeId = id; state.activeFolderId = note.folderId; 
+            state.viewMode = 'editor'; state.editorMode = 'preview';
+            renderAll();
+        }
+    } else {
+        goToFolderView();
+    }
+}
+
+export function goForward() {
+    if (state.historyIndex < state.history.length - 1) {
+        state.historyIndex++;
+        const id = state.history[state.historyIndex];
+        const note = getNoteById(id);
+        if (note) {
+            state.activeId = id; state.activeFolderId = note.folderId; 
+            state.viewMode = 'editor'; state.editorMode = 'preview';
+            renderAll();
+        }
+    }
+}
+
+export function goToFolderView() {
+    state.viewMode = 'folder'; state.activeId = null; 
+    renderAll();
+}
+
+// --- FOCUS MODE ---
+
+export function toggleFocusMode() {
+    state.isFocusMode = !state.isFocusMode;
+    if (state.isFocusMode) {
+        document.body.classList.add('focus-mode');
+    } else {
+        document.body.classList.remove('focus-mode');
+    }
+}
+
+// --- CRUD ---
 
 export function scheduleSave() {
     if (state.saveTimeout) clearTimeout(state.saveTimeout);
@@ -41,16 +86,20 @@ export function createNote() {
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.viewMode = 'editor'; state.editorMode = 'edit'; 
     persistNotes(); state.saveStatus = 'idle';
+    pushToHistory(note.id);
     renderAll(); closeLeftPanel();
     setTimeout(() => els.titleInput.focus(), 50);
 }
 
-export function selectNote(id) {
+export function selectNote(id, pushHist = true) {
     const note = getNoteById(id); if (!note) return;
     const defaultMode = note.content.trim() ? 'preview' : 'edit';
     if (id === state.activeId && state.viewMode === 'editor') { closeLeftPanel(); return; }
+    
     state.activeId = id; state.activeFolderId = note.folderId; 
     state.viewMode = 'editor'; state.editorMode = defaultMode; state.saveStatus = 'idle';
+    if (pushHist) pushToHistory(id);
+    
     renderAll(); closeLeftPanel();
 }
 

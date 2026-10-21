@@ -1,5 +1,5 @@
 import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons, getBacklinks, getOutline } from './utils.js';
 
 export function renderSidebar() {
     els.foldersList.innerHTML = sortedFolders().map(folder => {
@@ -80,6 +80,10 @@ export function renderBreadcrumbs() {
             els.folderMoveSelect.value = note.folderId;
         }
     }
+
+    // Nav buttons state
+    els.btnNavBack.disabled = state.historyIndex <= 0 && state.viewMode === 'folder';
+    els.btnNavForward.disabled = state.historyIndex >= state.history.length - 1;
 }
 
 export function renderFolderView() {
@@ -164,13 +168,46 @@ export function renderEditor() {
         els.contentInput.classList.add('hidden'); els.preview.classList.remove('hidden');
         els.titleInput.readOnly = true;
         renderMarkdown(note.content);
+        renderBacklinks(note);
     } else {
         els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
         els.titleInput.readOnly = false;
         els.contentInput.style.height = 'auto';
         els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
+        els.backlinksContainer.classList.add('hidden'); // Скрываем в режиме редактирования
     }
+    
+    renderOutline(note.content);
     updatePreviewButton(); renderChipPalette();
+}
+
+export function renderOutline(content) {
+    const outline = getOutline(content);
+    if (outline.length === 0) {
+        els.outlineContainer.classList.add('hidden');
+        return;
+    }
+    els.outlineContainer.classList.remove('hidden');
+    els.outlineList.innerHTML = outline.map(item => `
+        <button type="button" class="outline-link outline-h${item.level}" data-outline-text="${escapeHtml(item.text)}">
+            ${escapeHtml(item.text)}
+        </button>
+    `).join('');
+}
+
+export function renderBacklinks(note) {
+    const backlinks = getBacklinks(note);
+    if (backlinks.length === 0) {
+        els.backlinksContainer.classList.add('hidden');
+        return;
+    }
+    els.backlinksContainer.classList.remove('hidden');
+    els.backlinksList.innerHTML = backlinks.map(bl => `
+        <button type="button" class="text-left w-full p-2 rounded-xl bg-[var(--md-surface-variant)] hover:bg-black/5 transition-colors flex flex-col gap-1" data-backlink-id="${bl.id}">
+            <div class="font-bold text-sm text-[var(--md-primary)] truncate">${escapeHtml(noteTitle(bl))}</div>
+            <div class="text-xs text-[var(--md-outline)] line-clamp-1">${escapeHtml(notePreview(bl))}</div>
+        </button>
+    `).join('');
 }
 
 export function renderAll() {
@@ -189,6 +226,7 @@ export function renderAll() {
         els.btnPreview.style.display = 'none';
         els.btnDeleteNote.style.display = 'none';
         renderFolderView();
+        els.outlineContainer.classList.add('hidden');
     }
     
     if (els.fabNewNote) {
@@ -198,6 +236,7 @@ export function renderAll() {
         if (state.viewMode === 'editor' && state.editorMode === 'edit') els.formatToolbar.classList.add('active');
         else els.formatToolbar.classList.remove('active');
     }
+    updateIcons();
 }
 
 export function updatePreviewButton() {
