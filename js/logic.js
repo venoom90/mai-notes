@@ -1,5 +1,5 @@
 import { state, els, FILTERS_KEY } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
 
@@ -70,13 +70,14 @@ export function openCalendar() {
     state.activeId = null;
     state.calendarDate = today;
     state.selectedDate = formatDateYYYYMMDD(today);
+    state.isCalendarExpanded = false;
     renderAll();
     closeLeftPanel();
 }
 
 export function prevMonth() {
     state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1);
-    state.selectedDate = null; // Сбрасываем выбранный день при смене месяца, чтобы избежать путаницы
+    state.selectedDate = null; 
     renderAll();
 }
 
@@ -95,6 +96,14 @@ export function goToToday() {
 
 export function selectCalendarDay(dateStr) {
     state.selectedDate = dateStr;
+    if (state.isCalendarExpanded) {
+        state.isCalendarExpanded = false;
+    }
+    renderAll();
+}
+
+export function toggleCalendarExpand() {
+    state.isCalendarExpanded = !state.isCalendarExpanded;
     renderAll();
 }
 

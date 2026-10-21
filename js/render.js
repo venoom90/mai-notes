@@ -1,5 +1,5 @@
 import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate } from './utils.js';
 
 export function renderSidebar() {
     els.foldersList.innerHTML = sortedFolders().map(folder => {
@@ -169,48 +169,80 @@ export function renderCalendarView() {
     const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
     els.calendarMonthTitle.textContent = `${monthNames[month]} ${year}`;
 
-    // Получаем первый день месяца (0 - Вс, 1 - Пн, ...)
-    let firstDay = new Date(year, month, 1).getDay();
-    // Переделываем под Пн=0, Вт=1 ... Вс=6
-    firstDay = firstDay === 0 ? 6 : firstDay - 1;
-
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
     const todayStr = formatDateYYYYMMDD(new Date());
 
-    let html = '';
-    
-    // Пустые ячейки в начале
-    for (let i = 0; i < firstDay; i++) {
-        html += `<div class="calendar-day empty"></div>`;
+    // 1. Рендер полоски недели (Week Strip)
+    const weekDates = getWeekDates(state.calendarDate);
+    els.calendarWeekStrip.innerHTML = weekDates.map(d => {
+        const dateStr = formatDateYYYYMMDD(d);
+        const count = getNoteCountForDate(dateStr);
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === state.selectedDate;
+        const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' }).toUpperCase();
+        const dayNum = d.getDate();
+
+        let cls = 'week-day-cell';
+        if (isToday) cls += ' today';
+        if (isSelected) cls += ' selected';
+
+        return `
+            <div class="${cls}" data-date="${dateStr}" id="week-cell-${dateStr}">
+                <div class="day-label">${dayName}</div>
+                <div class="day-number">${dayNum}</div>
+                <div class="day-count">${count > 0 ? count : ''}</div>
+            </div>
+        `;
+    }).join('');
+
+    // 2. Рендер полной сетки месяца (Full Grid)
+    if (state.isCalendarExpanded) {
+        els.calendarFullGrid.classList.add('expanded');
+        els.btnToggleCalendar.innerHTML = `Свернуть календарь <i data-lucide="chevron-up" class="w-3 h-3"></i>`;
+    } else {
+        els.calendarFullGrid.classList.remove('expanded');
+        els.btnToggleCalendar.innerHTML = `Развернуть календарь <i data-lucide="chevron-down" class="w-3 h-3"></i>`;
     }
 
-    // Дни месяца
+    let firstDay = new Date(year, month, 1).getDay();
+    firstDay = firstDay === 0 ? 6 : firstDay - 1; // Пн = 0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    let gridHtml = '';
+    for (let i = 0; i < firstDay; i++) {
+        gridHtml += `<div class="full-grid-day empty"></div>`;
+    }
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = formatDateYYYYMMDD(new Date(year, month, d));
-        const hasNotes = state.notes.some(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === dateStr);
+        const count = getNoteCountForDate(dateStr);
         const isToday = dateStr === todayStr;
         const isSelected = dateStr === state.selectedDate;
 
-        let cls = 'calendar-day';
+        let cls = 'full-grid-day';
         if (isToday) cls += ' today';
         if (isSelected) cls += ' selected';
-        if (hasNotes) cls += ' has-notes';
 
-        html += `<div class="${cls}" data-date="${dateStr}">${d}</div>`;
+        gridHtml += `
+            <div class="${cls}" data-date="${dateStr}">
+                <div class="day-number" style="width: 32px; height: 32px; font-size: 0.9rem;">${d}</div>
+                <div class="day-count" style="margin-top: 0;">${count > 0 ? count : ''}</div>
+            </div>
+        `;
     }
+    els.calendarFullGrid.innerHTML = gridHtml;
 
-    els.calendarGrid.innerHTML = html;
-
-    // Рендер заметок для выбранного дня
+    // 3. Рендер списка заметок
     if (state.selectedDate) {
-        els.calendarNotesContainer.classList.remove('hidden');
         const d = new Date(state.selectedDate);
-        els.calendarSelectedTitle.textContent = `Заметки за ${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+        const isToday = state.selectedDate === todayStr;
+        els.calendarSelectedTitle.textContent = isToday ? 'Сегодня' : d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+        els.calendarSelectedDate.textContent = isToday ? d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
         
         const dayNotes = state.notes.filter(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
         
+        els.calendarSelectedBadge.textContent = `${dayNotes.length} заметок`;
+
         if (dayNotes.length === 0) {
-            els.calendarNotesList.innerHTML = `<div class="col-span-full text-center text-outline italic py-6 bg-[var(--md-surface-variant)]/50 rounded-xl">В этот день заметок нет.</div>`;
+            els.calendarNotesList.innerHTML = `<div class="col-span-full text-center text-outline italic py-6 bg-[var(--md-surface-variant)]/50 rounded-2xl">В этот день заметок нет.</div>`;
         } else {
             els.calendarNotesList.innerHTML = dayNotes.map(note => `
                 <div class="note-card" data-note-id="${escapeHtml(note.id)}">
@@ -222,11 +254,19 @@ export function renderCalendarView() {
                 </div>
             `).join('');
         }
-    } else {
-        els.calendarNotesContainer.classList.add('hidden');
     }
     
     updateIcons();
+
+    // Авто-скролл к выбранному дню в недельной полоске
+    if (state.selectedDate) {
+        setTimeout(() => {
+            const activeCell = document.getElementById(`week-cell-${state.selectedDate}`);
+            if (activeCell) {
+                activeCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }, 100);
+    }
 }
 
 export function renderEditor() {

@@ -118,14 +118,30 @@
         .outline-h2 { padding-left: 0; font-weight: 600; }
         .outline-h3 { padding-left: 12px; font-size: 0.8rem; }
 
-        /* Calendar */
-        .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-size: 0.95rem; transition: background 0.15s; position: relative; margin: 0 auto; width: 100%; max-width: 44px; }
-        .calendar-day:hover { background: rgba(0,0,0,0.05); }
-        .calendar-day.empty { cursor: default; opacity: 0; pointer-events: none; }
-        .calendar-day.today { border: 1px solid var(--md-primary); color: var(--md-primary); font-weight: bold; }
-        .calendar-day.selected { background: var(--md-primary); color: var(--md-on-primary); font-weight: bold; }
-        .calendar-day.has-notes::after { content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--md-primary); }
-        .calendar-day.selected.has-notes::after { background: var(--md-on-primary); }
+        /* --- CALENDAR UI OVERHAUL --- */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .week-strip { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; scroll-behavior: smooth; }
+        .week-day-cell { flex: 0 0 auto; width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; scroll-snap-align: center; cursor: pointer; padding: 8px 0; border-radius: 12px; transition: background 0.2s; }
+        .week-day-cell:hover { background: rgba(0,0,0,0.05); }
+        
+        .day-label { font-size: 0.7rem; color: var(--md-outline); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+        .day-number { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1rem; font-weight: 500; transition: all 0.2s; }
+        .day-count { font-size: 0.65rem; color: var(--md-primary); font-weight: bold; height: 12px; line-height: 12px; margin-top: 2px; }
+        
+        .week-day-cell.today .day-number { border: 1px solid var(--md-primary); color: var(--md-primary); }
+        .week-day-cell.selected .day-number { background: var(--md-primary); color: var(--md-on-primary); box-shadow: 0 2px 8px rgba(103, 80, 164, 0.3); }
+        .week-day-cell.selected .day-label { color: var(--md-primary); }
+        
+        .full-grid-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; transition: background 0.15s; margin-bottom: 4px; }
+        .full-grid-day:hover { background: rgba(0,0,0,0.05); }
+        .full-grid-day.empty { opacity: 0; pointer-events: none; }
+        .full-grid-day.today .day-number { border: 1px solid var(--md-primary); color: var(--md-primary); }
+        .full-grid-day.selected .day-number { background: var(--md-primary); color: var(--md-on-primary); }
+        
+        .expand-transition { transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s; overflow: hidden; max-height: 0; opacity: 0; }
+        .expand-transition.expanded { max-height: 400px; opacity: 1; }
     </style>
     <link rel="manifest" href="manifest.json">
 </head>
@@ -247,25 +263,43 @@
 
             <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32"></div>
 
-            <!-- КАЛЕНДАРЬ -->
+            <!-- НОВЫЙ КАЛЕНДАРЬ -->
             <div id="view-calendar" class="hidden pb-32 flex flex-col items-center">
-                <div class="w-full max-w-md md:max-w-2xl bg-[var(--md-surface-variant)] rounded-2xl p-4 md:p-6 shadow-sm mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <button id="btn-prev-month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                        <div class="flex flex-col items-center">
-                            <div id="calendar-month-title" class="font-bold text-lg capitalize">Октябрь 2026</div>
-                            <button id="btn-calendar-today" class="text-xs text-primary font-medium hover:underline mt-1">Сегодня</button>
-                        </div>
-                        <button id="btn-next-month" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                
+                <div class="w-full max-w-md md:max-w-2xl bg-[var(--md-surface-variant)]/30 rounded-3xl p-4 md:p-6 shadow-sm mb-6 border border-[var(--md-outline)]/10">
+                    
+                    <!-- Шапка календаря -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="font-bold text-lg capitalize" id="calendar-month-title">Октябрь 2026</div>
+                        <button id="btn-calendar-today" class="text-xs font-bold text-primary px-3 py-1.5 bg-[var(--md-primary)]/10 rounded-full hover:bg-[var(--md-primary)]/20 transition-colors">Сегодня</button>
                     </div>
-                    <div class="grid grid-cols-7 gap-1 mb-2 text-center text-xs font-bold text-outline">
-                        <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+
+                    <!-- Дни недели -->
+                    <div class="grid grid-cols-7 gap-1 mb-2 text-center text-[0.65rem] font-bold text-outline">
+                        <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div>
                     </div>
-                    <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2"></div>
+
+                    <!-- Горизонтальная неделя -->
+                    <div id="calendar-week-strip" class="week-strip hide-scrollbar mb-2"></div>
+
+                    <!-- Кнопка развернуть -->
+                    <button id="btn-toggle-calendar" class="w-full py-2 flex items-center justify-center gap-2 text-xs font-medium text-outline hover:text-primary transition-colors">
+                        Развернуть календарь <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                    </button>
+
+                    <!-- Полная сетка месяца -->
+                    <div id="calendar-full-grid" class="expand-transition pt-4 border-t border-[var(--md-outline)]/20 mt-2 grid grid-cols-7 gap-y-2"></div>
                 </div>
                 
-                <div id="calendar-notes-container" class="w-full max-w-md md:max-w-2xl hidden">
-                    <div id="calendar-selected-title" class="text-lg font-bold mb-4 px-1"></div>
+                <!-- Блок заметок -->
+                <div id="calendar-notes-container" class="w-full max-w-md md:max-w-2xl">
+                    <div class="flex items-center justify-between mb-4 px-1">
+                        <div>
+                            <div id="calendar-selected-title" class="text-lg font-bold">Сегодня</div>
+                            <div id="calendar-selected-date" class="text-xs text-outline"></div>
+                        </div>
+                        <div id="calendar-selected-badge" class="bg-[var(--md-surface-variant)] text-primary text-xs font-bold px-3 py-1 rounded-full">0 заметок</div>
+                    </div>
                     <div id="calendar-notes-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
             </div>

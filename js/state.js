@@ -26,7 +26,8 @@ export const state = {
     isFocusMode: false,
     // Sprint 2 (Calendar)
     calendarDate: new Date(),
-    selectedDate: null
+    selectedDate: null,
+    isCalendarExpanded: false
 };
 
 export const PROMPTS = [
@@ -141,11 +142,13 @@ export const els = {
     // Calendar
     btnOpenCalendar: document.getElementById('btn-open-calendar'),
     btnCalendarToday: document.getElementById('btn-calendar-today'),
-    calendarGrid: document.getElementById('calendar-grid'),
+    btnToggleCalendar: document.getElementById('btn-toggle-calendar'),
+    calendarWeekStrip: document.getElementById('calendar-week-strip'),
+    calendarFullGrid: document.getElementById('calendar-full-grid'),
     calendarMonthTitle: document.getElementById('calendar-month-title'),
-    btnPrevMonth: document.getElementById('btn-prev-month'),
-    btnNextMonth: document.getElementById('btn-next-month'),
     calendarNotesContainer: document.getElementById('calendar-notes-container'),
     calendarSelectedTitle: document.getElementById('calendar-selected-title'),
+    calendarSelectedDate: document.getElementById('calendar-selected-date'),
+    calendarSelectedBadge: document.getElementById('calendar-selected-badge'),
     calendarNotesList: document.getElementById('calendar-notes-list')
 };

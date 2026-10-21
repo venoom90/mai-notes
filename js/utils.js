@@ -178,6 +178,27 @@ export function getNoteCreatedAt(note) {
     return note.createdAt || note.updatedAt;
 }
 
+// Возвращает массив из 7 дней (Пн-Вс) для недели, в которой находится date
+export function getWeekDates(date) {
+    const curr = new Date(date);
+    const day = curr.getDay() || 7; // Вс = 0, делаем Вс = 7
+    const monday = new Date(curr);
+    monday.setDate(curr.getDate() - day + 1);
+    
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        week.push(d);
+    }
+    return week;
+}
+
+// Считает количество заметок за конкретный день
+export function getNoteCountForDate(dateStr) {
+    return state.notes.filter(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === dateStr).length;
+}
+
 // --- Markdown Export/Import Utils ---
 
 export function generateMarkdown(note, folderName) {

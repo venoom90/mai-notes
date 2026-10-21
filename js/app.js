@@ -12,7 +12,7 @@ import {
     openPicker, closePicker, handlePickerSearch, insertPickedItem,
     shareNoteFile, exportAllData, handleImportFiles,
     goBack, goForward, toggleFocusMode, goToFolderView,
-    openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday
+    openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday, toggleCalendarExpand
 } from './logic.js';
 
 function attachListeners() {
@@ -59,14 +59,25 @@ function attachListeners() {
     if (els.btnPrevMonth) els.btnPrevMonth.addEventListener('click', prevMonth);
     if (els.btnNextMonth) els.btnNextMonth.addEventListener('click', nextMonth);
     if (els.btnCalendarToday) els.btnCalendarToday.addEventListener('click', goToToday);
+    if (els.btnToggleCalendar) els.btnToggleCalendar.addEventListener('click', toggleCalendarExpand);
     
-    if (els.calendarGrid) {
-        els.calendarGrid.addEventListener('click', (e) => {
-            const dayDiv = e.target.closest('[data-date]');
-            if (dayDiv) selectCalendarDay(dayDiv.getAttribute('data-date'));
+    // Week Strip clicks
+    if (els.calendarWeekStrip) {
+        els.calendarWeekStrip.addEventListener('click', (e) => {
+            const dayCell = e.target.closest('[data-date]');
+            if (dayCell) selectCalendarDay(dayCell.getAttribute('data-date'));
         });
     }
     
+    // Full Grid clicks
+    if (els.calendarFullGrid) {
+        els.calendarFullGrid.addEventListener('click', (e) => {
+            const dayCell = e.target.closest('[data-date]');
+            if (dayCell) selectCalendarDay(dayCell.getAttribute('data-date'));
+        });
+    }
+    
+    // Notes in calendar clicks
     if (els.calendarNotesList) {
         els.calendarNotesList.addEventListener('click', (e) => {
             const card = e.target.closest('.note-card');
@@ -340,6 +351,7 @@ function init() {
     state.isFocusMode = false;
     state.calendarDate = new Date();
     state.selectedDate = null;
+    state.isCalendarExpanded = false;
 
     renderAll(); attachListeners();
 }
