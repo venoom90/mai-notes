@@ -472,12 +472,12 @@
         }
 
         // === TAGS ===
-        function parseTagsFromContent(content) {
-            if (!content || typeof content !== 'string') return [];
+        function parseTagsFromContent(text) {
+            if (!text || typeof text !== 'string') return [];
             const regex = /(^|[^\p{L}\p{N}_])(#[\p{L}\p{N}_]+)/giu;
             const set = new Set();
             let match;
-            while ((match = regex.exec(content)) !== null) {
+            while ((match = regex.exec(text)) !== null) {
                 const tag = match[2].slice(1);
                 if (tag.length > 0) set.add(tag);
             }
@@ -486,11 +486,12 @@
 
         function syncNoteTags(note) {
             if (!note) return;
-            note.tags = parseTagsFromContent(note.content);
-        }
-
-        function syncAllNotesTags() {
-            state.notes.forEach(syncNoteTags);
+            // Ищем теги И в заголовке, И в контенте
+            const titleTags = parseTagsFromContent(note.title || '');
+            const contentTags = parseTagsFromContent(note.content || '');
+            // Объединяем и убираем дубликаты
+            const combined = new Set([...titleTags, ...contentTags]);
+            note.tags = Array.from(combined);
         }
 
         function hasNoteTag(note, tag) {
