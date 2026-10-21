@@ -1,5 +1,5 @@
 import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, getPromptById, getPromptByName, findNoteByTitle, updateIcons, parseTagsFromContent } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, getPromptById, getPromptByName, findNoteByTitle, updateIcons } from './utils.js';
 
 export function renderTags() {
     if (!els.tagsList) return;
@@ -17,7 +17,7 @@ export function renderTags() {
 export function renderFolders() {
     if (!els.foldersList) return;
     els.foldersList.innerHTML = sortedFolders().map(folder => {
-        const isActive = folder.id === state.activeFolderId && state.activeTag === null;
+        const isActive = folder.id === state.activeFolderId && state.activeTag === null && state.viewMode === 'folder';
         const isInbox = folder.id === 'inbox';
         const count = folderNotesCount(folder.id);
         const icon = isInbox ? 'inbox' : 'folder';
@@ -64,27 +64,28 @@ export function renderNotes() {
 
 export function renderBreadcrumbs() {
     if (!els.crumbFolderName || !els.crumbTitle) return;
-    const note = getNoteById(state.activeId);
     const folder = getFolderById(state.activeFolderId);
-
     els.crumbFolderName.textContent = folder ? folder.name : 'Входящие';
 
-    // Если мы в папке, крошка активна и кликабельна
     if (state.viewMode === 'folder') {
-        els.crumbTitle.textContent = 'Все заметки';
+        els.crumbTitle.textContent = state.activeTag ? `#${state.activeTag}` : 'Все заметки';
         els.crumbSeparator.classList.add('hidden');
-        if (els.folderMoveSelect) els.folderMoveSelect.style.display = 'none'; // Селект не нужен, мы и так в папке
+        if (els.moveNoteContainer) els.moveNoteContainer.style.display = 'none'; 
     } 
-    // Если в редакторе
-    else if (note) {
-        els.crumbTitle.textContent = noteTitle(note);
-        els.crumbSeparator.classList.remove('hidden');
-        
-        // Настраиваем селект перемещения
-        if (els.folderMoveSelect) {
-            els.folderMoveSelect.style.display = 'block';
-            els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-            els.folderMoveSelect.value = note.folderId;
+    else if (state.viewMode === 'editor') {
+        const note = getNoteById(state.activeId);
+        if (note) {
+            els.crumbTitle.textContent = noteTitle(note);
+            els.crumbSeparator.classList.remove('hidden');
+            
+            // Включаем кнопку перемещения в шапке
+            if (els.moveNoteContainer) {
+                els.moveNoteContainer.style.display = 'block';
+                if (els.folderMoveSelect) {
+                    els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+                    els.folderMoveSelect.value = note.folderId;
+                }
+            }
         }
     }
 }
@@ -99,7 +100,6 @@ export function renderFolderView() {
     }
 
     els.viewFolder.innerHTML = notes.map(note => {
-        // Извлекаем первые 3 тега и 2 контекста для превью
         const tags = (note.tags || []).slice(0, 3);
         const contexts = (note.content.match(/\[\[([^\]\n]+)\]\]/g) || []).slice(0, 2);
         

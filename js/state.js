@@ -57,8 +57,11 @@ export const els = {
     btnAiClose: document.getElementById('btn-ai-close'),
     aiBackdrop: document.getElementById('ai-backdrop'),
     
+    crumbFolderBtn: document.getElementById('crumb-folder-btn'), // Новая кнопка крошки
     crumbFolderName: document.getElementById('crumb-folder-name'),
     crumbSeparator: document.getElementById('breadcrumb-separator'),
     crumbTitle: document.getElementById('breadcrumb-title'),
+    
+    moveNoteContainer: document.getElementById('move-note-container'), // Новый контейнер кнопки перемещения
     folderMoveSelect: document.getElementById('folder-move-select')
 };

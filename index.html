@@ -135,8 +135,18 @@
     <main class="flex-1 flex flex-col min-w-0 bg-surface">
         <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-2 justify-between">
             <button id="btn-menu" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+            
             <div class="flex items-center gap-1">
                 <span id="save-status" class="text-xs text-outline italic mr-2">Готово</span>
+                
+                <!-- КНОПКА ПЕРЕМЕЩЕНИЯ (видна только в редакторе) -->
+                <div class="relative" id="move-note-container" style="display:none;">
+                    <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить в папку">
+                        <i data-lucide="folder-input" class="w-5 h-5 text-outline"></i>
+                    </button>
+                    <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" title="Переместить заметку"></select>
+                </div>
+
                 <button id="btn-preview" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="eye" class="w-5 h-5 text-outline"></i></button>
                 <button id="btn-delete-note" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="trash-2" class="w-5 h-5 text-outline"></i></button>
                 <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" disabled><i data-lucide="search" class="w-5 h-5 text-outline"></i></button>
@@ -145,16 +155,13 @@
         
         <div class="flex-1 overflow-y-auto p-6 md:p-10 max-w-4xl mx-auto w-full">
             <!-- УМНЫЕ КРОШКИ -->
-            <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-sm text-outline relative min-h-[32px]">
+            <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-sm text-outline min-h-[32px]">
                 <div class="flex items-center gap-2 truncate min-w-0">
-                    <!-- Кнопка-папка с селектом перемещения (встроенным) -->
-                    <div class="relative flex items-center bg-[var(--md-surface-variant)] rounded-full px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity">
-                        <i data-lucide="folder" class="w-4 h-4 mr-1.5"></i>
+                    <!-- Кнопка-папка (только для навигации) -->
+                    <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
+                        <i data-lucide="folder" class="w-4 h-4 text-primary"></i>
                         <span id="crumb-folder-name" class="font-medium text-primary truncate max-w-[150px]">Входящие</span>
-                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 ml-1 opacity-50"></i>
-                        <!-- Незримый селект поверх кнопки -->
-                        <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" title="Переместить заметку"></select>
-                    </div>
+                    </button>
                     
                     <span id="breadcrumb-separator" class="mx-1 text-outline/50">/</span>
                     <span id="breadcrumb-title" class="truncate font-medium text-[var(--md-on-surface)] text-base"></span>

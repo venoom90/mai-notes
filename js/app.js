@@ -18,29 +18,30 @@ function attachListeners() {
     if (els.btnClearTagFilter) els.btnClearTagFilter.addEventListener('click', clearTagFilter);
 
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
-    if (els.folderMoveSelect) els.folderMoveSelect.addEventListener('change', (e) => moveNoteToFolder(e.target.value));
+    
+    // Слушатель перемещения
+    if (els.folderMoveSelect) {
+        els.folderMoveSelect.addEventListener('change', (e) => moveNoteToFolder(e.target.value));
+    }
 
-    // Клик по списку заметок слева
+    // Клик по КРОШКЕ папки (возврат к карточкам)
+    if (els.crumbFolderBtn) {
+        els.crumbFolderBtn.addEventListener('click', () => {
+            state.viewMode = 'folder';
+            state.activeId = null;
+            state.activeTag = null;
+            renderAll();
+        });
+    }
+
     els.notesList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-note-id]');
         if (btn) selectNote(btn.getAttribute('data-note-id'));
     });
 
-    // Клик по карточке в папке
     els.viewFolder.addEventListener('click', (e) => {
         const card = e.target.closest('.note-card');
         if (card) selectNote(card.getAttribute('data-note-id'));
-    });
-
-    // Клик по умной крошке папки (возврат в режим папки)
-    document.querySelector('#breadcrumbs .relative').addEventListener('click', (e) => {
-        // Если кликнули по селекту, не переключаем режим (он сам сработает)
-        if (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION') return;
-        if (state.viewMode !== 'folder') {
-            state.viewMode = 'folder';
-            state.activeId = null;
-            renderAll();
-        }
     });
 
     els.foldersList.addEventListener('click', (e) => {
@@ -158,7 +159,7 @@ function init() {
     try { persistNotes(); } catch (_) {}
 
     state.activeFolderId = 'inbox'; state.activeTag = null;
-    state.activeId = null; state.viewMode = 'folder'; // При запуске открываем папку "Входящие"
+    state.activeId = null; state.viewMode = 'folder';
     state.editorMode = 'edit'; state.activePrompt = null; state.activePromptRawName = null;
     state.aiPanelOpen = false; state.leftPanelOpen = false;
 
