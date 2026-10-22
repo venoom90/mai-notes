@@ -25,7 +25,8 @@
             :root { --md-surface: #141218; --md-surface-variant: #49454F; --md-primary: #D0BCFF; --md-on-primary: #381E72; --md-on-surface: #E6E0E9; --md-outline: #938F99; }
         }
         
-        html, body { margin: 0; height: 100dvh; display: flex; overflow: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+        /* v1.11.7: Removed display:flex from body to fix native dialog centering */
+        html, body { margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; background-color: var(--md-surface); }
         
         .bg-surface { background-color: var(--md-surface); }
         .bg-surface-variant { background-color: var(--md-surface-variant); }
@@ -82,7 +83,7 @@
         }
         @media (min-width: 768px) { #left-panel-backdrop { display: none !important; } }
 
-        /* v1.11.6.2: Safe Area for Header */
+        /* v1.11.7: Safe Area for Header */
         header { min-height: calc(4rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); height: auto; }
 
         body.focus-mode #left-panel, body.focus-mode header, body.focus-mode #format-toolbar, body.focus-mode #ai-panel, body.focus-mode #breadcrumbs { display: none !important; }
@@ -156,19 +157,15 @@
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        /* v1.11.6.2: Bulletproof Dialog Centering */
+        /* v1.11.7: Native Dialog Centering (Fixed) */
         dialog { 
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            margin: 0;
+            margin: auto; /* Native centering works because body is block */
             border: none; 
             border-radius: 28px; 
             padding: 24px; 
             background: var(--md-surface); 
             color: var(--md-on-surface); 
-            width: calc(100vw - 32px); 
+            width: calc(100% - 48px); 
             max-width: 400px; 
             box-shadow: 0 8px 24px rgba(0,0,0,0.2); 
             box-sizing: border-box; 
@@ -192,7 +189,7 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- v1.11.4: M3 Dialogs -->
+    <!-- v1.11.7: M3 Dialogs -->
     <dialog id="app-dialog-alert">
         <div class="dialog-title" id="app-dialog-alert-title">Уведомление</div>
         <div class="dialog-msg" id="app-dialog-alert-msg"></div>
@@ -221,262 +218,265 @@
         </div>
     </dialog>
 
-    <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
+    <!-- v1.11.7: Wrapper to isolate Flexbox from dialogs -->
+    <div id="app-layout" class="flex w-full h-full">
+        <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
 
-    <div id="snackbar" class="snackbar fixed left-1/2 transform -translate-x-1/2 bg-[var(--md-surface-variant)] text-[var(--md-on-surface)] px-4 py-3 rounded-xl shadow-lg z-[100] hidden flex items-center gap-3 border border-[var(--md-outline)]/20">
-        <i data-lucide="info" class="w-5 h-5 text-primary"></i>
-        <span id="snackbar-message" class="text-sm font-medium"></span>
-    </div>
-
-    <div id="left-panel-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
-    <div id="action-sheet-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
-    <div id="search-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
-    <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
-    <div id="picker-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
-    <div id="settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
-    <div id="prompt-settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
-
-    <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)] shadow-2xl">
-        <div class="p-4 flex justify-between items-center shrink-0">
-            <span class="font-bold text-lg text-primary">MAi</span>
-            <button id="btn-open-settings" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Настройки"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
-        </div>
-        
-        <div id="vault-widget" class="px-4 pb-2">
-            <div class="flex items-center gap-2 p-2 bg-[var(--md-surface)] rounded-xl border border-[var(--md-outline)]/20 cursor-pointer hover:bg-black/5 transition-colors" id="vault-status-btn">
-                <i data-lucide="hard-drive" class="w-4 h-4 text-outline" id="vault-icon"></i>
-                <div class="flex-1 min-w-0">
-                    <div class="text-xs font-bold text-outline uppercase">Хранилище</div>
-                    <div class="text-sm truncate font-medium" id="vault-name-display">Браузер (Кэш)</div>
-                </div>
-                <div id="vault-indicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
-            </div>
+        <div id="snackbar" class="snackbar fixed left-1/2 transform -translate-x-1/2 bg-[var(--md-surface-variant)] text-[var(--md-on-surface)] px-4 py-3 rounded-xl shadow-lg z-[100] hidden flex items-center gap-3 border border-[var(--md-outline)]/20">
+            <i data-lucide="info" class="w-5 h-5 text-primary"></i>
+            <span id="snackbar-message" class="text-sm font-medium"></span>
         </div>
 
-        <div class="px-4 pb-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
-            <button id="btn-new-note" type="button" class="hidden md:flex w-full items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
-                <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
-            </button>
-            
-            <div class="flex flex-col gap-1 mb-4">
-                <button id="btn-open-calendar" type="button" class="folder-item flex items-center gap-3 p-2.5 min-h-[44px] text-left text-outline hover:bg-black/5 rounded-lg">
-                    <i data-lucide="calendar-days" class="w-4 h-4 flex-shrink-0"></i>
-                    <span class="flex-1 truncate text-sm font-medium">Календарь</span>
-                </button>
-            </div>
+        <div id="left-panel-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
+        <div id="action-sheet-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+        <div id="search-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+        <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+        <div id="picker-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+        <div id="settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+        <div id="prompt-settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
 
-            <div class="flex items-center justify-between px-1 mb-1 mt-2">
-                <div class="text-xs font-bold text-outline uppercase tracking-wider">Папки</div>
-                <button id="btn-new-folder" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Новая папка"><i data-lucide="folder-plus" class="w-4 h-4 text-outline"></i></button>
-            </div>
-            <div id="folders-list" class="flex flex-col gap-0.5 mb-4"></div>
-
-            <div id="tags-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Теги</div>
-            <div id="tags-list" class="flex flex-wrap gap-1 mb-4" style="display:none;"></div>
-
-            <div id="contexts-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Контексты</div>
-            <div id="contexts-list" class="flex flex-wrap gap-1 mb-4" style="display:none;"></div>
-
-            <div class="flex items-center justify-between px-1 mb-1 mt-2">
-                <div class="text-xs font-bold text-outline uppercase tracking-wider">Смарт-фильтры</div>
-                <button id="btn-new-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Новый фильтр"><i data-lucide="filter" class="w-4 h-4 text-outline"></i></button>
-            </div>
-            <div id="filters-list" class="flex flex-col gap-1 mb-4"></div>
-
-            <div class="flex items-center justify-between px-1 mb-1 mt-2">
-                <div class="text-xs font-bold text-outline uppercase tracking-wider flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> Промпты</div>
-                <button id="btn-new-prompt" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Новый промпт"><i data-lucide="plus" class="w-4 h-4 text-outline"></i></button>
-            </div>
-            <div id="prompts-list" class="flex flex-col gap-0.5 mb-4"></div>
-
-            <div class="mt-auto pt-4 border-t border-[var(--md-outline)]/20">
-                <button id="btn-export-all" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-black/5 text-sm font-medium text-outline transition-colors">
-                    <i data-lucide="download" class="w-4 h-4"></i> Экспорт (ZIP)
-                </button>
-                <button id="btn-import-data" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-black/5 text-sm font-medium text-outline transition-colors">
-                    <i data-lucide="upload" class="w-4 h-4"></i> Импорт (.md / .zip)
-                </button>
-                <input type="file" id="import-file-input" accept=".zip,.md" multiple class="hidden">
-            </div>
-        </div>
-    </aside>
-
-    <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-surface relative">
-        
-        <div id="vault-restore-banner" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 text-sm font-medium px-4 py-2 flex items-center justify-between z-20">
-            <div class="flex items-center gap-2">
-                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                <span>Доступ к папке <span id="restore-banner-vault-name" class="font-bold"></span> приостановлен.</span>
-            </div>
-            <button id="btn-restore-access" class="bg-yellow-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-yellow-900 transition-colors">Восстановить</button>
-        </div>
-
-        <header class="border-b border-[var(--md-outline)] flex items-center px-2 justify-between shrink-0">
-            <div class="flex items-center gap-1">
-                <button id="btn-menu" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Меню"><i data-lucide="menu" class="w-6 h-6"></i></button>
-                
-                <button id="btn-nav-back" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none" aria-label="Назад"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                <button id="btn-nav-forward" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none" aria-label="Вперед"><i data-lucide="arrow-right" class="w-5 h-5"></i></button>
-                
-                <button id="btn-mobile-search" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Поиск"><i data-lucide="search" class="w-5 h-5 text-outline"></i></button>
+        <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)] shadow-2xl shrink-0">
+            <div class="p-4 flex justify-between items-center shrink-0">
+                <span class="font-bold text-lg text-primary">MAi</span>
+                <button id="btn-open-settings" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Настройки"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
             </div>
             
-            <div class="flex items-center gap-1">
-                <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1 hidden md:flex" aria-label="Статус сохранения">
-                    <i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>
-                </div>
-                
-                <div class="relative" id="move-note-container" style="display:none;">
-                    <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить" aria-label="Переместить заметку">
-                        <i data-lucide="folder-input" class="w-5 h-5 text-outline"></i>
-                    </button>
-                    <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></select>
-                </div>
-
-                <button id="btn-focus-mode" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Режим фокуса"><i data-lucide="maximize" class="w-5 h-5 text-outline"></i></button>
-                <button id="btn-preview" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Просмотр / Редактирование"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i></button>
-                <button id="btn-delete-note" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Удалить заметку"><i data-lucide="trash-2" class="w-5 h-5 text-outline"></i></button>
-                <button id="btn-desktop-search" type="button" class="hidden md:flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Поиск"><i data-lucide="search" class="w-5 h-5 text-outline"></i></button>
-            </div>
-        </header>
-        
-        <div class="flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
-            <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-sm text-outline min-h-[32px]">
-                <div class="flex items-center gap-2 truncate min-w-0">
-                    <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
-                        <i data-lucide="folder" class="w-4 h-4 text-primary"></i>
-                        <span id="crumb-folder-name" class="font-medium text-primary truncate max-w-[150px]">Входящие</span>
-                    </button>
-                    <span id="breadcrumb-separator" class="mx-1 text-outline/50">›</span>
-                    <span id="breadcrumb-title" class="truncate font-medium text-[var(--md-on-surface)] text-base"></span>
-                </div>
-            </div>
-
-            <div id="view-editor" class="pb-32">
-                <div class="flex items-center gap-3 mb-4">
-                    <span id="prompt-badge" class="hidden bg-[var(--md-primary)] text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">PROMPT</span>
-                    <button id="btn-prompt-settings" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-[var(--md-surface-variant)] hover:bg-black/10 text-outline" aria-label="Настройки промпта"><i data-lucide="settings" class="w-4 h-4"></i></button>
-                </div>
-
-                <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
-                <textarea id="note-title" rows="1" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6"></textarea>
-                <textarea id="note-content" placeholder="Текст заметки..."></textarea>
-                
-                <div id="note-preview" class="markdown-body hidden"></div>
-                
-                <div id="backlinks-container" class="mt-10 pt-6 border-t border-[var(--md-outline)]/20 hidden">
-                    <div class="text-xs font-bold text-outline uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <i data-lucide="link" class="w-4 h-4"></i> На эту заметку ссылаются:
+            <div id="vault-widget" class="px-4 pb-2">
+                <div class="flex items-center gap-2 p-2 bg-[var(--md-surface)] rounded-xl border border-[var(--md-outline)]/20 cursor-pointer hover:bg-black/5 transition-colors" id="vault-status-btn">
+                    <i data-lucide="hard-drive" class="w-4 h-4 text-outline" id="vault-icon"></i>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-bold text-outline uppercase">Хранилище</div>
+                        <div class="text-sm truncate font-medium" id="vault-name-display">Браузер (Кэш)</div>
                     </div>
-                    <div id="backlinks-list" class="flex flex-col gap-2"></div>
+                    <div id="vault-indicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
                 </div>
             </div>
 
-            <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32"></div>
-
-            <div id="view-calendar" class="hidden pb-32 flex flex-col items-center">
+            <div class="px-4 pb-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
+                <button id="btn-new-note" type="button" class="hidden md:flex w-full items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
+                </button>
                 
-                <div class="w-full max-w-md md:max-w-2xl calendar-card mb-6">
+                <div class="flex flex-col gap-1 mb-4">
+                    <button id="btn-open-calendar" type="button" class="folder-item flex items-center gap-3 p-2.5 min-h-[44px] text-left text-outline hover:bg-black/5 rounded-lg">
+                        <i data-lucide="calendar-days" class="w-4 h-4 flex-shrink-0"></i>
+                        <span class="flex-1 truncate text-sm font-medium">Календарь</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between px-1 mb-1 mt-2">
+                    <div class="text-xs font-bold text-outline uppercase tracking-wider">Папки</div>
+                    <button id="btn-new-folder" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Новая папка"><i data-lucide="folder-plus" class="w-4 h-4 text-outline"></i></button>
+                </div>
+                <div id="folders-list" class="flex flex-col gap-0.5 mb-4"></div>
+
+                <div id="tags-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Теги</div>
+                <div id="tags-list" class="flex flex-wrap gap-1 mb-4" style="display:none;"></div>
+
+                <div id="contexts-section-label" class="text-xs font-bold text-outline uppercase tracking-wider mb-1 px-1" style="display:none;">Контексты</div>
+                <div id="contexts-list" class="flex flex-wrap gap-1 mb-4" style="display:none;"></div>
+
+                <div class="flex items-center justify-between px-1 mb-1 mt-2">
+                    <div class="text-xs font-bold text-outline uppercase tracking-wider">Смарт-фильтры</div>
+                    <button id="btn-new-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Новый фильтр"><i data-lucide="filter" class="w-4 h-4 text-outline"></i></button>
+                </div>
+                <div id="filters-list" class="flex flex-col gap-1 mb-4"></div>
+
+                <div class="flex items-center justify-between px-1 mb-1 mt-2">
+                    <div class="text-xs font-bold text-outline uppercase tracking-wider flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> Промпты</div>
+                    <button id="btn-new-prompt" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Новый промпт"><i data-lucide="plus" class="w-4 h-4 text-outline"></i></button>
+                </div>
+                <div id="prompts-list" class="flex flex-col gap-0.5 mb-4"></div>
+
+                <div class="mt-auto pt-4 border-t border-[var(--md-outline)]/20">
+                    <button id="btn-export-all" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-black/5 text-sm font-medium text-outline transition-colors">
+                        <i data-lucide="download" class="w-4 h-4"></i> Экспорт (ZIP)
+                    </button>
+                    <button id="btn-import-data" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-black/5 text-sm font-medium text-outline transition-colors">
+                        <i data-lucide="upload" class="w-4 h-4"></i> Импорт (.md / .zip)
+                    </button>
+                    <input type="file" id="import-file-input" accept=".zip,.md" multiple class="hidden">
+                </div>
+            </div>
+        </aside>
+
+        <main id="main-content" class="flex-1 flex flex-col min-w-0 w-full max-w-full bg-surface relative">
+            
+            <div id="vault-restore-banner" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 text-sm font-medium px-4 py-2 flex items-center justify-between z-20 shrink-0">
+                <div class="flex items-center gap-2 truncate">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+                    <span class="truncate">Доступ к папке <span id="restore-banner-vault-name" class="font-bold"></span> приостановлен.</span>
+                </div>
+                <button id="btn-restore-access" class="bg-yellow-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-yellow-900 transition-colors shrink-0">Восстановить</button>
+            </div>
+
+            <header class="border-b border-[var(--md-outline)] flex items-center px-2 justify-between shrink-0">
+                <div class="flex items-center gap-1">
+                    <button id="btn-menu" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Меню"><i data-lucide="menu" class="w-6 h-6"></i></button>
                     
-                    <div class="flex items-center justify-between mb-4 px-2">
-                        <div class="flex items-center gap-2">
-                            <button id="btn-calendar-prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-outline" aria-label="Предыдущий месяц"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                            <div class="font-bold text-lg capitalize min-w-[120px] text-center" id="calendar-month-title">Октябрь 2026</div>
-                            <button id="btn-calendar-next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-outline" aria-label="Следующий месяц"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-                        </div>
-                        <button id="btn-calendar-today" class="text-xs font-bold text-primary px-3 py-1.5 bg-[var(--md-primary)]/10 rounded-full hover:bg-[var(--md-primary)]/20 transition-colors">Сегодня</button>
-                    </div>
-
-                    <div id="calendar-week-strip" class="week-strip hide-scrollbar mb-2 px-1"></div>
-
-                    <div id="calendar-full-wrapper" class="expand-wrapper">
-                        <div>
-                            <div id="calendar-full-grid" class="pt-2 pb-4 border-t border-[var(--md-outline)]/20 mt-2"></div>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-[var(--md-outline)]/20 mt-2">
-                        <button id="btn-toggle-calendar" class="w-full py-3 flex items-center justify-center gap-2 text-xs font-medium text-outline hover:text-primary transition-colors">
-                            Развернуть календарь <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                        </button>
-                    </div>
+                    <button id="btn-nav-back" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none" aria-label="Назад"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                    <button id="btn-nav-forward" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 disabled:opacity-30 disabled:pointer-events-none" aria-label="Вперед"><i data-lucide="arrow-right" class="w-5 h-5"></i></button>
+                    
+                    <button id="btn-mobile-search" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5" aria-label="Поиск"><i data-lucide="search" class="w-5 h-5 text-outline"></i></button>
                 </div>
                 
-                <div id="calendar-notes-container" class="w-full max-w-md md:max-w-2xl">
-                    <div class="flex items-center justify-between mb-4 px-1">
-                        <div>
-                            <div id="calendar-selected-title" class="text-lg font-bold">Сегодня</div>
-                            <div id="calendar-selected-date" class="text-xs text-outline"></div>
-                        </div>
-                        <div id="calendar-selected-badge" class="bg-[var(--md-surface-variant)] text-primary text-xs font-bold px-3 py-1 rounded-full">0 заметок</div>
+                <div class="flex items-center gap-1">
+                    <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1 hidden md:flex" aria-label="Статус сохранения">
+                        <i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>
                     </div>
-                    <div id="calendar-notes-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                    
+                    <div class="relative" id="move-note-container" style="display:none;">
+                        <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить" aria-label="Переместить заметку">
+                            <i data-lucide="folder-input" class="w-5 h-5 text-outline"></i>
+                        </button>
+                        <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></select>
+                    </div>
+
+                    <button id="btn-focus-mode" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Режим фокуса"><i data-lucide="maximize" class="w-5 h-5 text-outline"></i></button>
+                    <button id="btn-preview" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Просмотр / Редактирование"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i></button>
+                    <button id="btn-delete-note" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Удалить заметку"><i data-lucide="trash-2" class="w-5 h-5 text-outline"></i></button>
+                    <button id="btn-desktop-search" type="button" class="hidden md:flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Поиск"><i data-lucide="search" class="w-5 h-5 text-outline"></i></button>
+                </div>
+            </header>
+            
+            <div class="flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
+                <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-sm text-outline min-h-[32px]">
+                    <div class="flex items-center gap-2 truncate min-w-0">
+                        <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
+                            <i data-lucide="folder" class="w-4 h-4 text-primary"></i>
+                            <span id="crumb-folder-name" class="font-medium text-primary truncate max-w-[150px]">Входящие</span>
+                        </button>
+                        <span id="breadcrumb-separator" class="mx-1 text-outline/50">›</span>
+                        <span id="breadcrumb-title" class="truncate font-medium text-[var(--md-on-surface)] text-base"></span>
+                    </div>
+                </div>
+
+                <div id="view-editor" class="pb-32">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span id="prompt-badge" class="hidden bg-[var(--md-primary)] text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">PROMPT</span>
+                        <button id="btn-prompt-settings" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-[var(--md-surface-variant)] hover:bg-black/10 text-outline" aria-label="Настройки промпта"><i data-lucide="settings" class="w-4 h-4"></i></button>
+                    </div>
+
+                    <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
+                    <textarea id="note-title" rows="1" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6"></textarea>
+                    <textarea id="note-content" placeholder="Текст заметки..."></textarea>
+                    
+                    <div id="note-preview" class="markdown-body hidden"></div>
+                    
+                    <div id="backlinks-container" class="mt-10 pt-6 border-t border-[var(--md-outline)]/20 hidden">
+                        <div class="text-xs font-bold text-outline uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <i data-lucide="link" class="w-4 h-4"></i> На эту заметку ссылаются:
+                        </div>
+                        <div id="backlinks-list" class="flex flex-col gap-2"></div>
+                    </div>
+                </div>
+
+                <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32"></div>
+
+                <div id="view-calendar" class="hidden pb-32 flex flex-col items-center">
+                    
+                    <div class="w-full max-w-md md:max-w-2xl calendar-card mb-6">
+                        
+                        <div class="flex items-center justify-between mb-4 px-2">
+                            <div class="flex items-center gap-2">
+                                <button id="btn-calendar-prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-outline" aria-label="Предыдущий месяц"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                                <div class="font-bold text-lg capitalize min-w-[120px] text-center" id="calendar-month-title">Октябрь 2026</div>
+                                <button id="btn-calendar-next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-outline" aria-label="Следующий месяц"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                            </div>
+                            <button id="btn-calendar-today" class="text-xs font-bold text-primary px-3 py-1.5 bg-[var(--md-primary)]/10 rounded-full hover:bg-[var(--md-primary)]/20 transition-colors">Сегодня</button>
+                        </div>
+
+                        <div id="calendar-week-strip" class="week-strip hide-scrollbar mb-2 px-1"></div>
+
+                        <div id="calendar-full-wrapper" class="expand-wrapper">
+                            <div>
+                                <div id="calendar-full-grid" class="pt-2 pb-4 border-t border-[var(--md-outline)]/20 mt-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-[var(--md-outline)]/20 mt-2">
+                            <button id="btn-toggle-calendar" class="w-full py-3 flex items-center justify-center gap-2 text-xs font-medium text-outline hover:text-primary transition-colors">
+                                Развернуть календарь <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="calendar-notes-container" class="w-full max-w-md md:max-w-2xl">
+                        <div class="flex items-center justify-between mb-4 px-1">
+                            <div>
+                                <div id="calendar-selected-title" class="text-lg font-bold">Сегодня</div>
+                                <div id="calendar-selected-date" class="text-xs text-outline"></div>
+                            </div>
+                            <div id="calendar-selected-badge" class="bg-[var(--md-surface-variant)] text-primary text-xs font-bold px-3 py-1 rounded-full">0 заметок</div>
+                        </div>
+                        <div id="calendar-notes-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <button id="fab-new-note" class="md:hidden fixed right-6 w-14 h-14 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center z-30 active:scale-95 transition-transform" aria-label="Новая заметка">
+                <i data-lucide="plus" class="w-6 h-6"></i>
+            </button>
+
+            <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-30 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold" data-format="bold" aria-label="Жирный">B</button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif" data-format="italic" aria-label="Курсив">I</button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="h2" aria-label="Заголовок 2"><i data-lucide="heading-2" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="check" aria-label="Чеклист"><i data-lucide="check-square" class="w-5 h-5"></i></button>
+                
+                <div class="w-px h-6 bg-[var(--md-outline)] opacity-30 mx-1"></div>
+                
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="tag" aria-label="Тег"><i data-lucide="hash" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="context" aria-label="Контекст"><i data-lucide="link" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="prompt" aria-label="Промпт"><i data-lucide="sparkles" class="w-5 h-5"></i></button>
+            </div>
+        </main>
+
+        <aside id="ai-panel" class="w-80 border-l border-[var(--md-outline)] bg-[var(--md-surface-variant)] overflow-y-auto shrink-0">
+            <div id="outline-container" class="p-4 border-b border-[var(--md-outline)]/30 hidden">
+                <div class="font-bold text-xs text-outline uppercase mb-3">Оглавление</div>
+                <div id="outline-list" class="flex flex-col gap-1"></div>
+            </div>
+
+            <div class="p-4 border-b border-[var(--md-outline)] flex items-center justify-between gap-2 relative">
+                <div class="relative flex-1 flex items-center gap-1">
+                    <div class="font-bold text-sm text-outline uppercase flex items-center gap-2 truncate">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-primary shrink-0"></i> 
+                        <span id="ai-header-title" class="truncate">Gemini</span>
+                    </div>
+                    <button id="ai-dropdown-btn" class="w-6 h-6 flex items-center justify-center rounded hover:bg-black/10 shrink-0" aria-label="Выбрать промпт"><i data-lucide="chevron-down" class="w-4 h-4 text-outline"></i></button>
+                    <div id="ai-dropdown-menu" class="ai-dropdown-menu hidden"></div>
+                </div>
+                <button id="btn-ai-close" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 shrink-0" aria-label="Закрыть ИИ"><i data-lucide="x" class="w-5 h-5 text-outline"></i></button>
+            </div>
+            
+            <div class="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
+                <div id="ai-empty" class="text-sm text-outline italic flex items-center justify-center text-center py-10">Выберите промпт из списка выше или кликните по чипу в тексте.</div>
+                
+                <div id="ai-loading" class="hidden flex-col items-center justify-center py-10 gap-3">
+                    <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-primary"></i>
+                    <span class="text-sm text-outline">Анализирую заметку...</span>
+                </div>
+                
+                <div id="ai-error" class="hidden flex-col items-center justify-center py-6 gap-3 text-center">
+                    <i data-lucide="alert-circle" class="w-10 h-10 text-red-500"></i>
+                    <div id="ai-error-msg" class="text-sm text-red-600 font-medium"></div>
+                    <button id="btn-ai-retry" class="mt-2 bg-[var(--md-surface)] border border-[var(--md-outline)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/5">Повторить</button>
+                </div>
+
+                <div id="ai-output-wrapper" class="hidden flex-col flex-1">
+                    <div id="ai-output" class="markdown-body text-sm text-[var(--md-on-surface)]"></div>
                 </div>
             </div>
 
-        </div>
-
-        <button id="fab-new-note" class="md:hidden fixed right-6 w-14 h-14 bg-primary text-white rounded-2xl shadow-lg flex items-center justify-center z-30 active:scale-95 transition-transform" aria-label="Новая заметка">
-            <i data-lucide="plus" class="w-6 h-6"></i>
-        </button>
-
-        <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-30 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold" data-format="bold" aria-label="Жирный">B</button>
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif" data-format="italic" aria-label="Курсив">I</button>
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="h2" aria-label="Заголовок 2"><i data-lucide="heading-2" class="w-5 h-5"></i></button>
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="check" aria-label="Чеклист"><i data-lucide="check-square" class="w-5 h-5"></i></button>
-            
-            <div class="w-px h-6 bg-[var(--md-outline)] opacity-30 mx-1"></div>
-            
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="tag" aria-label="Тег"><i data-lucide="hash" class="w-5 h-5"></i></button>
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="context" aria-label="Контекст"><i data-lucide="link" class="w-5 h-5"></i></button>
-            <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="prompt" aria-label="Промпт"><i data-lucide="sparkles" class="w-5 h-5"></i></button>
-        </div>
-    </main>
-
-    <aside id="ai-panel" class="w-80 border-l border-[var(--md-outline)] bg-[var(--md-surface-variant)] overflow-y-auto">
-        <div id="outline-container" class="p-4 border-b border-[var(--md-outline)]/30 hidden">
-            <div class="font-bold text-xs text-outline uppercase mb-3">Оглавление</div>
-            <div id="outline-list" class="flex flex-col gap-1"></div>
-        </div>
-
-        <div class="p-4 border-b border-[var(--md-outline)] flex items-center justify-between gap-2 relative">
-            <div class="relative flex-1 flex items-center gap-1">
-                <div class="font-bold text-sm text-outline uppercase flex items-center gap-2 truncate">
-                    <i data-lucide="sparkles" class="w-4 h-4 text-primary shrink-0"></i> 
-                    <span id="ai-header-title" class="truncate">Gemini</span>
-                </div>
-                <button id="ai-dropdown-btn" class="w-6 h-6 flex items-center justify-center rounded hover:bg-black/10 shrink-0" aria-label="Выбрать промпт"><i data-lucide="chevron-down" class="w-4 h-4 text-outline"></i></button>
-                <div id="ai-dropdown-menu" class="ai-dropdown-menu hidden"></div>
+            <div id="ai-actions" class="hidden p-4 border-t border-[var(--md-outline)] flex gap-2 justify-between bg-[var(--md-surface)]">
+                <button id="btn-ai-copy" class="flex-1 py-2 flex items-center justify-center gap-1 rounded-xl border border-[var(--md-outline)] hover:bg-black/5 text-xs font-medium" aria-label="Копировать"><i data-lucide="copy" class="w-4 h-4"></i> Копировать</button>
+                <button id="btn-ai-insert" class="flex-1 py-2 flex items-center justify-center gap-1 rounded-xl bg-[var(--md-primary)] text-white hover:opacity-90 text-xs font-medium" aria-label="Вставить"><i data-lucide="arrow-down-to-line" class="w-4 h-4"></i> Вставить</button>
+                <button id="btn-ai-regenerate" class="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--md-outline)] hover:bg-black/5" aria-label="Перегенерировать"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
             </div>
-            <button id="btn-ai-close" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 shrink-0" aria-label="Закрыть ИИ"><i data-lucide="x" class="w-5 h-5 text-outline"></i></button>
-        </div>
-        
-        <div class="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
-            <div id="ai-empty" class="text-sm text-outline italic flex items-center justify-center text-center py-10">Выберите промпт из списка выше или кликните по чипу в тексте.</div>
-            
-            <div id="ai-loading" class="hidden flex-col items-center justify-center py-10 gap-3">
-                <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-primary"></i>
-                <span class="text-sm text-outline">Анализирую заметку...</span>
-            </div>
-            
-            <div id="ai-error" class="hidden flex-col items-center justify-center py-6 gap-3 text-center">
-                <i data-lucide="alert-circle" class="w-10 h-10 text-red-500"></i>
-                <div id="ai-error-msg" class="text-sm text-red-600 font-medium"></div>
-                <button id="btn-ai-retry" class="mt-2 bg-[var(--md-surface)] border border-[var(--md-outline)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/5">Повторить</button>
-            </div>
-
-            <div id="ai-output-wrapper" class="hidden flex-col flex-1">
-                <div id="ai-output" class="markdown-body text-sm text-[var(--md-on-surface)]"></div>
-            </div>
-        </div>
-
-        <div id="ai-actions" class="hidden p-4 border-t border-[var(--md-outline)] flex gap-2 justify-between bg-[var(--md-surface)]">
-            <button id="btn-ai-copy" class="flex-1 py-2 flex items-center justify-center gap-1 rounded-xl border border-[var(--md-outline)] hover:bg-black/5 text-xs font-medium" aria-label="Копировать"><i data-lucide="copy" class="w-4 h-4"></i> Копировать</button>
-            <button id="btn-ai-insert" class="flex-1 py-2 flex items-center justify-center gap-1 rounded-xl bg-[var(--md-primary)] text-white hover:opacity-90 text-xs font-medium" aria-label="Вставить"><i data-lucide="arrow-down-to-line" class="w-4 h-4"></i> Вставить</button>
-            <button id="btn-ai-regenerate" class="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--md-outline)] hover:bg-black/5" aria-label="Перегенерировать"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
-        </div>
-    </aside>
+        </aside>
+    </div> <!-- END app-layout -->
 
     <div id="action-sheet" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh]">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
@@ -594,7 +594,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.6.2</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.7</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
