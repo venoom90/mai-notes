@@ -1,6 +1,5 @@
 import { state, STORAGE_KEY, FOLDERS_KEY, FILTERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY } from './state.js';
 import { genId, isValidNote, syncNoteTags, makeDefaultFolder } from './utils.js';
-import { writeNoteToDisk } from './fs.js';
 
 export function loadNotes() {
     let raw = null;
@@ -37,21 +36,9 @@ export function loadNotes() {
     return [];
 }
 
-// Сохраняем локально и синхронизируем с диском (без блокировки UI)
 export function persistNotes() {
-    // 1. Всегда сохраняем в localStorage (кэш)
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes)); } 
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes)); return true; } 
     catch (e) { console.error(e); state.saveStatus = 'error'; return false; }
-
-    // 2. Если есть подключенный Vault, пишем на диск (асинхронно)
-    if (state.vaultHandle) {
-        // Для оптимизации пишем только измененную заметку, но для надежности (V1.10) пишем все, 
-        // если вызывается полная синхронизация. При debounce save - пишем только активную.
-        // Здесь мы просто стреляем промисом, не блокируя поток.
-        // В идеале нужно передавать ID измененной заметки, но для простоты в этой версии 
-        // мы будем делать это через scheduleSave в logic.js.
-    }
-    return true;
 }
 
 export function loadFolders() {

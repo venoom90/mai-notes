@@ -65,7 +65,7 @@ export function isFileSystemSupported() {
     return 'showDirectoryPicker' in window;
 }
 
-// Генерация имени файла (Вариант из плана)
+// Генерация имени файла
 export function generateFileName(note) {
     let safeTitle = sanitizeFileName(note.title || 'Без_названия').slice(0, 40).trim();
     if (!safeTitle) safeTitle = 'Без_названия';
@@ -85,7 +85,6 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
     const currentRoot = isRoot ? dirHandle : rootHandle;
     const currentFolderName = isRoot ? 'inbox' : dirHandle.name;
     
-    // Ищем или создаем ID папки в state
     let folderId = 'inbox';
     if (!isRoot) {
         let existingFolder = state.folders.find(f => f.name === currentFolderName);
@@ -115,12 +114,11 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
     return notes;
 }
 
-// Запись файла на диск
+// Запись файла на диск (С ИСПРАВЛЕНИЕМ ДУБЛЕЙ)
 export async function writeNoteToDisk(note, dirHandle) {
     if (!dirHandle) return;
     
     try {
-        // Находим или создаем подпапку
         let targetDir = dirHandle;
         if (note.folderId !== 'inbox') {
             const folder = state.folders.find(f => f.id === note.folderId);
@@ -129,8 +127,20 @@ export async function writeNoteToDisk(note, dirHandle) {
             }
         }
         
-        const fileName = generateFileName(note);
-        const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+        const newFileName = generateFileName(note);
+        const shortId = String(note.id).slice(0, 4);
+
+        // 1. Удаляем старые версии этого файла (если заголовок менялся)
+        for await (const entry of targetDir.values()) {
+            if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId)) {
+                if (entry.name !== newFileName) {
+                    try { await targetDir.removeEntry(entry.name); } catch (_) {}
+                }
+            }
+        }
+
+        // 2. Создаем и пишем новый файл
+        const fileHandle = await targetDir.getFileHandle(newFileName, { create: true });
         const writable = await fileHandle.createWritable();
         
         const folderName = state.folders.find(f => f.id === note.folderId)?.name || 'Входящие';
@@ -138,7 +148,7 @@ export async function writeNoteToDisk(note, dirHandle) {
         
         await writable.write(content);
         await writable.close();
-        return fileName; // Возвращаем имя файла для обновления (если нужно)
+        return newFileName;
     } catch (e) {
         console.error('Ошибка записи на диск:', e);
         throw e;
@@ -157,11 +167,10 @@ export async function deleteNoteFromDisk(note, dirHandle) {
             }
         }
         
-        // Точное имя файла неизвестно (из-за обрезки), поэтому удаляем все файлы, содержащие ID заметки
+        const shortId = String(note.id).slice(0, 4);
         for await (const entry of targetDir.values()) {
-            if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(String(note.id).slice(0, 4))) {
+            if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId)) {
                 await targetDir.removeEntry(entry.name);
-                break;
             }
         }
     } catch (e) {

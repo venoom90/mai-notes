@@ -59,7 +59,6 @@ export function renderVaultStatus() {
         els.vaultIcon.setAttribute('data-lucide', 'hard-drive');
         els.vaultRestoreBanner.classList.add('hidden');
         
-        // Настройки
         if (els.settingsVaultDesc) {
             els.settingsVaultDesc.textContent = `Подключено: ${state.vaultName}. Все заметки сохраняются в файлы .md`;
             els.btnConnectVault.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4"></i> Сменить папку';
@@ -77,7 +76,6 @@ export function renderVaultStatus() {
         els.vaultIcon.setAttribute('data-lucide', 'monitor');
         els.vaultRestoreBanner.classList.add('hidden');
         
-        // Настройки
         if (els.settingsVaultDesc) {
             els.settingsVaultDesc.textContent = `Выберите папку на устройстве. Заметки будут сохраняться в файлы .md. (Работает на Android/PC)`;
             els.btnConnectVault.innerHTML = '<i data-lucide="folder-open" class="w-4 h-4"></i> Подключить папку';

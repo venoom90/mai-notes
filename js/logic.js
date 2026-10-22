@@ -80,7 +80,6 @@ export async function disconnectVault() {
     renderAll();
 }
 
-// Сканирование и слияние
 export async function syncVault(isNewConnection = false) {
     if (!state.vaultHandle || state.vaultStatus !== 'connected') return;
     state.saveStatus = 'saving';
@@ -90,15 +89,12 @@ export async function syncVault(isNewConnection = false) {
         const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
         
         if (isNewConnection) {
-            // Если папка пустая или мы только что подключили её — выгружаем всё из памяти
             for (const note of state.notes) {
                 await writeNoteToDisk(note, state.vaultHandle);
             }
-            // Перечитываем диск, чтобы захватить возможные ID папок
             const updatedDiskNotes = await readAllFilesFromDisk(state.vaultHandle);
             state.notes = updatedDiskNotes;
         } else {
-            // Умное слияние: Last Write Wins
             const diskMap = new Map(diskNotes.map(n => [n.id, n]));
             const merged = [];
 
@@ -106,16 +102,15 @@ export async function syncVault(isNewConnection = false) {
                 const diskNote = diskMap.get(localNote.id);
                 if (diskNote) {
                     if (diskNote.updatedAt > localNote.updatedAt) {
-                        merged.push(diskNote); // Диск новее
+                        merged.push(diskNote);
                     } else {
-                        merged.push(localNote); // Локальная новее
+                        merged.push(localNote);
                         if (localNote.updatedAt > diskNote.updatedAt) {
-                            await writeNoteToDisk(localNote, state.vaultHandle); // Обновляем диск
+                            await writeNoteToDisk(localNote, state.vaultHandle);
                         }
                     }
                     diskMap.delete(localNote.id);
                 } else {
-                    // Файла нет на диске (удален вручную или новый локальный)
                     if (localNote.id) {
                         merged.push(localNote);
                         await writeNoteToDisk(localNote, state.vaultHandle);
@@ -123,7 +118,6 @@ export async function syncVault(isNewConnection = false) {
                 }
             }
 
-            // Добавляем файлы, которые есть на диске, но нет в памяти (созданы извне)
             for (const diskNote of diskMap.values()) {
                 merged.push(diskNote);
             }
@@ -263,7 +257,6 @@ export function scheduleSave() {
             state.saveStatus = 'saved'; 
             renderSaveStatus();
             
-            // Синхронизация с диском
             if (state.vaultHandle && state.vaultStatus === 'connected' && state.activeId) {
                 const note = getNoteById(state.activeId);
                 if (note) {
@@ -316,7 +309,6 @@ export async function deleteNote(id) {
     const note = getNoteById(id); if (!note) return;
     if (!window.confirm(`Удалить заметку «${note.title || 'Без названия'}»?`)) return;
     
-    // Удаляем с диска
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         await deleteNoteFromDisk(note, state.vaultHandle);
     }
@@ -362,7 +354,6 @@ export async function createFolder() {
     
     state.folders.push({ id: genId(), name: name, updatedAt: Date.now() });
     
-    // Создаем физическую папку на диске, если подключено
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await state.vaultHandle.getDirectoryHandle(name, { create: true }); } 
         catch (e) { console.error('Ошибка создания папки на диске', e); }
@@ -380,7 +371,6 @@ export async function renameFolder(id) {
     const oldName = folder.name;
     folder.name = name; folder.updatedAt = Date.now(); persistFolders(); 
     
-    // Переименование на диске (через копирование и удаление, так как move() не везде поддерживается)
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try {
             const newDir = await state.vaultHandle.getDirectoryHandle(name, { create: true });
@@ -409,12 +399,10 @@ export async function deleteFolder(id) {
     const count = folderNotesCount(id);
     if (!window.confirm(`Удалить папку «${folder.name}»? ${count} заметок переместятся в «Входящие».`)) return;
     
-    // Удаление физической папки
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         await deleteFolderFromDisk(folder.name, state.vaultHandle);
     }
 
-    // Перемещаем заметки в Inbox (на диске они перезапишутся при следующем сохранении)
     state.notes.forEach(n => { if (n.folderId === id) n.folderId = 'inbox'; });
     state.folders = state.folders.filter(f => f.id !== id);
     if (state.activeFolderId === id) { state.activeFolderId = 'inbox'; }
@@ -501,13 +489,11 @@ export async function renameNoteFromMenu() {
     closeActionMenu();
     const raw = window.prompt('Новое название:', note.title);
     if (raw !== null && raw.trim() !== note.title) {
-        const oldNote = { ...note }; // Сохраняем старые данные для удаления старого файла
         note.title = raw.trim(); note.updatedAt = Date.now();
         syncNoteTags(note); persistNotes(); 
         
         if (state.vaultHandle && state.vaultStatus === 'connected') {
-            await deleteNoteFromDisk(oldNote, state.vaultHandle); // Удаляем старый файл (по ID)
-            await writeNoteToDisk(note, state.vaultHandle); // Создаем новый
+            await writeNoteToDisk(note, state.vaultHandle); 
         }
         renderAll();
     }
@@ -815,6 +801,9 @@ export async function handleImportFiles(files) {
         else if (file.name.endsWith('.md')) {
             const text = await file.text();
             const { note } = parseMarkdown(text, state.activeFolderId || 'inbox');
+            // ИСПРАВЛЕНИЕ: Ставим дату создания на сегодня, чтобы импорт появился в календаре
+            note.createdAt = Date.now(); 
+            
             const existingIdx = state.notes.findIndex(n => n.id === note.id);
             if (existingIdx >= 0) state.notes[existingIdx] = note;
             else state.notes.push(note);
@@ -825,13 +814,17 @@ export async function handleImportFiles(files) {
     if (importedCount > 0) {
         persistNotes(); persistFolders();
         
-        // Если подключен Vault, выгружаем импортированное на диск
+        // ИСПРАВЛЕНИЕ: Выгружаем импортированное на диск, если подключен Vault
         if (state.vaultHandle && state.vaultStatus === 'connected') {
-            for (const note of state.notes) {
-                await writeNoteToDisk(note, state.vaultHandle);
-            }
+            try {
+                for (const note of state.notes) {
+                    await writeNoteToDisk(note, state.vaultHandle);
+                }
+            } catch (e) { console.error('Disk write error during import', e); }
         }
         
+        state.saveStatus = 'saved'; // Сброс зависшего статуса
+        renderSaveStatus();
         renderAll();
         alert(`Успешно импортировано файлов: ${importedCount}`);
     } else {
