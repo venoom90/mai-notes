@@ -1,4 +1,4 @@
-import { state, PROMPTS } from './state.js';
+import { state } from './state.js';
 
 export function genId() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
