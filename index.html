@@ -18,6 +18,7 @@
         :root {
             --md-surface: #FEF7FF; --md-surface-variant: #E7E0EC; --md-primary: #6750A4;
             --md-on-primary: #FFFFFF; --md-on-surface: #1D1B20; --md-outline: #79747E;
+            --kb-height: 0px;
             background-color: var(--md-surface); color: var(--md-on-surface);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
@@ -108,15 +109,29 @@
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        .bottom-sheet { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; transform: translateY(100%); opacity: 0; visibility: hidden; pointer-events: none; padding-bottom: env(safe-area-inset-bottom); will-change: transform; backface-visibility: hidden; }
-        .bottom-sheet.open { transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
+        /* v1.11.12: Заменили transform на bottom для шторок */
+        .bottom-sheet { 
+            transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
+            bottom: -100%; 
+            opacity: 0; 
+            visibility: hidden; 
+            pointer-events: none; 
+            padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px)); 
+            will-change: bottom, opacity; 
+        }
+        .bottom-sheet.open { 
+            bottom: calc(var(--kb-height, 0px)); 
+            opacity: 1; 
+            visibility: visible; 
+            pointer-events: auto; 
+        }
         
-        #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+        #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
         #format-toolbar.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
         #ai-actions { padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; }
 
-        #fab-new-note { bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+        #fab-new-note { bottom: calc(1.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
 
         .outline-link { display: block; text-align: left; width: 100%; font-size: 0.85rem; color: var(--md-outline); padding: 4px 0; cursor: pointer; text-decoration: none; transition: color 0.15s; }
         .outline-link:hover { color: var(--md-primary); }
@@ -155,7 +170,6 @@
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        /* v1.11.10: Custom Modals (Замена нативного <dialog>) */
         .custom-dialog-overlay {
             position: fixed;
             inset: 0;
@@ -205,7 +219,6 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- v1.11.10: Custom Modals -->
     <div id="app-dialog-alert" class="custom-dialog-overlay hidden">
         <div class="custom-dialog">
             <div class="dialog-title" id="app-dialog-alert-title">Уведомление</div>
@@ -498,7 +511,7 @@
         </aside>
     </div> <!-- END app-layout -->
 
-    <div id="action-sheet" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+    <div id="action-sheet" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh]">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div id="action-sheet-main" class="flex flex-col p-2 pb-6">
             <div class="px-4 py-2 font-bold text-lg truncate border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
@@ -519,7 +532,7 @@
         </div>
     </div>
 
-    <div id="filter-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90dvh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
+    <div id="filter-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90dvh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center">
             <div class="font-bold text-lg">Создать Смарт-фильтр</div>
             <button id="btn-close-filter" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -539,7 +552,7 @@
         </div>
     </div>
 
-    <div id="picker-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[70dvh]">
+    <div id="picker-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[70dvh]">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center">
             <div class="font-bold text-lg" id="picker-title">Выбрать тег</div>
@@ -552,7 +565,7 @@
         </div>
     </div>
 
-    <div id="prompt-settings-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[80dvh] w-full md:max-w-md md:mx-auto md:bottom-10 md:rounded-3xl">
+    <div id="prompt-settings-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[80dvh] w-full md:max-w-md md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
             <div class="font-bold text-lg flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-primary"></i> Настройки промпта</div>
             <button id="btn-close-prompt-settings" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -573,7 +586,7 @@
         </div>
     </div>
 
-    <div id="settings-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90dvh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
+    <div id="settings-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90dvh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
             <div class="font-bold text-lg flex items-center gap-2"><i data-lucide="settings" class="w-5 h-5"></i> Настройки</div>
             <button id="btn-close-settings" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -614,7 +627,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.10</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.12</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
