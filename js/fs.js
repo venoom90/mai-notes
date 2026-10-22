@@ -104,6 +104,7 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
                 const text = await file.text();
                 const { note } = parseMarkdown(text, folderId);
                 note.fileName = entry.name;
+                note.fileMtime = file.lastModified; // ИСПРАВЛЕНИЕ: Сохраняем время изменения файла
                 notes.push(note);
             } catch (e) {
                 console.warn('Ошибка чтения файла:', entry.name, e);

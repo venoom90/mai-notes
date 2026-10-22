@@ -103,11 +103,14 @@ export async function syncVault(isNewConnection = false) {
             for (const localNote of state.notes) {
                 const diskNote = diskMap.get(localNote.id);
                 if (diskNote) {
-                    if (diskNote.updatedAt > localNote.updatedAt) {
+                    // ИСПРАВЛЕНИЕ: Используем lastModified файла, чтобы отловить правки из Obsidian/Блокнота
+                    const diskTime = Math.max(diskNote.updatedAt, diskNote.fileMtime || 0);
+                    
+                    if (diskTime > localNote.updatedAt) {
                         merged.push(diskNote);
                     } else {
                         merged.push(localNote);
-                        if (localNote.updatedAt > diskNote.updatedAt) {
+                        if (localNote.updatedAt > diskTime) {
                             await writeNoteToDisk(localNote, state.vaultHandle);
                         }
                     }
@@ -471,6 +474,11 @@ export function insertFormatting(type) {
 }
 
 export function togglePreviewMode() { 
+    // ИСПРАВЛЕНИЕ: Принудительно сохраняем текст перед переключением
+    if (state.editorMode === 'edit') {
+        onEdit(); 
+    }
+    
     if (state.editorMode === 'preview') {
         state.editorMode = 'edit'; renderEditor(); renderAll();
         setTimeout(() => els.contentInput.focus(), 50);

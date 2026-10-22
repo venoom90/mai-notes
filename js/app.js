@@ -176,7 +176,10 @@ function attachListeners() {
 
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
-    els.contentInput.addEventListener('blur', () => { scheduleSave(); });
+    
+    // ИСПРАВЛЕНИЕ: Принудительно сохраняем при потере фокуса (спасает на мобильных)
+    els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
+    els.titleInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
 
     els.outlineList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-outline-text]');
@@ -449,7 +452,7 @@ async function init() {
     loadSettings();
     state.folders = loadFolders(); persistFolders();
     state.notes = loadNotes(); validateFolderRefs();
-    seedDefaultPrompts(); // Создаем промпты до первого рендера
+    seedDefaultPrompts(); 
     state.savedFilters = loadFilters();
     try { persistNotes(); } catch (_) {}
 
