@@ -53,7 +53,10 @@ export function renderSidebar() {
 export function renderVaultStatus() {
     if (!els.vaultNameDisplay) return;
 
-    if (state.vaultStatus === 'connected') {
+    if (state.isSyncing) {
+        els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-blue-500 animate-pulse';
+        els.vaultIcon.setAttribute('data-lucide', 'loader-2');
+    } else if (state.vaultStatus === 'connected') {
         els.vaultNameDisplay.textContent = state.vaultName;
         els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-green-500';
         els.vaultIcon.setAttribute('data-lucide', 'hard-drive');
@@ -166,10 +169,20 @@ export function renderFolderView() {
     });
 
     if (notes.length === 0) {
-        els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
-            <i data-lucide="search-x" class="w-16 h-16 opacity-20 mb-4"></i>
-            <div class="italic">Ничего не найдено по этому запросу.</div>
-        </div>`;
+        if (state.activeTag || state.activeContext || state.activeFilterId) {
+            els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
+                <i data-lucide="search-x" class="w-16 h-16 opacity-20 mb-4"></i>
+                <div class="italic">Ничего не найдено по этому запросу.</div>
+            </div>`;
+        } else {
+            els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
+                <i data-lucide="file-plus" class="w-16 h-16 opacity-20 mb-4"></i>
+                <div class="font-medium text-lg text-[var(--md-on-surface)] mb-2">Здесь пока пусто</div>
+                <button class="bg-primary text-white px-5 py-2.5 rounded-xl mt-2 text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2" id="empty-create-note-btn">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Создать первую заметку
+                </button>
+            </div>`;
+        }
         updateIcons();
         return;
     }
@@ -428,9 +441,19 @@ export function updatePreviewButton() {
 }
 
 export function renderSaveStatus() {
-    const map = { idle: { text: 'Готово' }, saving: { text: 'Сохранение...' }, saved: { text: 'Сохранено' }, error: { text: 'Ошибка', color: '#B3261E' } };
-    const s = map[state.saveStatus] || map.idle;
-    els.statusText.innerText = s.text; if (s.color) els.statusText.style.color = s.color;
+    if (!els.statusText) return;
+    let html = '';
+    if (state.saveStatus === 'saving') {
+        html = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin text-primary"></i>`;
+    } else if (state.saveStatus === 'saved') {
+        html = `<i data-lucide="cloud-check" class="w-5 h-5 text-green-500"></i>`;
+    } else if (state.saveStatus === 'error') {
+        html = `<i data-lucide="cloud-off" class="w-5 h-5 text-red-500"></i>`;
+    } else {
+        html = `<i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>`;
+    }
+    els.statusText.innerHTML = html;
+    updateIcons();
 }
 
 export function renderChipPalette() {

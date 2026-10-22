@@ -11,9 +11,10 @@ export function loadNotes() {
                 return parsed.filter(isValidNote).map(n => {
                     const note = { 
                         id: n.id, title: n.title, content: n.content, updatedAt: n.updatedAt, 
-                        createdAt: n.createdAt || n.updatedAt, // Fallback для старых данных
+                        createdAt: n.createdAt || n.updatedAt,
                         tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox',
-                        isPinned: !!n.isPinned
+                        isPinned: !!n.isPinned,
+                        fileName: n.fileName // carry over for v1.10.2
                     };
                     syncNoteTags(note);
                     return note;

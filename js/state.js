@@ -32,6 +32,8 @@ export const state = {
     vaultHandle: null,
     vaultName: 'Браузер (Кэш)',
     vaultStatus: 'local', // 'local', 'connected', 'prompt', 'error'
+    isSyncing: false,
+    snackbarTimeout: null,
     fsError: null
 };
 
@@ -178,5 +180,9 @@ export const els = {
     calendarSelectedTitle: document.getElementById('calendar-selected-title'),
     calendarSelectedDate: document.getElementById('calendar-selected-date'),
     calendarSelectedBadge: document.getElementById('calendar-selected-badge'),
-    calendarNotesList: document.getElementById('calendar-notes-list')
+    calendarNotesList: document.getElementById('calendar-notes-list'),
+    
+    // Snackbar
+    snackbar: document.getElementById('snackbar'),
+    snackbarMessage: document.getElementById('snackbar-message')
 };

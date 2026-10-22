@@ -13,7 +13,8 @@ import {
     shareNoteFile, exportAllData, handleImportFiles,
     goBack, goForward, toggleFocusMode, goToFolderView,
     openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday, toggleCalendarExpand,
-    initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings
+    initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings,
+    showSnackbar
 } from './logic.js';
 
 function attachListeners() {
@@ -154,6 +155,10 @@ function attachListeners() {
     els.viewFolder.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-action-menu]');
         if (actionBtn) { e.preventDefault(); e.stopPropagation(); openActionMenu(actionBtn.getAttribute('data-action-menu')); return; }
+        
+        const emptyBtn = e.target.closest('#empty-create-note-btn');
+        if (emptyBtn) { e.preventDefault(); createNote(); return; }
+        
         const card = e.target.closest('.note-card');
         if (card) selectNote(card.getAttribute('data-note-id'));
     });

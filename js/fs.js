@@ -96,12 +96,14 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
         }
     }
 
+    let fileCount = 0;
     for await (const entry of dirHandle.values()) {
         if (entry.kind === 'file' && entry.name.endsWith('.md')) {
             try {
                 const file = await entry.getFile();
                 const text = await file.text();
                 const { note } = parseMarkdown(text, folderId);
+                note.fileName = entry.name; // Save filename for O(1) access
                 notes.push(note);
             } catch (e) {
                 console.warn('Ошибка чтения файла:', entry.name, e);
@@ -110,11 +112,17 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
             const subNotes = await readAllFilesFromDisk(entry, currentRoot);
             notes.push(...subNotes);
         }
+        
+        // Async breathing room
+        fileCount++;
+        if (fileCount % 5 === 0) {
+            await new Promise(r => setTimeout(r, 0));
+        }
     }
     return notes;
 }
 
-// Запись файла на диск (С ИСПРАВЛЕНИЕМ ДУБЛЕЙ)
+// Запись файла на диск (O(1) С ИСПРАВЛЕНИЕМ ДУБЛЕЙ)
 export async function writeNoteToDisk(note, dirHandle) {
     if (!dirHandle) return;
     
@@ -128,12 +136,15 @@ export async function writeNoteToDisk(note, dirHandle) {
         }
         
         const newFileName = generateFileName(note);
-        const shortId = String(note.id).slice(0, 4);
 
-        // 1. Удаляем старые версии этого файла (если заголовок менялся)
-        for await (const entry of targetDir.values()) {
-            if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId)) {
-                if (entry.name !== newFileName) {
+        // 1. Удаляем старую версию файла, если имя изменилось
+        if (note.fileName && note.fileName !== newFileName) {
+            try { await targetDir.removeEntry(note.fileName); } catch (_) {}
+        } else if (!note.fileName) {
+            // Fallback для старых заметок без fileName
+            const shortId = String(note.id).slice(0, 4);
+            for await (const entry of targetDir.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId) && entry.name !== newFileName) {
                     try { await targetDir.removeEntry(entry.name); } catch (_) {}
                 }
             }
@@ -148,6 +159,8 @@ export async function writeNoteToDisk(note, dirHandle) {
         
         await writable.write(content);
         await writable.close();
+        
+        note.fileName = newFileName; // Обновляем в памяти
         return newFileName;
     } catch (e) {
         console.error('Ошибка записи на диск:', e);
@@ -167,10 +180,14 @@ export async function deleteNoteFromDisk(note, dirHandle) {
             }
         }
         
-        const shortId = String(note.id).slice(0, 4);
-        for await (const entry of targetDir.values()) {
-            if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId)) {
-                await targetDir.removeEntry(entry.name);
+        if (note.fileName) {
+            try { await targetDir.removeEntry(note.fileName); } catch (_) {}
+        } else {
+            const shortId = String(note.id).slice(0, 4);
+            for await (const entry of targetDir.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId)) {
+                    await targetDir.removeEntry(entry.name);
+                }
             }
         }
     } catch (e) {

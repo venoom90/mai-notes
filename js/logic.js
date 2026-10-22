@@ -82,8 +82,10 @@ export async function disconnectVault() {
 
 export async function syncVault(isNewConnection = false) {
     if (!state.vaultHandle || state.vaultStatus !== 'connected') return;
+    state.isSyncing = true;
     state.saveStatus = 'saving';
     renderSaveStatus();
+    renderSidebar(); // Update Vault widget spinner
 
     try {
         const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
@@ -127,12 +129,15 @@ export async function syncVault(isNewConnection = false) {
         persistNotes();
         persistFolders();
         state.saveStatus = 'saved';
+        state.isSyncing = false;
         renderAll();
     } catch (e) {
         console.error('Sync error:', e);
         state.saveStatus = 'error';
+        state.isSyncing = false;
         renderSaveStatus();
-        alert('Ошибка синхронизации: ' + e.message);
+        renderSidebar();
+        showSnackbar('Ошибка синхронизации: ' + e.message, 'error');
     }
 }
 
@@ -261,7 +266,11 @@ export function scheduleSave() {
                 const note = getNoteById(state.activeId);
                 if (note) {
                     try { await writeNoteToDisk(note, state.vaultHandle); } 
-                    catch (e) { state.saveStatus = 'error'; renderSaveStatus(); }
+                    catch (e) { 
+                        state.saveStatus = 'error'; 
+                        renderSaveStatus(); 
+                        showSnackbar('Не удалось сохранить. Проверьте доступ к папке.', 'error');
+                    }
                 }
             }
         }
@@ -831,4 +840,15 @@ export async function handleImportFiles(files) {
         alert('Не найдено подходящих файлов для импорта.');
     }
     els.importFileInput.value = ''; 
+}
+
+export function showSnackbar(message, type = 'info') {
+    if (!els.snackbar) return;
+    els.snackbarMessage.textContent = message;
+    els.snackbar.classList.remove('hidden');
+    
+    if (state.snackbarTimeout) clearTimeout(state.snackbarTimeout);
+    state.snackbarTimeout = setTimeout(() => {
+        els.snackbar.classList.add('hidden');
+    }, 4000);
 }

@@ -149,12 +149,21 @@
         .expand-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .expand-wrapper.expanded { grid-template-rows: 1fr; }
         .expand-wrapper > div { overflow: hidden; }
+        
+        /* Snackbar */
+        .snackbar { transition: opacity 0.3s, transform 0.3s; }
     </style>
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
     <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
+
+    <!-- Snackbar -->
+    <div id="snackbar" class="snackbar fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-[var(--md-surface-variant)] text-[var(--md-on-surface)] px-4 py-3 rounded-xl shadow-lg z-[100] hidden flex items-center gap-3 border border-[var(--md-outline)]/20">
+        <i data-lucide="info" class="w-5 h-5 text-primary"></i>
+        <span id="snackbar-message" class="text-sm font-medium"></span>
+    </div>
 
     <div id="left-panel-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
     <div id="action-sheet-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
@@ -248,7 +257,10 @@
             </div>
             
             <div class="flex items-center gap-1">
-                <span id="save-status" class="text-xs text-outline italic mr-2 hidden md:inline">Готово</span>
+                <!-- Иконка статуса сохранения -->
+                <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1 hidden md:flex">
+                    <i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>
+                </div>
                 
                 <div class="relative" id="move-note-container" style="display:none;">
                     <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить">
@@ -476,7 +488,7 @@
 
             <!-- О приложении -->
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.10.1</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.10.2</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA</div>
             </div>
         </div>
