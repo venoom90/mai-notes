@@ -30,7 +30,6 @@ export async function sendAiRequest({ system, user, signal }) {
 
     const payload = { system, user };
 
-    // ВАЖНО: Мы не передаем Content-Type: application/json, чтобы избежать OPTIONS-запроса (CORS Preflight)
     const response = await fetch(url, {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -53,16 +52,18 @@ export async function sendAiRequest({ system, user, signal }) {
     return data.text;
 }
 
+// ИСПРАВЛЕНИЕ: Правильная нарезка Unicode-символов (кириллица, эмодзи)
 export function typewriter(el, fullText, onDone) {
+    const chars = Array.from(fullText); // Разбиваем на символы корректно
     let i = 0;
-    const speed = Math.max(1, Math.floor(fullText.length / 150)); // Динамическая скорость
+    const chunkSize = Math.max(1, Math.floor(chars.length / 150)); // Динамическая скорость
     let isCancelled = false;
     
     function type() {
         if (isCancelled) return;
-        if (i < fullText.length) {
-            el.textContent += fullText.charAt(i);
-            i += speed;
+        if (i < chars.length) {
+            i += chunkSize;
+            el.textContent = chars.slice(0, i).join('');
             if (el.parentElement) {
                 el.parentElement.scrollTop = el.parentElement.scrollHeight;
             }
