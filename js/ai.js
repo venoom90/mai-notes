@@ -30,9 +30,9 @@ export async function sendAiRequest({ system, user, signal }) {
 
     const payload = { system, user };
 
+    // ВАЖНО: Мы не передаем Content-Type: application/json, чтобы избежать OPTIONS-запроса (CORS Preflight)
     const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: signal
     });
