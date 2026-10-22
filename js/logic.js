@@ -2,7 +2,7 @@ import { state, els, FILTERS_KEY } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus } from './render.js';
-import { isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk } from './fs.js';
+import { isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, requestPermission, readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk } from './fs.js';
 
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.add('mobile-active'); }
 export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.remove('mobile-active'); }
@@ -60,7 +60,7 @@ export async function connectVault() {
 
 export async function restoreAccess() {
     if (!state.vaultHandle) return;
-    const perm = await verifyPermission(state.vaultHandle, true);
+    const perm = await requestPermission(state.vaultHandle, true);
     if (perm) {
         state.vaultStatus = 'connected';
         await syncVault();
@@ -135,9 +135,17 @@ export async function syncVault(isNewConnection = false) {
         console.error('Sync error:', e);
         state.saveStatus = 'error';
         state.isSyncing = false;
+        
+        // Если ошибка связана с правами доступа
+        if (e.name === 'NotAllowedError') {
+            state.vaultStatus = 'prompt';
+            showSnackbar('Нет доступа к папке. Нажмите "Восстановить".', 'error');
+        } else {
+            showSnackbar('Ошибка синхронизации: ' + e.message, 'error');
+        }
+        
         renderSaveStatus();
-        renderSidebar();
-        showSnackbar('Ошибка синхронизации: ' + e.message, 'error');
+        renderAll();
     }
 }
 
@@ -267,9 +275,15 @@ export function scheduleSave() {
                 if (note) {
                     try { await writeNoteToDisk(note, state.vaultHandle); } 
                     catch (e) { 
+                        if (e.name === 'NotAllowedError') {
+                            state.vaultStatus = 'prompt';
+                            showSnackbar('Нет доступа к папке. Нажмите "Восстановить".', 'error');
+                            renderSidebar();
+                        } else {
+                            showSnackbar('Не удалось сохранить. Проверьте доступ к папке.', 'error');
+                        }
                         state.saveStatus = 'error'; 
                         renderSaveStatus(); 
-                        showSnackbar('Не удалось сохранить. Проверьте доступ к папке.', 'error');
                     }
                 }
             }

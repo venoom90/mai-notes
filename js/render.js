@@ -73,6 +73,10 @@ export function renderVaultStatus() {
         els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-yellow-500';
         els.vaultIcon.setAttribute('data-lucide', 'alert-circle');
         els.vaultRestoreBanner.classList.remove('hidden');
+        
+        const nameSpan = document.getElementById('restore-banner-vault-name');
+        if (nameSpan) nameSpan.textContent = state.vaultName;
+        
     } else if (state.vaultStatus === 'local') {
         els.vaultNameDisplay.textContent = 'Браузер (Кэш)';
         els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-gray-400';

@@ -54,7 +54,12 @@ export async function clearHandleFromDB() {
 export async function verifyPermission(fileHandle, readWrite = true) {
     const options = {};
     if (readWrite) options.mode = 'readwrite';
-    
+    return (await fileHandle.queryPermission(options)) === 'granted';
+}
+
+export async function requestPermission(fileHandle, readWrite = true) {
+    const options = {};
+    if (readWrite) options.mode = 'readwrite';
     if ((await fileHandle.queryPermission(options)) === 'granted') return true;
     if ((await fileHandle.requestPermission(options)) === 'granted') return true;
     return false;

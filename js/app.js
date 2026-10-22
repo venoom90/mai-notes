@@ -16,6 +16,7 @@ import {
     initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings,
     showSnackbar
 } from './logic.js';
+import { verifyPermission } from './fs.js';
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
@@ -113,6 +114,7 @@ function attachListeners() {
                 persistNotes(); renderAll(); 
                 
                 if (state.vaultHandle && state.vaultStatus === 'connected') {
+                    const { deleteNoteFromDisk, writeNoteToDisk } = await import('./fs.js');
                     await deleteNoteFromDisk(oldNote, state.vaultHandle);
                     await writeNoteToDisk(note, state.vaultHandle);
                 }
@@ -300,6 +302,19 @@ function attachListeners() {
     els.btnImportData.addEventListener('click', () => els.importFileInput.click());
     els.importFileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) handleImportFiles(Array.from(e.target.files));
+    });
+
+    // --- VISIBILITY CHANGE (Android background fix) ---
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+            if (state.vaultHandle && state.vaultStatus === 'connected') {
+                const perm = await verifyPermission(state.vaultHandle, true);
+                if (!perm) {
+                    state.vaultStatus = 'prompt';
+                    renderAll();
+                }
+            }
+        }
     });
 
     // --- ANDROID BACK BUTTON (POPSTATE) ---
