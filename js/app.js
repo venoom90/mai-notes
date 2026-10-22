@@ -1,8 +1,7 @@
-// js/app.js — MAi Notes V1.11.3
-// Changes (v1.11.3):
-//  + init(): state.tombstones = loadTombstones()
-//  + visibilitychange: авто-синк (кулдаун 60с, guard isSyncing)
-//  + import syncVault, loadTombstones
+// js/app.js — MAi Notes V1.11.4
+// История изменений:
+//  V1.11.4 (22.10.2026): Добавлен visualViewport.resize для Android. Заменен window.confirm на showConfirm.
+//  V1.11.3 (22.10.2026): Добавлена загрузка tombstones и visibility sync.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -24,6 +23,7 @@ import {
     syncVault
 } from './logic.js';
 import { verifyPermission } from './fs.js';
+import { showConfirm } from './dialog.js'; // v1.11.4
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
@@ -198,7 +198,7 @@ function attachListeners() {
         if (btn) selectNote(btn.getAttribute('data-backlink-id'));
     });
 
-    els.preview.addEventListener('click', (e) => {
+    els.preview.addEventListener('click', async (e) => { // v1.11.4 async
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
 
@@ -212,7 +212,7 @@ function attachListeners() {
         }
         if (t.closest('.wiki-link-broken')) {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
-            if (window.confirm(`Создать заметку «${title}»?`)) {
+            if (await showConfirm(`Создать заметку «${title}»?`, 'Создание заметки')) { // v1.11.4
                 const now = Date.now();
                 const newNote = { id: genId(), title: title, content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId === '__prompts__' ? 'inbox' : state.activeFolderId, isPinned: false };
                 state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit';
@@ -364,7 +364,6 @@ function attachListeners() {
         if (e.target.files.length > 0) handleImportFiles(Array.from(e.target.files));
     });
 
-    // v1.11.3: visibilitychange → авто-синк (кулдаун 60с)
     document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState !== 'visible') return;
         if (!state.vaultHandle || state.vaultStatus !== 'connected') return;
@@ -384,6 +383,13 @@ function attachListeners() {
         try { await syncVault(); }
         catch (e) { console.warn('[visibility sync]', e); }
     });
+
+    // v1.11.4: Android visualViewport
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            autoResizeTextarea();
+        });
+    }
 
     window.addEventListener('popstate', (e) => {
         if (els.promptSettingsModal.classList.contains('open')) { closePromptSettings(); history.pushState({ state: 'settings' }, ''); return; }
@@ -440,7 +446,7 @@ function attachListeners() {
 
 async function init() {
     loadSettings();
-    state.tombstones = loadTombstones(); // v1.11.3
+    state.tombstones = loadTombstones();
     state.folders = loadFolders(); persistFolders();
     state.notes = loadNotes(); validateFolderRefs();
     seedDefaultPrompts();

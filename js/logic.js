@@ -1,12 +1,7 @@
-// js/logic.js — MAi Notes V1.11.3
-// Changes (v1.11.3):
-//  + handleFsError — обёртка FS-ошибок (NotAllowedError → vaultStatus='prompt')
-//  + debouncedRenderSidebar (250ms) в onEdit
-//  + addTombstone в deleteNote/deletePrompt; syncVault пропускает их через fs.js
-//  + syncVault: writes внутри withVaultLock + guard state.isSyncing
-//  + moveNoteFromMenu → moveNoteOnDisk (атомарно)
-//  + renameFolder / createFolder / deleteFolder → атомарные FS-хелперы (sanitize + lock)
-//  + handleImportFiles: skip __MACOSX/.DS_Store; removeTombstone для импортированных ID
+// js/logic.js — MAi Notes V1.11.4
+// История изменений:
+//  V1.11.4 (22.10.2026): Все window.prompt/confirm/alert заменены на M3-диалоги из ./dialog.js.
+//  V1.11.3 (22.10.2026): handleFsError, debounce, tombstones, withVaultLock.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -18,17 +13,17 @@ import {
     moveNoteOnDisk, renameFolderOnDisk, createFolderOnDisk
 } from './fs.js';
 import { sendAiRequest, typewriter, buildUserContext } from './ai.js';
+import { showAlert, showConfirm, showPrompt } from './dialog.js'; // v1.11.4
 
-// ===== FS-ошибки и дебаунс (v1.11.3) =====
 function handleFsError(e, ctx = 'FS') {
     if (!e) return;
     console.error(`[FS:${ctx}]`, e);
     if (e.name === 'NotAllowedError') {
         state.vaultStatus = 'prompt';
-        showSnackbar('Нет доступа к папке. Нажмите "Восстановить".', 'error');
+        showAlert('Нет доступа к папке. Нажмите "Восстановить".', 'Ошибка доступа'); // v1.11.4
         try { renderSidebar(); } catch (_) {}
     } else {
-        showSnackbar('Ошибка файловой системы: ' + (e.message || 'неизвестно'), 'error');
+        showAlert('Ошибка файловой системы: ' + (e.message || 'неизвестно'), 'Ошибка'); // v1.11.4
     }
 }
 
@@ -44,8 +39,6 @@ function debouncedRenderSidebar() {
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.add('mobile-active'); }
 export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.remove('mobile-active'); }
 export function toggleLeftPanel() { state.leftPanelOpen ? closeLeftPanel() : openLeftPanel(); }
-
-// --- VAULT (File System) LOGIC ---
 
 export async function initVault() {
     if (!isFileSystemSupported()) {
@@ -74,7 +67,7 @@ export async function initVault() {
 
 export async function connectVault() {
     if (!isFileSystemSupported()) {
-        alert('Ваш браузер не поддерживает локальную файловую систему. Используется кэш браузера.');
+        await showAlert('Ваш браузер не поддерживает локальную файловую систему. Используется кэш браузера.', 'Неподдерживаемый браузер'); // v1.11.4
         return;
     }
     try {
@@ -101,12 +94,12 @@ export async function restoreAccess() {
         await syncVault();
         renderAll();
     } else {
-        alert('Доступ не был получен. Попробуйте снова.');
+        await showAlert('Доступ не был получен. Попробуйте снова.', 'Ошибка доступа'); // v1.11.4
     }
 }
 
 export async function disconnectVault() {
-    if (!confirm('Отвязать папку? Приложение перейдет на использование кэша браузера. Файлы на диске не удалятся.')) return;
+    if (!await showConfirm('Отвязать папку? Приложение перейдет на использование кэша браузера. Файлы на диске не удалятся.', 'Отвязка папки')) return; // v1.11.4
     await clearHandleFromDB();
     state.vaultHandle = null;
     state.vaultName = 'Браузер (Кэш)';
@@ -124,7 +117,6 @@ export async function syncVault(isNewConnection = false) {
     renderSidebar();
 
     try {
-        // Читаем без лока — лок берётся только на фазу записи.
         const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
 
         await withVaultLock(async () => {
@@ -198,8 +190,6 @@ export function saveAiSettings() {
     persistSettings();
     showSnackbar('Настройки ИИ сохранены', 'info');
 }
-
-// --- NAVIGATION HISTORY ---
 
 export function pushToHistory(id) {
     if (!id) return;
@@ -294,8 +284,6 @@ export function toggleCalendarExpand() {
     renderAll();
 }
 
-// --- CRUD ---
-
 export function scheduleSave() {
     if (state.saveTimeout) clearTimeout(state.saveTimeout);
     const noteIdToSave = state.activeId;
@@ -327,7 +315,7 @@ export function onEdit() {
     const note = getNoteById(state.activeId); if (!note) return;
     note.title = els.titleInput.value; note.content = els.contentInput.value; note.updatedAt = Date.now();
     syncNoteTags(note); state.saveStatus = 'saving'; renderSaveStatus(); scheduleSave();
-    debouncedRenderSidebar(); // v1.11.3
+    debouncedRenderSidebar();
 }
 
 export async function createNote() {
@@ -370,9 +358,9 @@ export function selectNote(id, pushHist = true) {
 
 export async function deleteNote(id) {
     const note = getNoteById(id); if (!note) return;
-    if (!window.confirm(`Удалить заметку «${note.title || 'Без названия'}»?`)) return;
+    if (!await showConfirm(`Удалить заметку «${note.title || 'Без названия'}»?`, 'Удаление заметки')) return; // v1.11.4
 
-    addTombstone(id); // v1.11.3: защита от воскрешения
+    addTombstone(id);
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await deleteNoteFromDisk(note, state.vaultHandle); }
@@ -410,17 +398,21 @@ export function applySavedFilter(id) {
     state.viewMode = 'folder'; renderAll(); closeLeftPanel();
 }
 
-export function deleteSavedFilter(id) {
-    if (!window.confirm('Удалить этот фильтр?')) return;
+export async function deleteSavedFilter(id) {
+    if (!await showConfirm('Удалить этот фильтр?', 'Удаление фильтра')) return; // v1.11.4
     state.savedFilters = state.savedFilters.filter(f => f.id !== id);
     if (state.activeFilterId === id) state.activeFilterId = null;
     persistFilters(); renderAll();
 }
 
 export async function createFolder() {
-    const raw = window.prompt('Название папки:'); if (!raw || !raw.trim()) return;
+    const raw = await showPrompt('Название папки:', '', 'Новая папка'); // v1.11.4
+    if (!raw || !raw.trim()) return;
     const name = raw.trim();
-    if (state.folders.some(f => f.name.toLowerCase() === name.toLowerCase())) { window.alert('Папка уже есть'); return; }
+    if (state.folders.some(f => f.name.toLowerCase() === name.toLowerCase())) { 
+        await showAlert('Папка уже есть', 'Ошибка'); // v1.11.4
+        return; 
+    }
 
     state.folders.push({ id: genId(), name: name, updatedAt: Date.now(), isSystem: false });
 
@@ -435,7 +427,8 @@ export async function createFolder() {
 export async function renameFolder(id) {
     if (id === 'inbox' || id === SYSTEM_PROMPTS_FOLDER_ID) return;
     const folder = getFolderById(id); if (!folder) return;
-    const raw = window.prompt('Новое имя папки:', folder.name); if (raw === null) return;
+    const raw = await showPrompt('Новое имя папки:', folder.name, 'Переименование папки'); // v1.11.4
+    if (raw === null) return;
     const name = raw.trim(); if (!name) return;
 
     const oldName = folder.name;
@@ -453,7 +446,7 @@ export async function deleteFolder(id) {
     if (id === 'inbox' || id === SYSTEM_PROMPTS_FOLDER_ID) return;
     const folder = getFolderById(id); if (!folder) return;
     const count = folderNotesCount(id);
-    if (!window.confirm(`Удалить папку «${folder.name}»? ${count} заметок переместятся в «Входящие».`)) return;
+    if (!await showConfirm(`Удалить папку «${folder.name}»? ${count} заметок переместятся в «Входящие».`, 'Удаление папки')) return; // v1.11.4
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await deleteFolderFromDisk(folder.name, state.vaultHandle); }
@@ -538,7 +531,7 @@ export async function togglePinFromMenu() {
 export async function renameNoteFromMenu() {
     const note = getNoteById(state.actionMenuNoteId); if (!note) return;
     closeActionMenu();
-    const raw = window.prompt('Новое название:', note.title);
+    const raw = await showPrompt('Новое название:', note.title, 'Переименование'); // v1.11.4
     if (raw !== null && raw.trim() !== note.title) {
         note.title = raw.trim(); note.updatedAt = Date.now();
         syncNoteTags(note); persistNotes();
@@ -565,7 +558,7 @@ export async function moveNoteFromMenu(folderId) {
 
     try {
         if (state.vaultHandle && state.vaultStatus === 'connected') {
-            await moveNoteOnDisk(oldNote, note, state.vaultHandle); // v1.11.3: атомарно
+            await moveNoteOnDisk(oldNote, note, state.vaultHandle);
         }
     } catch (e) { handleFsError(e, 'moveNote'); }
 }
@@ -635,10 +628,10 @@ export function updateFilterRule(index, field, value) {
         }
     }
 }
-export function saveFilter() {
+export async function saveFilter() {
     const name = els.filterNameInput.value.trim();
-    if (!name) { window.alert('Введите название фильтра'); return; }
-    if (state.draftFilter.length === 0) { window.alert('Добавьте хотя бы одно условие'); return; }
+    if (!name) { await showAlert('Введите название фильтра', 'Ошибка'); return; } // v1.11.4
+    if (state.draftFilter.length === 0) { await showAlert('Добавьте хотя бы одно условие', 'Ошибка'); return; } // v1.11.4
     const newFilter = { id: genId(), name: name, rules: JSON.parse(JSON.stringify(state.draftFilter)) };
     state.savedFilters.push(newFilter);
     persistFilters();
@@ -681,13 +674,14 @@ export function insertPickedItem(value) {
     closePicker();
 }
 
-// --- PROMPTS CRUD ---
-
-export function createPrompt() {
-    const raw = window.prompt('Имя нового промпта:');
+export async function createPrompt() {
+    const raw = await showPrompt('Имя нового промпта:', '', 'Новый промпт'); // v1.11.4
     if (!raw || !raw.trim()) return;
     const name = raw.trim();
-    if (getPromptByName(name)) { window.alert('Промпт с таким именем уже существует.'); return; }
+    if (getPromptByName(name)) { 
+        await showAlert('Промпт с таким именем уже существует.', 'Ошибка'); // v1.11.4
+        return; 
+    }
 
     const now = Date.now();
     const note = {
@@ -722,9 +716,9 @@ export async function deletePrompt(id) {
         ? `Промпт «${note.title}» используется в ${usageCount} заметках. При удалении чипы станут неактивны. Продолжить?`
         : `Удалить промпт «${note.title}»?`;
 
-    if (!window.confirm(msg)) return;
+    if (!await showConfirm(msg, 'Удаление промпта')) return; // v1.11.4
 
-    addTombstone(id); // v1.11.3
+    addTombstone(id);
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await deleteNoteFromDisk(note, state.vaultHandle); }
@@ -775,12 +769,10 @@ export async function savePromptSettings() {
     showSnackbar('Настройки промпта сохранены');
 }
 
-// --- AI LOGIC ---
-
-export function triggerAiFromChip(name) {
+export async function triggerAiFromChip(name) {
     const prompt = getPromptByName(name);
     if (!prompt) {
-        if (window.confirm(`Промпт «${name}» не найден. Создать его?`)) {
+        if (await showConfirm(`Промпт «${name}» не найден. Создать его?`, 'Создание промпта')) { // v1.11.4
             const now = Date.now();
             const newNote = {
                 id: genId(), title: name, content: '', updatedAt: now, createdAt: now,
@@ -912,8 +904,6 @@ export function handleAiRegenerate() {
     if (note && prompt) executeAiRequest(prompt, note);
 }
 
-// --- EXPORT / IMPORT ---
-
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 function downloadFile(content, fileName, mimeType = 'text/plain;charset=utf-8') {
@@ -953,7 +943,7 @@ export async function shareNoteFile(noteId) {
         await nativeShareOrDownload(md, fileName, 'text/plain', noteTitle(note));
     } catch (e) {
         console.error('Share error:', e);
-        alert('Ошибка при создании файла: ' + e.message);
+        await showAlert('Ошибка при создании файла: ' + e.message, 'Ошибка'); // v1.11.4
     } finally {
         closeActionMenu();
     }
@@ -961,7 +951,7 @@ export async function shareNoteFile(noteId) {
 
 export async function exportAllData() {
     if (typeof JSZip === 'undefined') {
-        alert('Ошибка: Библиотека JSZip не загружена. Проверьте интернет.');
+        await showAlert('Ошибка: Библиотека JSZip не загружена. Проверьте интернет.', 'Ошибка'); // v1.11.4
         return;
     }
     try {
@@ -983,7 +973,7 @@ export async function exportAllData() {
         });
 
         if (packedCount === 0 && state.notes.length > 0) {
-            alert('Не удалось упаковать заметки. Проверьте консоль (F12).');
+            await showAlert('Не удалось упаковать заметки. Проверьте консоль (F12).', 'Ошибка'); // v1.11.4
             return;
         }
 
@@ -992,7 +982,7 @@ export async function exportAllData() {
         await nativeShareOrDownload(blob, fileName, 'application/zip', 'Бэкап MAi');
     } catch (e) {
         console.error('Export error:', e);
-        alert('Ошибка при создании архива: ' + e.message);
+        await showAlert('Ошибка при создании архива: ' + e.message, 'Ошибка'); // v1.11.4
     }
 }
 
@@ -1002,7 +992,10 @@ export async function handleImportFiles(files) {
 
     for (const file of files) {
         if (file.name.endsWith('.zip')) {
-            if (typeof JSZip === 'undefined') { alert('JSZip не загружен'); continue; }
+            if (typeof JSZip === 'undefined') { 
+                await showAlert('JSZip не загружен', 'Ошибка'); // v1.11.4
+                continue; 
+            }
             try {
                 const zip = await JSZip.loadAsync(file);
 
@@ -1026,13 +1019,11 @@ export async function handleImportFiles(files) {
 
                 const promises = [];
                 zip.forEach((relativePath, zipEntry) => {
-                    // v1.11.3: skip мусор
                     if (relativePath.includes('__MACOSX') || zipEntry.name === '.DS_Store') return;
                     if (!zipEntry.name.endsWith('.md')) return;
 
                     promises.push(zipEntry.async('string').then(text => {
                         const parts = relativePath.split('/').filter(Boolean);
-                        // v1.11.3: файлы в корне → inbox, остальные — по папке
                         let dirName = 'inbox';
                         if (parts.length > 1) dirName = parts[0];
                         let folder = state.folders.find(f => f.name === dirName);
@@ -1042,7 +1033,6 @@ export async function handleImportFiles(files) {
                         }
                         const { note } = parseMarkdown(text, folder.id, zipEntry.name);
 
-                        // v1.11.3: явный импорт = user override → снимаем tombstone
                         if (isTombstoned(note.id)) removeTombstone(note.id);
 
                         const existingIdx = state.notes.findIndex(n => n.id === note.id);
@@ -1060,7 +1050,7 @@ export async function handleImportFiles(files) {
             const text = await file.text();
             const { note } = parseMarkdown(text, state.activeFolderId || 'inbox', file.name);
             note.createdAt = Date.now();
-            if (isTombstoned(note.id)) removeTombstone(note.id); // v1.11.3
+            if (isTombstoned(note.id)) removeTombstone(note.id);
             const existingIdx = state.notes.findIndex(n => n.id === note.id);
             if (existingIdx >= 0) state.notes[existingIdx] = note;
             else state.notes.push(note);
@@ -1082,9 +1072,9 @@ export async function handleImportFiles(files) {
         state.saveStatus = 'saved';
         renderSaveStatus();
         renderAll();
-        alert(`Успешно импортировано файлов: ${importedCount}`);
+        await showAlert(`Успешно импортировано файлов: ${importedCount}`, 'Импорт завершен'); // v1.11.4
     } else {
-        alert('Не найдено подходящих файлов для импорта.');
+        await showAlert('Не найдено подходящих файлов для импорта.', 'Импорт'); // v1.11.4
     }
     els.importFileInput.value = '';
 }

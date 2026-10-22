@@ -1,10 +1,18 @@
-// sw.js — MAi Notes V1.11.3
-// Changes (v1.11.3): CACHE_NAME → mai-cache-v51
-const CACHE_NAME = 'mai-cache-v51';
+// sw.js — MAi Notes V1.11.4
+// История изменений:
+//  V1.11.4 (22.10.2026): Кэш v52. Добавлены vendor/ и js/dialog.js в ASSETS.
+//  V1.11.3 (22.10.2026): Кэш v51.
+const CACHE_NAME = 'mai-cache-v52';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
-  './js/render.js', './js/logic.js', './js/app.js', './js/fs.js', './js/ai.js'
+  './js/render.js', './js/logic.js', './js/app.js', './js/fs.js', './js/ai.js',
+  './js/dialog.js', // v1.11.4
+  './vendor/tailwind.js',
+  './vendor/lucide.js',
+  './vendor/marked.min.js',
+  './vendor/purify.min.js',
+  './vendor/jszip.min.js'
 ];
 
 self.addEventListener('install', (event) => {

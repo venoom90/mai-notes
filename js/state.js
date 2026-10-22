@@ -1,8 +1,7 @@
-// js/state.js — MAi Notes V1.11.3
-// Changes (v1.11.3):
-//  + state.tombstones        — надгробия удалённых заметок (TTL 30 дней)
-//  + state.lastVisibilitySync — кулдаун авто-синка при visibilitychange
-//  + TOMBS_KEY               — ключ localStorage для tombstones
+// js/state.js — MAi Notes V1.11.4
+// История изменений:
+//  V1.11.4 (22.10.2026): Добавлены els для M3-диалогов (app-dialog-alert, -confirm, -prompt).
+//  V1.11.3 (22.10.2026): Добавлены tombstones, lastVisibilitySync, TOMBS_KEY.
 export const state = {
     notes: [],
     folders: [],
@@ -45,7 +44,6 @@ export const state = {
     aiAbortController: null,
     promptSettingsId: null,
     aiDropdownOpen: false,
-    // v1.11.3
     tombstones: [],
     lastVisibilitySync: 0
 };
@@ -86,7 +84,7 @@ export const FILTERS_KEY = 'mai_filters';
 export const SETTINGS_KEY = 'mai_settings';
 export const PROMPTS_SEEDED_KEY = 'mai_prompts_seeded';
 export const SYSTEM_PROMPTS_FOLDER_ID = '__prompts__';
-export const TOMBS_KEY = 'mai_tombstones'; // v1.11.3
+export const TOMBS_KEY = 'mai_tombstones';
 
 export const LEGACY_TITLE_KEY = 'mai_title';
 export const LEGACY_CONTENT_KEY = 'mai_content';
