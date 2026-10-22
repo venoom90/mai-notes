@@ -274,21 +274,16 @@
                         <button id="btn-calendar-today" class="text-xs font-bold text-primary px-3 py-1.5 bg-[var(--md-primary)]/10 rounded-full hover:bg-[var(--md-primary)]/20 transition-colors">Сегодня</button>
                     </div>
 
-                    <!-- Дни недели -->
-                    <div class="grid grid-cols-7 gap-1 mb-2 text-center text-[0.65rem] font-bold text-outline">
-                        <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div>
-                    </div>
-
-                    <!-- Горизонтальная неделя -->
+                    <!-- Горизонтальная неделя (по умолчанию) -->
                     <div id="calendar-week-strip" class="week-strip hide-scrollbar mb-2"></div>
 
-                    <!-- Кнопка развернуть -->
+                    <!-- Кнопка развернуть/свернуть -->
                     <button id="btn-toggle-calendar" class="w-full py-2 flex items-center justify-center gap-2 text-xs font-medium text-outline hover:text-primary transition-colors">
                         Развернуть календарь <i data-lucide="chevron-down" class="w-3 h-3"></i>
                     </button>
 
-                    <!-- Полная сетка месяца -->
-                    <div id="calendar-full-grid" class="expand-transition pt-4 border-t border-[var(--md-outline)]/20 mt-2 grid grid-cols-7 gap-y-2"></div>
+                    <!-- Полная сетка месяца (скрытая) -->
+                    <div id="calendar-full-grid" class="expand-transition pt-4 border-t border-[var(--md-outline)]/20 mt-2"></div>
                 </div>
                 
                 <!-- Блок заметок -->
