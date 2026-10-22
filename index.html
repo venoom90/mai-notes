@@ -25,8 +25,8 @@
             :root { --md-surface: #141218; --md-surface-variant: #49454F; --md-primary: #D0BCFF; --md-on-primary: #381E72; --md-on-surface: #E6E0E9; --md-outline: #938F99; }
         }
         
-        /* v1.11.7: Removed display:flex from body to fix native dialog centering */
-        html, body { margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; background-color: var(--md-surface); }
+        /* v1.11.8: Жесткая блокировка горизонтального скролла */
+        html, body { margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; overflow-x: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; background-color: var(--md-surface); }
         
         .bg-surface { background-color: var(--md-surface); }
         .bg-surface-variant { background-color: var(--md-surface-variant); }
@@ -83,7 +83,6 @@
         }
         @media (min-width: 768px) { #left-panel-backdrop { display: none !important; } }
 
-        /* v1.11.7: Safe Area for Header */
         header { min-height: calc(4rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); height: auto; }
 
         body.focus-mode #left-panel, body.focus-mode header, body.focus-mode #format-toolbar, body.focus-mode #ai-panel, body.focus-mode #breadcrumbs { display: none !important; }
@@ -110,7 +109,17 @@
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        .bottom-sheet { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; transform: translateY(100%); opacity: 0; visibility: hidden; pointer-events: none; padding-bottom: env(safe-area-inset-bottom); }
+        /* v1.11.8: Исправление нижних шторок (Bottom Sheets) */
+        .bottom-sheet { 
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
+            transform: translateY(100%); 
+            opacity: 0; 
+            visibility: hidden; 
+            pointer-events: none; 
+            padding-bottom: env(safe-area-inset-bottom); 
+            will-change: transform; /* Аппаратное ускорение */
+            backface-visibility: hidden; /* Предотвращает мерцание/смещение */
+        }
         .bottom-sheet.open { transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
         
         #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
@@ -157,15 +166,19 @@
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        /* v1.11.7: Native Dialog Centering (Fixed) */
+        /* v1.11.8: ПУЛЕНЕПРОБИВАЕМОЕ ЦЕНТРИРОВАНИЕ ДИАЛОГОВ */
         dialog { 
-            margin: auto; /* Native centering works because body is block */
+            /* Принудительно сбрасываем Tailwind Preflight */
+            margin: auto !important; 
+            inset: 0 !important; /* Современный сброс позиционирования */
+            position: fixed !important;
+            
             border: none; 
             border-radius: 28px; 
             padding: 24px; 
             background: var(--md-surface); 
             color: var(--md-on-surface); 
-            width: calc(100% - 48px); 
+            width: calc(100vw - 48px); 
             max-width: 400px; 
             box-shadow: 0 8px 24px rgba(0,0,0,0.2); 
             box-sizing: border-box; 
@@ -173,6 +186,8 @@
             overflow-y: auto; 
             overflow-x: hidden;
             word-break: break-word; 
+            /* Убираем любые transform, которые могут вызвать смещение */
+            transform: none !important; 
         }
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
         .dialog-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; }
@@ -189,7 +204,7 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- v1.11.7: M3 Dialogs -->
+    <!-- v1.11.8: M3 Dialogs -->
     <dialog id="app-dialog-alert">
         <div class="dialog-title" id="app-dialog-alert-title">Уведомление</div>
         <div class="dialog-msg" id="app-dialog-alert-msg"></div>
@@ -218,8 +233,8 @@
         </div>
     </dialog>
 
-    <!-- v1.11.7: Wrapper to isolate Flexbox from dialogs -->
-    <div id="app-layout" class="flex w-full h-full">
+    <!-- v1.11.8: Wrapper to isolate Flexbox from dialogs -->
+    <div id="app-layout" class="flex w-full h-full overflow-hidden">
         <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
 
         <div id="snackbar" class="snackbar fixed left-1/2 transform -translate-x-1/2 bg-[var(--md-surface-variant)] text-[var(--md-on-surface)] px-4 py-3 rounded-xl shadow-lg z-[100] hidden flex items-center gap-3 border border-[var(--md-outline)]/20">
@@ -300,7 +315,7 @@
             </div>
         </aside>
 
-        <main id="main-content" class="flex-1 flex flex-col min-w-0 w-full max-w-full bg-surface relative">
+        <main id="main-content" class="flex-1 flex flex-col min-w-0 w-full max-w-full bg-surface relative overflow-hidden">
             
             <div id="vault-restore-banner" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 text-sm font-medium px-4 py-2 flex items-center justify-between z-20 shrink-0">
                 <div class="flex items-center gap-2 truncate">
@@ -594,7 +609,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.7</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.8</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
