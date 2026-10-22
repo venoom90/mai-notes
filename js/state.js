@@ -83,6 +83,10 @@ export const SETTINGS_KEY = 'mai_settings';
 export const PROMPTS_SEEDED_KEY = 'mai_prompts_seeded';
 export const SYSTEM_PROMPTS_FOLDER_ID = '__prompts__';
 
+// Legacy keys for migration
+export const LEGACY_TITLE_KEY = 'mai_title';
+export const LEGACY_CONTENT_KEY = 'mai_content';
+
 export const els = {
     mainContent: document.getElementById('main-content'),
     leftPanel: document.getElementById('left-panel'),
