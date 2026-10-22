@@ -1,7 +1,6 @@
-// js/storage.js — MAi Notes V1.11.3
-// Changes (v1.11.3): tombstones API
-//  + loadTombstones / persistTombstones / addTombstone / removeTombstone / isTombstoned
-//  + TTL 30 дней для надгробий
+// js/storage.js — MAi Notes V1.11.11
+// История изменений:
+//  V1.11.11 (23.10.2026): Добавлена дедупликация заметок при загрузке. Исправлен seedDefaultPrompts (проверка по ID и Title).
 import { state, STORAGE_KEY, FOLDERS_KEY, FILTERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY, SETTINGS_KEY, PROMPTS_SEEDED_KEY, SYSTEM_PROMPTS_FOLDER_ID, DEFAULT_PROMPTS, TOMBS_KEY } from './state.js';
 import { genId, isValidNote, syncNoteTags, makeDefaultFolder } from './utils.js';
 
@@ -14,7 +13,9 @@ export function loadNotes() {
         try {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
-                return parsed.filter(isValidNote).map(n => {
+                // v1.11.11: Жесткая дедупликация по ID
+                const uniqueMap = new Map();
+                parsed.filter(isValidNote).forEach(n => {
                     const note = {
                         id: String(n.id), title: String(n.title), content: String(n.content), updatedAt: n.updatedAt,
                         createdAt: n.createdAt || n.updatedAt,
@@ -26,8 +27,9 @@ export function loadNotes() {
                         description: n.description || ''
                     };
                     syncNoteTags(note);
-                    return note;
+                    uniqueMap.set(note.id, note);
                 });
+                return Array.from(uniqueMap.values());
             }
         } catch (e) { console.warn('Повреждён ' + STORAGE_KEY); }
         return [];
@@ -124,35 +126,40 @@ export function seedDefaultPrompts() {
     try {
         const seeded = localStorage.getItem(PROMPTS_SEEDED_KEY);
         if (seeded) return;
-        const existingPrompts = state.notes.filter(n => n.isPrompt);
-        if (existingPrompts.length > 0) {
-            localStorage.setItem(PROMPTS_SEEDED_KEY, 'true');
-            return;
-        }
+        
         const now = Date.now();
+        let added = false;
+        
+        // v1.11.11: Защита от дублирования по ID или Title
         DEFAULT_PROMPTS.forEach((dp, index) => {
-            state.notes.push({
-                id: dp.id,
-                title: dp.title,
-                content: dp.content,
-                createdAt: now - index * 1000,
-                updatedAt: now - index * 1000,
-                tags: [],
-                folderId: SYSTEM_PROMPTS_FOLDER_ID,
-                isPinned: false,
-                isPrompt: true,
-                icon: dp.icon,
-                description: dp.description
-            });
+            const exists = state.notes.some(n => n.id === dp.id || (n.isPrompt && n.title === dp.title));
+            if (!exists) {
+                state.notes.push({
+                    id: dp.id,
+                    title: dp.title,
+                    content: dp.content,
+                    createdAt: now - index * 1000,
+                    updatedAt: now - index * 1000,
+                    tags: [],
+                    folderId: SYSTEM_PROMPTS_FOLDER_ID,
+                    isPinned: false,
+                    isPrompt: true,
+                    icon: dp.icon,
+                    description: dp.description,
+                    fileName: null // Файл создастся при синхронизации
+                });
+                added = true;
+            }
         });
-        persistNotes();
+        
+        if (added) persistNotes();
         localStorage.setItem(PROMPTS_SEEDED_KEY, 'true');
     } catch (e) {
         console.warn('Ошибка при создании дефолтных промптов', e);
     }
 }
 
-// ===== TOMBSTONES (v1.11.3) =====
+// ===== TOMBSTONES =====
 
 export function loadTombstones() {
     try {
