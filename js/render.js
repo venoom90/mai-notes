@@ -641,7 +641,7 @@ export function renderPickerList(query) {
     
     if (q && !filtered.map(f => f.toLowerCase()).includes(q)) {
         const icon = state.pickerType === 'tag' ? 'hash' : (state.pickerType === 'prompt' ? 'sparkles' : 'link');
-        const prefix = state.pickerType === 'tag' ? '#' : (state.pickerType === 'prompt' ? '[!prompt:' : '[[;
+        const prefix = state.pickerType === 'tag' ? '#' : (state.pickerType === 'prompt' ? '[!prompt:' : '[[');
         const suffix = state.pickerType === 'tag' ? '' : (state.pickerType === 'prompt' ? ']' : ']]');
         
         html += `
