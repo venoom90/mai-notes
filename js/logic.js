@@ -1,11 +1,156 @@
 import { state, els, FILTERS_KEY } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates } from './utils.js';
 import { persistNotes, persistFolders, persistFilters } from './storage.js';
-import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList } from './render.js';
+import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus } from './render.js';
+import { isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk } from './fs.js';
 
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.add('mobile-active'); }
 export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.remove('mobile-active'); }
 export function toggleLeftPanel() { state.leftPanelOpen ? closeLeftPanel() : openLeftPanel(); }
+
+// --- VAULT (File System) LOGIC ---
+
+export async function initVault() {
+    if (!isFileSystemSupported()) {
+        state.vaultStatus = 'local';
+        renderVaultStatus();
+        return;
+    }
+    try {
+        const handle = await getHandleFromDB();
+        if (handle) {
+            state.vaultHandle = handle;
+            state.vaultName = handle.name;
+            const perm = await verifyPermission(handle, true);
+            if (perm) {
+                state.vaultStatus = 'connected';
+                await syncVault();
+            } else {
+                state.vaultStatus = 'prompt';
+            }
+        }
+    } catch (e) {
+        console.warn('Vault init error:', e);
+    }
+    renderVaultStatus();
+}
+
+export async function connectVault() {
+    if (!isFileSystemSupported()) {
+        alert('Ваш браузер не поддерживает локальную файловую систему. Используется кэш браузера.');
+        return;
+    }
+    try {
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        if (handle) {
+            state.vaultHandle = handle;
+            state.vaultName = handle.name;
+            state.vaultStatus = 'connected';
+            await saveHandleToDB(handle);
+            
+            // При подключении новой папки - синхронизируем всё, что есть в памяти
+            await syncVault(true);
+            closeSettings();
+            renderAll();
+        }
+    } catch (e) {
+        if (e.name !== 'AbortError') console.error('Connect vault error:', e);
+    }
+}
+
+export async function restoreAccess() {
+    if (!state.vaultHandle) return;
+    const perm = await verifyPermission(state.vaultHandle, true);
+    if (perm) {
+        state.vaultStatus = 'connected';
+        await syncVault();
+        renderAll();
+    } else {
+        alert('Доступ не был получен. Попробуйте снова.');
+    }
+}
+
+export async function disconnectVault() {
+    if (!confirm('Отвязать папку? Приложение перейдет на использование кэша браузера. Файлы на диске не удалятся.')) return;
+    await clearHandleFromDB();
+    state.vaultHandle = null;
+    state.vaultName = 'Браузер (Кэш)';
+    state.vaultStatus = 'local';
+    closeSettings();
+    renderAll();
+}
+
+// Сканирование и слияние
+export async function syncVault(isNewConnection = false) {
+    if (!state.vaultHandle || state.vaultStatus !== 'connected') return;
+    state.saveStatus = 'saving';
+    renderSaveStatus();
+
+    try {
+        const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
+        
+        if (isNewConnection) {
+            // Если папка пустая или мы только что подключили её — выгружаем всё из памяти
+            for (const note of state.notes) {
+                await writeNoteToDisk(note, state.vaultHandle);
+            }
+            // Перечитываем диск, чтобы захватить возможные ID папок
+            const updatedDiskNotes = await readAllFilesFromDisk(state.vaultHandle);
+            state.notes = updatedDiskNotes;
+        } else {
+            // Умное слияние: Last Write Wins
+            const diskMap = new Map(diskNotes.map(n => [n.id, n]));
+            const merged = [];
+
+            for (const localNote of state.notes) {
+                const diskNote = diskMap.get(localNote.id);
+                if (diskNote) {
+                    if (diskNote.updatedAt > localNote.updatedAt) {
+                        merged.push(diskNote); // Диск новее
+                    } else {
+                        merged.push(localNote); // Локальная новее
+                        if (localNote.updatedAt > diskNote.updatedAt) {
+                            await writeNoteToDisk(localNote, state.vaultHandle); // Обновляем диск
+                        }
+                    }
+                    diskMap.delete(localNote.id);
+                } else {
+                    // Файла нет на диске (удален вручную или новый локальный)
+                    if (localNote.id) {
+                        merged.push(localNote);
+                        await writeNoteToDisk(localNote, state.vaultHandle);
+                    }
+                }
+            }
+
+            // Добавляем файлы, которые есть на диске, но нет в памяти (созданы извне)
+            for (const diskNote of diskMap.values()) {
+                merged.push(diskNote);
+            }
+            state.notes = merged;
+        }
+
+        persistNotes();
+        persistFolders();
+        state.saveStatus = 'saved';
+        renderAll();
+    } catch (e) {
+        console.error('Sync error:', e);
+        state.saveStatus = 'error';
+        renderSaveStatus();
+        alert('Ошибка синхронизации: ' + e.message);
+    }
+}
+
+export function openSettings() {
+    els.settingsBackdrop.classList.remove('hidden');
+    setTimeout(() => els.settingsModal.classList.add('open'), 10);
+    renderVaultStatus();
+}
+export function closeSettings() {
+    els.settingsModal.classList.remove('open');
+    els.settingsBackdrop.classList.add('hidden');
+}
 
 // --- NAVIGATION HISTORY ---
 
@@ -111,10 +256,23 @@ export function toggleCalendarExpand() {
 
 export function scheduleSave() {
     if (state.saveTimeout) clearTimeout(state.saveTimeout);
-    state.saveTimeout = setTimeout(() => {
+    state.saveTimeout = setTimeout(async () => {
         state.saveTimeout = null;
-        const ok = persistNotes(); if (ok) state.saveStatus = 'saved'; renderSaveStatus();
-    }, 500);
+        const ok = persistNotes(); 
+        if (ok) {
+            state.saveStatus = 'saved'; 
+            renderSaveStatus();
+            
+            // Синхронизация с диском
+            if (state.vaultHandle && state.vaultStatus === 'connected' && state.activeId) {
+                const note = getNoteById(state.activeId);
+                if (note) {
+                    try { await writeNoteToDisk(note, state.vaultHandle); } 
+                    catch (e) { state.saveStatus = 'error'; renderSaveStatus(); }
+                }
+            }
+        }
+    }, 800);
 }
 
 export function onEdit() {
@@ -125,7 +283,7 @@ export function onEdit() {
     renderSidebar(); 
 }
 
-export function createNote() {
+export async function createNote() {
     const now = Date.now();
     const note = { id: genId(), title: '', content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId || 'inbox', isPinned: false };
     state.notes.unshift(note); state.activeId = note.id; 
@@ -133,6 +291,11 @@ export function createNote() {
     state.viewMode = 'editor'; state.editorMode = 'edit'; 
     persistNotes(); state.saveStatus = 'idle';
     pushToHistory(note.id);
+    
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        try { await writeNoteToDisk(note, state.vaultHandle); } catch(e) { console.error(e); }
+    }
+
     renderAll(); closeLeftPanel();
     setTimeout(() => els.titleInput.focus(), 50);
 }
@@ -149,9 +312,15 @@ export function selectNote(id, pushHist = true) {
     renderAll(); closeLeftPanel();
 }
 
-export function deleteNote(id) {
+export async function deleteNote(id) {
     const note = getNoteById(id); if (!note) return;
     if (!window.confirm(`Удалить заметку «${note.title || 'Без названия'}»?`)) return;
+    
+    // Удаляем с диска
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        await deleteNoteFromDisk(note, state.vaultHandle);
+    }
+
     state.notes = state.notes.filter(n => n.id !== id);
     if (state.activeId === id) { 
         const candidates = notesInFolder(state.activeFolderId); 
@@ -186,27 +355,66 @@ export function deleteSavedFilter(id) {
     persistFilters(); renderAll();
 }
 
-export function createFolder() {
+export async function createFolder() {
     const raw = window.prompt('Название папки:'); if (!raw || !raw.trim()) return;
     const name = raw.trim();
     if (state.folders.some(f => f.name.toLowerCase() === name.toLowerCase())) { window.alert('Папка уже есть'); return; }
+    
     state.folders.push({ id: genId(), name: name, updatedAt: Date.now() });
+    
+    // Создаем физическую папку на диске, если подключено
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        try { await state.vaultHandle.getDirectoryHandle(name, { create: true }); } 
+        catch (e) { console.error('Ошибка создания папки на диске', e); }
+    }
+
     persistFolders(); renderAll();
 }
 
-export function renameFolder(id) {
+export async function renameFolder(id) {
     if (id === 'inbox') return;
     const folder = getFolderById(id); if (!folder) return;
     const raw = window.prompt('Новое имя папки:', folder.name); if (raw === null) return;
     const name = raw.trim(); if (!name) return;
-    folder.name = name; folder.updatedAt = Date.now(); persistFolders(); renderAll();
+    
+    const oldName = folder.name;
+    folder.name = name; folder.updatedAt = Date.now(); persistFolders(); 
+    
+    // Переименование на диске (через копирование и удаление, так как move() не везде поддерживается)
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        try {
+            const newDir = await state.vaultHandle.getDirectoryHandle(name, { create: true });
+            const oldDir = await state.vaultHandle.getDirectoryHandle(oldName);
+            
+            for await (const entry of oldDir.values()) {
+                if (entry.kind === 'file') {
+                    const file = await entry.getFile();
+                    const text = await file.text();
+                    const newFile = await newDir.getFileHandle(entry.name, { create: true });
+                    const w = await newFile.createWritable();
+                    await w.write(text);
+                    await w.close();
+                }
+            }
+            await state.vaultHandle.removeEntry(oldName, { recursive: true });
+        } catch (e) { console.error('Ошибка переименования папки на диске', e); }
+    }
+
+    renderAll();
 }
 
-export function deleteFolder(id) {
+export async function deleteFolder(id) {
     if (id === 'inbox') return;
     const folder = getFolderById(id); if (!folder) return;
     const count = folderNotesCount(id);
     if (!window.confirm(`Удалить папку «${folder.name}»? ${count} заметок переместятся в «Входящие».`)) return;
+    
+    // Удаление физической папки
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        await deleteFolderFromDisk(folder.name, state.vaultHandle);
+    }
+
+    // Перемещаем заметки в Inbox (на диске они перезапишутся при следующем сохранении)
     state.notes.forEach(n => { if (n.folderId === id) n.folderId = 'inbox'; });
     state.folders = state.folders.filter(f => f.id !== id);
     if (state.activeFolderId === id) { state.activeFolderId = 'inbox'; }
@@ -281,32 +489,46 @@ export function setActionMenuMode(mode) {
     }
 }
 
-export function togglePinFromMenu() {
+export async function togglePinFromMenu() {
     const note = getNoteById(state.actionMenuNoteId); if (!note) return;
     note.isPinned = !note.isPinned; note.updatedAt = Date.now();
+    if (state.vaultHandle && state.vaultStatus === 'connected') await writeNoteToDisk(note, state.vaultHandle);
     persistNotes(); renderAll(); closeActionMenu();
 }
 
-export function renameNoteFromMenu() {
+export async function renameNoteFromMenu() {
     const note = getNoteById(state.actionMenuNoteId); if (!note) return;
     closeActionMenu();
     const raw = window.prompt('Новое название:', note.title);
     if (raw !== null && raw.trim() !== note.title) {
+        const oldNote = { ...note }; // Сохраняем старые данные для удаления старого файла
         note.title = raw.trim(); note.updatedAt = Date.now();
-        syncNoteTags(note); persistNotes(); renderAll();
+        syncNoteTags(note); persistNotes(); 
+        
+        if (state.vaultHandle && state.vaultStatus === 'connected') {
+            await deleteNoteFromDisk(oldNote, state.vaultHandle); // Удаляем старый файл (по ID)
+            await writeNoteToDisk(note, state.vaultHandle); // Создаем новый
+        }
+        renderAll();
     }
 }
 
-export function deleteNoteFromMenu() {
+export async function deleteNoteFromMenu() {
     const id = state.actionMenuNoteId; closeActionMenu();
     setTimeout(() => deleteNote(id), 300); 
 }
 
-export function moveNoteFromMenu(folderId) {
+export async function moveNoteFromMenu(folderId) {
     const note = getNoteById(state.actionMenuNoteId); if (!note) return;
     if (note.folderId === folderId) { closeActionMenu(); return; }
+    const oldNote = { ...note };
     note.folderId = folderId; note.updatedAt = Date.now();
     persistNotes(); closeActionMenu(); renderAll();
+    
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        await deleteNoteFromDisk(oldNote, state.vaultHandle);
+        await writeNoteToDisk(note, state.vaultHandle);
+    }
 }
 
 export function openSearch() {
@@ -602,6 +824,14 @@ export async function handleImportFiles(files) {
 
     if (importedCount > 0) {
         persistNotes(); persistFolders();
+        
+        // Если подключен Vault, выгружаем импортированное на диск
+        if (state.vaultHandle && state.vaultStatus === 'connected') {
+            for (const note of state.notes) {
+                await writeNoteToDisk(note, state.vaultHandle);
+            }
+        }
+        
         renderAll();
         alert(`Успешно импортировано файлов: ${importedCount}`);
     } else {

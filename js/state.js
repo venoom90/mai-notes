@@ -8,7 +8,7 @@ export const state = {
     activeContext: null,
     activeFilterId: null,
     saveTimeout: null,
-    saveStatus: 'idle',
+    saveStatus: 'idle', // idle, saving, saved, error
     viewMode: 'folder', // 'folder', 'editor', 'calendar'
     editorMode: 'preview',
     activePrompt: null,
@@ -27,7 +27,12 @@ export const state = {
     // Sprint 2 (Calendar)
     calendarDate: new Date(),
     selectedDate: null,
-    isCalendarExpanded: false
+    isCalendarExpanded: false,
+    // Sprint 3 (File System)
+    vaultHandle: null,
+    vaultName: 'Браузер (Кэш)',
+    vaultStatus: 'local', // 'local', 'connected', 'prompt', 'error'
+    fsError: null
 };
 
 export const PROMPTS = [
@@ -48,6 +53,15 @@ export const els = {
     leftPanelBackdrop: document.getElementById('left-panel-backdrop'),
     btnMenu: document.getElementById('btn-menu'),
     
+    // Vault Widget
+    vaultWidget: document.getElementById('vault-widget'),
+    vaultStatusBtn: document.getElementById('vault-status-btn'),
+    vaultNameDisplay: document.getElementById('vault-name-display'),
+    vaultIndicator: document.getElementById('vault-indicator'),
+    vaultIcon: document.getElementById('vault-icon'),
+    vaultRestoreBanner: document.getElementById('vault-restore-banner'),
+    btnRestoreAccess: document.getElementById('btn-restore-access'),
+
     foldersList: document.getElementById('folders-list'),
     tagsList: document.getElementById('tags-list'),
     tagsSectionLabel: document.getElementById('tags-section-label'),
@@ -123,6 +137,17 @@ export const els = {
     pickerSearch: document.getElementById('picker-search'),
     pickerList: document.getElementById('picker-list'),
     btnClosePicker: document.getElementById('btn-close-picker'),
+
+    // Settings
+    settingsBackdrop: document.getElementById('settings-backdrop'),
+    settingsModal: document.getElementById('settings-modal'),
+    btnOpenSettings: document.getElementById('btn-open-settings'),
+    btnCloseSettings: document.getElementById('btn-close-settings'),
+    btnConnectVault: document.getElementById('btn-connect-vault'),
+    btnDisconnectVault: document.getElementById('btn-disconnect-vault'),
+    settingsVaultDesc: document.getElementById('settings-vault-desc'),
+    btnSettingsExport: document.getElementById('btn-settings-export'),
+    btnSettingsImport: document.getElementById('btn-settings-import'),
 
     // Backup
     btnExportAll: document.getElementById('btn-export-all'),

@@ -161,13 +161,27 @@
     <div id="search-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="picker-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+    <div id="settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
 
     <!-- ЛЕВАЯ ПАНЕЛЬ -->
     <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)] shadow-2xl">
         <div class="p-4 flex justify-between items-center shrink-0">
             <span class="font-bold text-lg text-primary">MAi</span>
-            <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
+            <button id="btn-open-settings" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="settings" class="w-5 h-5 text-outline"></i></button>
         </div>
+        
+        <!-- Виджет хранилища (Vault) -->
+        <div id="vault-widget" class="px-4 pb-2">
+            <div class="flex items-center gap-2 p-2 bg-[var(--md-surface)] rounded-xl border border-[var(--md-outline)]/20 cursor-pointer hover:bg-black/5 transition-colors" id="vault-status-btn">
+                <i data-lucide="hard-drive" class="w-4 h-4 text-outline" id="vault-icon"></i>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-outline uppercase">Хранилище</div>
+                    <div class="text-sm truncate font-medium" id="vault-name-display">Браузер (Кэш)</div>
+                </div>
+                <div id="vault-indicator" class="w-2 h-2 rounded-full bg-gray-400"></div>
+            </div>
+        </div>
+
         <div class="px-4 pb-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
             <button id="btn-new-note" type="button" class="hidden md:flex w-full items-center justify-center gap-2 bg-primary p-3 min-h-[48px] rounded-xl mb-4 font-medium shadow-sm hover:opacity-90 transition-opacity shrink-0">
                 <i data-lucide="plus" class="w-4 h-4"></i> Новая заметка
@@ -212,6 +226,16 @@
     </aside>
 
     <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-surface relative">
+        
+        <!-- Баннер восстановления доступа -->
+        <div id="vault-restore-banner" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 text-sm font-medium px-4 py-2 flex items-center justify-between z-20">
+            <div class="flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                <span>Требуется доступ к папке хранилища.</span>
+            </div>
+            <button id="btn-restore-access" class="bg-yellow-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-yellow-900 transition-colors">Восстановить</button>
+        </div>
+
         <header class="h-16 border-b border-[var(--md-outline)] flex items-center px-2 justify-between shrink-0">
             <div class="flex items-center gap-1">
                 <button id="btn-menu" type="button" class="w-12 h-12 flex items-center justify-center md:hidden rounded-full hover:bg-black/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
@@ -411,6 +435,50 @@
         </div>
         <div id="picker-list" class="flex-1 overflow-y-auto p-2 flex flex-col gap-1 pb-4">
             <!-- items -->
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90vh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
+        <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
+            <div class="font-bold text-lg flex items-center gap-2"><i data-lucide="settings" class="w-5 h-5"></i> Настройки</div>
+            <button id="btn-close-settings" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="p-4 overflow-y-auto flex flex-col gap-6">
+            
+            <!-- Хранилище -->
+            <div class="bg-[var(--md-surface-variant)]/50 p-4 rounded-2xl border border-[var(--md-outline)]/20">
+                <div class="font-bold text-sm mb-2 flex items-center gap-2"><i data-lucide="hard-drive" class="w-4 h-4"></i> Хранилище (Vault)</div>
+                <div class="text-xs text-outline mb-3" id="settings-vault-desc">Выберите папку для синхронизации. Заметки будут сохраняться в файлы .md</div>
+                
+                <div class="flex flex-col gap-2">
+                    <button id="btn-connect-vault" class="w-full bg-primary text-white p-3 rounded-xl font-medium shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                        <i data-lucide="folder-open" class="w-4 h-4"></i> Подключить папку
+                    </button>
+                    <button id="btn-disconnect-vault" class="w-full hidden border border-red-500 text-red-500 p-3 rounded-xl font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="unplug" class="w-4 h-4"></i> Отвязать папку
+                    </button>
+                </div>
+            </div>
+
+            <!-- Данные -->
+            <div>
+                <div class="font-bold text-sm mb-2 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Данные</div>
+                <div class="flex flex-col gap-2">
+                    <button id="btn-settings-export" class="w-full text-left flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-sm font-medium border border-[var(--md-outline)]/20">
+                        <i data-lucide="download" class="w-4 h-4 text-primary"></i> Экспорт в ZIP
+                    </button>
+                    <button id="btn-settings-import" class="w-full text-left flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-sm font-medium border border-[var(--md-outline)]/20">
+                        <i data-lucide="upload" class="w-4 h-4 text-primary"></i> Импорт из ZIP/MD
+                    </button>
+                </div>
+            </div>
+
+            <!-- О приложении -->
+            <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
+                <div class="text-sm font-bold text-primary">MAi Notes V1.10.0</div>
+                <div class="text-xs text-outline mt-1">Local-First PWA</div>
+            </div>
         </div>
     </div>
 

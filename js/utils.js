@@ -244,7 +244,7 @@ export function parseMarkdown(text, defaultFolderId) {
     }
 
     const lines = content.split('\n');
-    if (lines[0].startsWith('# ')) {
+    if (lines[0] && lines[0].startsWith('# ')) {
         lines.shift(); 
         content = lines.join('\n').trim();
     }
@@ -256,7 +256,7 @@ export function parseMarkdown(text, defaultFolderId) {
         updatedAt: meta.updated || Date.now(),
         createdAt: meta.created || meta.updated || Date.now(),
         tags: [],
-        folderId: defaultFolderId,
+        folderId: defaultFolderId || 'inbox',
         isPinned: !!meta.pinned
     };
     syncNoteTags(note);

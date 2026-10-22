@@ -46,6 +46,45 @@ export function renderSidebar() {
         }).join('');
     }
 
+    renderVaultStatus();
+    updateIcons();
+}
+
+export function renderVaultStatus() {
+    if (!els.vaultNameDisplay) return;
+
+    if (state.vaultStatus === 'connected') {
+        els.vaultNameDisplay.textContent = state.vaultName;
+        els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-green-500';
+        els.vaultIcon.setAttribute('data-lucide', 'hard-drive');
+        els.vaultRestoreBanner.classList.add('hidden');
+        
+        // Настройки
+        if (els.settingsVaultDesc) {
+            els.settingsVaultDesc.textContent = `Подключено: ${state.vaultName}. Все заметки сохраняются в файлы .md`;
+            els.btnConnectVault.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4"></i> Сменить папку';
+            els.btnDisconnectVault.classList.remove('hidden');
+            els.btnDisconnectVault.classList.add('flex');
+        }
+    } else if (state.vaultStatus === 'prompt') {
+        els.vaultNameDisplay.textContent = state.vaultName;
+        els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-yellow-500';
+        els.vaultIcon.setAttribute('data-lucide', 'alert-circle');
+        els.vaultRestoreBanner.classList.remove('hidden');
+    } else if (state.vaultStatus === 'local') {
+        els.vaultNameDisplay.textContent = 'Браузер (Кэш)';
+        els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-gray-400';
+        els.vaultIcon.setAttribute('data-lucide', 'monitor');
+        els.vaultRestoreBanner.classList.add('hidden');
+        
+        // Настройки
+        if (els.settingsVaultDesc) {
+            els.settingsVaultDesc.textContent = `Выберите папку на устройстве. Заметки будут сохраняться в файлы .md. (Работает на Android/PC)`;
+            els.btnConnectVault.innerHTML = '<i data-lucide="folder-open" class="w-4 h-4"></i> Подключить папку';
+            els.btnDisconnectVault.classList.add('hidden');
+            els.btnDisconnectVault.classList.remove('flex');
+        }
+    }
     updateIcons();
 }
 

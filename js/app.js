@@ -12,7 +12,8 @@ import {
     openPicker, closePicker, handlePickerSearch, insertPickedItem,
     shareNoteFile, exportAllData, handleImportFiles,
     goBack, goForward, toggleFocusMode, goToFolderView,
-    openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday, toggleCalendarExpand
+    openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday, toggleCalendarExpand,
+    initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings
 } from './logic.js';
 
 function attachListeners() {
@@ -47,6 +48,17 @@ function attachListeners() {
 
     if (els.btnMenu) els.btnMenu.addEventListener('click', toggleLeftPanel);
     if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);
+
+    // Vault & Settings
+    if (els.btnOpenSettings) els.btnOpenSettings.addEventListener('click', openSettings);
+    if (els.vaultStatusBtn) els.vaultStatusBtn.addEventListener('click', openSettings);
+    if (els.btnCloseSettings) els.btnCloseSettings.addEventListener('click', closeSettings);
+    if (els.settingsBackdrop) els.settingsBackdrop.addEventListener('click', closeSettings);
+    if (els.btnConnectVault) els.btnConnectVault.addEventListener('click', connectVault);
+    if (els.btnDisconnectVault) els.btnDisconnectVault.addEventListener('click', disconnectVault);
+    if (els.btnRestoreAccess) els.btnRestoreAccess.addEventListener('click', restoreAccess);
+    if (els.btnSettingsExport) els.btnSettingsExport.addEventListener('click', exportAllData);
+    if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
 
     // Nav buttons
     if (els.btnNavBack) els.btnNavBack.addEventListener('click', goBack);
@@ -92,9 +104,18 @@ function attachListeners() {
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
     
     if (els.folderMoveSelect) {
-        els.folderMoveSelect.addEventListener('change', (e) => {
+        els.folderMoveSelect.addEventListener('change', async (e) => {
             const note = getNoteById(state.activeId);
-            if(note) { note.folderId = e.target.value; note.updatedAt = Date.now(); persistNotes(); renderAll(); }
+            if(note) { 
+                const oldNote = { ...note };
+                note.folderId = e.target.value; note.updatedAt = Date.now(); 
+                persistNotes(); renderAll(); 
+                
+                if (state.vaultHandle && state.vaultStatus === 'connected') {
+                    await deleteNoteFromDisk(oldNote, state.vaultHandle);
+                    await writeNoteToDisk(note, state.vaultHandle);
+                }
+            }
         });
     }
 
@@ -278,6 +299,7 @@ function attachListeners() {
 
     // --- ANDROID BACK BUTTON (POPSTATE) ---
     window.addEventListener('popstate', (e) => {
+        if (els.settingsModal.classList.contains('open')) { closeSettings(); history.pushState({ state: 'settings' }, ''); return; }
         if (state.isFocusMode) {
             toggleFocusMode();
             history.pushState({ state: 'focus' }, '');
@@ -312,6 +334,7 @@ function attachListeners() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            if (els.settingsModal.classList.contains('open')) { e.preventDefault(); closeSettings(); return; }
             if (els.pickerModal.classList.contains('open')) { e.preventDefault(); closePicker(); return; }
             if (state.searchOpen) { e.preventDefault(); closeSearch(); return; }
             if (els.filterModal.classList.contains('open')) { e.preventDefault(); closeFilterModal(); return; }
@@ -335,7 +358,7 @@ function attachListeners() {
     }
 }
 
-function init() {
+async function init() {
     state.folders = loadFolders(); persistFolders();
     state.notes = loadNotes(); validateFolderRefs();
     state.savedFilters = loadFilters();
@@ -354,6 +377,9 @@ function init() {
     state.isCalendarExpanded = false;
 
     renderAll(); attachListeners();
+    
+    // Асинхронная инициализация Vault
+    await initVault();
 }
 
 init();
