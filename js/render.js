@@ -705,13 +705,6 @@ export function renderAiPanel() {
     } else if (state.aiState === 'done') {
         els.aiOutputWrapper.classList.remove('hidden');
         els.aiActions.classList.remove('hidden');
-        
-        // ИСПРАВЛЕНИЕ: Рендерим Markdown после завершения печати
-        if (typeof window.marked !== 'undefined' && typeof window.DOMPurify !== 'undefined') {
-            const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(state.aiResponse, { gfm: true, breaks: true }));
-            els.aiOutput.innerHTML = cleanHtml;
-            els.aiOutput.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });
-        }
     } else if (state.aiState === 'error') {
         els.aiError.classList.remove('hidden');
         els.aiErrorMsg.textContent = state.aiErrorMsg;

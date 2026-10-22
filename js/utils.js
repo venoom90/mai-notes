@@ -58,8 +58,13 @@ export function notesInFolder(folderId) {
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     if (!ta || ta.classList.contains('hidden')) return;
+    
+    // ИСПРАВЛЕНИЕ: Используем visualViewport для корректного определения высоты с клавиатурой
+    const vv = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    
     ta.style.height = 'auto';
-    const max = Math.max(200, window.innerHeight * 0.6);
+    // Оставляем место для клавиатуры и шапки
+    const max = Math.max(200, vv - 250); 
     ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
 }
 

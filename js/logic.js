@@ -103,7 +103,6 @@ export async function syncVault(isNewConnection = false) {
             for (const localNote of state.notes) {
                 const diskNote = diskMap.get(localNote.id);
                 if (diskNote) {
-                    // ИСПРАВЛЕНИЕ: Используем lastModified файла, чтобы отловить правки из Obsidian/Блокнота
                     const diskTime = Math.max(diskNote.updatedAt, diskNote.fileMtime || 0);
                     
                     if (diskTime > localNote.updatedAt) {
@@ -793,7 +792,7 @@ export function openAiPanel(prompt, note) {
     state.aiState = 'loading';
     state.aiResponse = '';
     state.aiErrorMsg = '';
-    els.aiPanel.classList.add('mobile-active'); // Для мобильных
+    els.aiPanel.classList.add('mobile-active');
     renderAiPanel();
     executeAiRequest(prompt, note);
 }
@@ -837,7 +836,6 @@ export async function executeAiRequest(prompt, note) {
 
     state.aiAbortController = new AbortController();
     
-    // Таймаут 90 секунд
     const timeoutId = setTimeout(() => {
         if (state.aiAbortController) state.aiAbortController.abort('timeout');
     }, 90000);
@@ -854,7 +852,6 @@ export async function executeAiRequest(prompt, note) {
         state.aiState = 'streaming';
         renderAiPanel();
         
-        // Устанавливаем заголовок
         els.aiHeaderTitle.textContent = prompt.title;
 
         state.aiResponse = text;
@@ -892,8 +889,9 @@ export async function handleAiInsert() {
     if (!note) return;
 
     const promptName = state.aiActivePrompt ? state.aiActivePrompt.name : 'ИИ';
-    const quotedText = state.aiResponse.split('\n').map(line => `> ${line}`).join('\n');
-    const block = `\n\n> ✨ **${promptName}**\n>\n${quotedText}\n`;
+    
+    // ИСПРАВЛЕНИЕ: Убрали цитаты (>) и делаем красивый блок
+    const block = `\n\n---\n**✨ ${promptName}**\n\n${state.aiResponse}\n\n---\n`;
 
     note.content += block;
     note.updatedAt = Date.now();

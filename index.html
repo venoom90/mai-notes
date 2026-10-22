@@ -21,7 +21,10 @@
         @media (prefers-color-scheme: dark) {
             :root { --md-surface: #141218; --md-surface-variant: #49454F; --md-primary: #D0BCFF; --md-on-primary: #381E72; --md-on-surface: #E6E0E9; --md-outline: #938F99; }
         }
-        body { margin: 0; height: 100vh; display: flex; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        
+        /* ИСПРАВЛЕНИЕ: 100dvh и overscroll-behavior */
+        html, body { margin: 0; height: 100dvh; display: flex; overflow: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+        
         .bg-surface { background-color: var(--md-surface); }
         .bg-surface-variant { background-color: var(--md-surface-variant); }
         .bg-primary { background-color: var(--md-primary); color: var(--md-on-primary); }
@@ -33,7 +36,9 @@
 
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
-        textarea#note-content { resize: none; min-height: 200px; max-height: 60vh; overflow-y: auto; line-height: 1.6; font-size: 1rem; }
+        
+        /* ИСПРАВЛЕНИЕ: Убираем max-height, чтобы textarea растягивалась */
+        textarea#note-content { resize: none; min-height: 200px; overflow-y: hidden; line-height: 1.6; font-size: 1rem; padding-bottom: 200px; }
         textarea#note-title { resize: none; overflow: hidden; line-height: 1.2; font-weight: bold; font-size: 2rem; margin-bottom: 1rem; }
 
         /* Markdown */
