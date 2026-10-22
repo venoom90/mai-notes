@@ -1,10 +1,10 @@
-// js/dialog.js — MAi Notes V1.11.4
+// js/dialog.js — MAi Notes V1.11.10
 // История изменений:
+//  V1.11.10 (23.10.2026): Полный отказ от <dialog> в пользу кастомных <div> оверлеев из-за багов мобильного Chromium.
 //  V1.11.4 (22.10.2026): Создан M3-модуль диалогов (showAlert, showConfirm, showPrompt).
-//  Заменяет нативные window.prompt/confirm/alert. Promise-based API.
 
-function setupDialog(dialogId, titleId, msgId, inputId, cancelId, confirmId) {
-    const dialog = document.getElementById(dialogId);
+function setupDialog(overlayId, titleId, msgId, inputId, cancelId, confirmId) {
+    const overlay = document.getElementById(overlayId);
     const titleEl = document.getElementById(titleId);
     const msgEl = document.getElementById(msgId);
     const inputEl = inputId ? document.getElementById(inputId) : null;
@@ -17,29 +17,27 @@ function setupDialog(dialogId, titleId, msgId, inputId, cancelId, confirmId) {
             msgEl.textContent = msg;
             if (inputEl) inputEl.value = defaultValue;
 
-            cancelBtn.onclick = () => dialog.close('cancel');
-            confirmBtn.onclick = () => dialog.close('confirm');
-
-            if (inputEl) {
-                inputEl.onkeydown = (e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); dialog.close('confirm'); }
-                };
-            }
-
-            dialog.showModal();
-            if (inputEl) {
-                setTimeout(() => inputEl.focus(), 50);
-                setTimeout(() => inputEl.select(), 60);
-            }
+            overlay.classList.remove('hidden');
+            // Небольшая задержка для срабатывания CSS-переходов (opacity, transform)
+            setTimeout(() => overlay.classList.add('open'), 10);
 
             return new Promise((resolve) => {
-                dialog.addEventListener('close', () => {
-                    if (dialog.returnValue === 'confirm') {
-                        resolve(inputEl ? inputEl.value : true);
-                    } else {
-                        resolve(inputEl ? null : false);
-                    }
-                }, { once: true });
+                const onClose = (result) => {
+                    overlay.classList.remove('open');
+                    // Ждем окончания анимации перед скрытием
+                    setTimeout(() => overlay.classList.add('hidden'), 200);
+                    resolve(result);
+                };
+
+                cancelBtn.onclick = () => onClose(inputEl ? null : false);
+                confirmBtn.onclick = () => onClose(inputEl ? inputEl.value : true);
+
+                if (inputEl) {
+                    inputEl.onkeydown = (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); onClose(inputEl.value); }
+                    };
+                    setTimeout(() => inputEl.focus(), 100);
+                }
             });
         }
     };
