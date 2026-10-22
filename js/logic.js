@@ -1,8 +1,7 @@
-// js/logic.js — MAi Notes V1.11.11
+// js/logic.js — MAi Notes V1.11.12
 // История изменений:
-//  V1.11.11 (23.10.2026): Обновлен syncVault. Дедупликация diskNotes и localNotes. Наследование fileName.
-//  V1.11.5 (22.10.2026): Починен таймаут (signal.reason). Добавлена отмена typewriter. Защита aiAbortController в finally.
-//  V1.11.4 (22.10.2026): Все window.prompt/confirm/alert заменены на M3-диалоги из ./dialog.js.
+//  V1.11.12 (23.10.2026): Фикс импорта (не воскрешаем Tombstones). Синхронизация по updatedAt. Откат при ошибке перемещения.
+//  V1.11.11 (23.10.2026): Дедупликация diskNotes и localNotes. Наследование fileName.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -128,20 +127,18 @@ export async function syncVault(isNewConnection = false) {
                 const refreshed = await _readAllFilesUnlocked(state.vaultHandle, null);
                 state.notes = refreshed;
             } else {
-                // v1.11.11: Дедупликация на диске (если есть файлы с одинаковым ID, берем самый свежий)
                 const diskMap = new Map();
                 for (const dn of diskNotes) {
                     const existing = diskMap.get(dn.id);
                     if (!existing) {
                         diskMap.set(dn.id, dn);
                     } else {
-                        const extTime = Math.max(existing.updatedAt, existing.fileMtime || 0);
-                        const newTime = Math.max(dn.updatedAt, dn.fileMtime || 0);
+                        const extTime = existing.updatedAt || existing.fileMtime || 0;
+                        const newTime = dn.updatedAt || dn.fileMtime || 0;
                         if (newTime > extTime) diskMap.set(dn.id, dn);
                     }
                 }
 
-                // Дедупликация локальных заметок
                 const localMap = new Map();
                 for (const ln of state.notes) {
                     const existing = localMap.get(ln.id);
@@ -155,11 +152,10 @@ export async function syncVault(isNewConnection = false) {
                 for (const [id, localNote] of localMap.entries()) {
                     const diskNote = diskMap.get(id);
                     if (diskNote) {
-                        const diskTime = Math.max(diskNote.updatedAt, diskNote.fileMtime || 0);
+                        const diskTime = diskNote.updatedAt || diskNote.fileMtime || 0;
                         if (diskTime > localNote.updatedAt) {
                             merged.push(diskNote);
                         } else {
-                            // v1.11.11: Наследуем fileName, чтобы не создавать дубликат файла
                             if (!localNote.fileName && diskNote.fileName) {
                                 localNote.fileName = diskNote.fileName;
                             }
@@ -584,7 +580,12 @@ export async function moveNoteFromMenu(folderId) {
         if (state.vaultHandle && state.vaultStatus === 'connected') {
             await moveNoteOnDisk(oldNote, note, state.vaultHandle);
         }
-    } catch (e) { handleFsError(e, 'moveNote'); }
+    } catch (e) {
+        note.folderId = oldNote.folderId;
+        note.updatedAt = oldNote.updatedAt;
+        persistNotes(); renderAll();
+        handleFsError(e, 'moveNote');
+    }
 }
 
 export function openSearch() {
@@ -1085,7 +1086,7 @@ export async function handleImportFiles(files) {
                         }
                         const { note } = parseMarkdown(text, folder.id, zipEntry.name);
 
-                        if (isTombstoned(note.id)) removeTombstone(note.id);
+                        if (isTombstoned(note.id)) return;
 
                         const existingIdx = state.notes.findIndex(n => n.id === note.id);
                         if (existingIdx >= 0) state.notes[existingIdx] = note;
@@ -1102,7 +1103,7 @@ export async function handleImportFiles(files) {
             const text = await file.text();
             const { note } = parseMarkdown(text, state.activeFolderId || 'inbox', file.name);
             note.createdAt = Date.now();
-            if (isTombstoned(note.id)) removeTombstone(note.id);
+            if (isTombstoned(note.id)) continue;
             const existingIdx = state.notes.findIndex(n => n.id === note.id);
             if (existingIdx >= 0) state.notes[existingIdx] = note;
             else state.notes.push(note);

@@ -1,7 +1,7 @@
-// js/app.js — MAi Notes V1.11.4
+// js/app.js — MAi Notes V1.11.12
 // История изменений:
-//  V1.11.4 (22.10.2026): Добавлен visualViewport.resize для Android. Заменен window.confirm на showConfirm.
-//  V1.11.3 (22.10.2026): Добавлена загрузка tombstones и visibility sync.
+//  V1.11.12 (23.10.2026): Добавлен троттлинг создания заметки. Внедрен --kb-height для поднятия шторок.
+//  V1.11.4 (22.10.2026): Добавлен visualViewport.resize для Android.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -23,10 +23,19 @@ import {
     syncVault
 } from './logic.js';
 import { verifyPermission } from './fs.js';
-import { showConfirm } from './dialog.js'; // v1.11.4
+import { showConfirm } from './dialog.js';
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
+    let isCreating = false; // v1.11.12
+
+    // v1.11.12: Throttling
+    const safeCreateNote = () => {
+        if (isCreating) return;
+        isCreating = true;
+        createNote();
+        setTimeout(() => { isCreating = false; }, 500);
+    };
 
     els.mainContent.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
@@ -98,8 +107,8 @@ function attachListeners() {
         });
     }
 
-    els.btnNewNote.addEventListener('click', createNote);
-    if (els.fabNewNote) els.fabNewNote.addEventListener('click', createNote);
+    els.btnNewNote.addEventListener('click', safeCreateNote);
+    if (els.fabNewNote) els.fabNewNote.addEventListener('click', safeCreateNote);
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
     els.btnNewPrompt.addEventListener('click', createPrompt);
     els.btnPreview.addEventListener('click', togglePreviewMode);
@@ -174,7 +183,7 @@ function attachListeners() {
         const actionBtn = e.target.closest('[data-action-menu]');
         if (actionBtn) { e.preventDefault(); e.stopPropagation(); openActionMenu(actionBtn.getAttribute('data-action-menu')); return; }
         const emptyBtn = e.target.closest('#empty-create-note-btn');
-        if (emptyBtn) { e.preventDefault(); createNote(); return; }
+        if (emptyBtn) { e.preventDefault(); safeCreateNote(); return; }
         const card = e.target.closest('.note-card');
         if (card) selectNote(card.getAttribute('data-note-id'));
     });
@@ -198,7 +207,7 @@ function attachListeners() {
         if (btn) selectNote(btn.getAttribute('data-backlink-id'));
     });
 
-    els.preview.addEventListener('click', async (e) => { // v1.11.4 async
+    els.preview.addEventListener('click', async (e) => {
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
 
@@ -212,7 +221,7 @@ function attachListeners() {
         }
         if (t.closest('.wiki-link-broken')) {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
-            if (await showConfirm(`Создать заметку «${title}»?`, 'Создание заметки')) { // v1.11.4
+            if (await showConfirm(`Создать заметку «${title}»?`, 'Создание заметки')) {
                 const now = Date.now();
                 const newNote = { id: genId(), title: title, content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId === '__prompts__' ? 'inbox' : state.activeFolderId, isPinned: false };
                 state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit';
@@ -384,10 +393,11 @@ function attachListeners() {
         catch (e) { console.warn('[visibility sync]', e); }
     });
 
-    // v1.11.4: Android visualViewport
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', () => {
             autoResizeTextarea();
+            const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+            document.documentElement.style.setProperty('--kb-height', `${kbHeight}px`);
         });
     }
 

@@ -1,11 +1,7 @@
-// js/fs.js — MAi Notes V1.11.3
-// Changes (v1.11.3):
-//  + withVaultLock — глобальный мьютекс для FS-мутаций
-//  + IDB connection cache (dbPromise)
-//  + readAllFilesFromDisk: skip tombstoned (isTombstoned)
-//  + sanitizeFileName(folder.name) при create/get/remove папок
-//  + Stable filename: fileName генерируется один раз, при переименовании заголовка не меняется
-//  + moveNoteOnDisk / renameFolderOnDisk / createFolderOnDisk / deleteFolderFromDisk — атомарные хелперы
+// js/fs.js — MAi Notes V1.11.12
+// История изменений:
+//  V1.11.12 (23.10.2026): Атомарный moveNoteOnDisk (сначала запись, потом удаление).
+//  V1.11.3 (22.10.2026): withVaultLock, IDB cache, tombstone skip, stable filename.
 import { state } from './state.js';
 import { generateMarkdown, parseMarkdown, sanitizeFileName, genId } from './utils.js';
 import { isTombstoned } from './storage.js';
@@ -14,7 +10,6 @@ const DB_NAME = 'mai_fs_db';
 const STORE_NAME = 'handles';
 const HANDLE_KEY = 'vault';
 
-// ===== IndexedDB (v1.11.3: connection cache) =====
 let dbPromise = null;
 function getDB() {
     if (dbPromise) return dbPromise;
@@ -30,7 +25,6 @@ function getDB() {
     return dbPromise;
 }
 
-// ===== Global mutex (v1.11.3) =====
 let vaultLock = Promise.resolve();
 export function withVaultLock(fn) {
     const run = vaultLock.then(fn);
@@ -98,9 +92,6 @@ export function generateFileName(note) {
     return `${safeTitle}_${shortId}_${datePart}.md`;
 }
 
-// ===== Unlocked internals (v1.11.3) =====
-// Используются только изнутри withVaultLock, чтобы избежать дедлока.
-
 export async function _readAllFilesUnlocked(dirHandle, rootHandle = null) {
     const notes = [];
     const isRoot = rootHandle === null;
@@ -126,10 +117,7 @@ export async function _readAllFilesUnlocked(dirHandle, rootHandle = null) {
                 const file = await entry.getFile();
                 const text = await file.text();
                 const { note } = parseMarkdown(text, folderId, entry.name);
-                if (isTombstoned(note.id)) {
-                    // v1.11.3: пропускаем удалённые заметки, чтобы они не «воскресали»
-                    continue;
-                }
+                if (isTombstoned(note.id)) continue;
                 note.fileName = entry.name;
                 note.fileMtime = file.lastModified;
                 notes.push(note);
@@ -160,7 +148,6 @@ export async function _writeNoteToDiskUnlocked(note, dirHandle) {
             }
         }
 
-        // v1.11.3: Stable filename — генерируется один раз, при переименовании заголовка не меняется.
         if (!note.fileName) {
             note.fileName = generateFileName(note);
         }
@@ -194,8 +181,6 @@ export async function _deleteNoteFromDiskUnlocked(note, dirHandle) {
         console.warn('Ошибка удаления файла:', e);
     }
 }
-
-// ===== Public (locked) API =====
 
 export function readAllFilesFromDisk(dirHandle) {
     return withVaultLock(() => _readAllFilesUnlocked(dirHandle, null));
@@ -250,10 +235,14 @@ export function renameFolderOnDisk(oldName, newName, dirHandle) {
     });
 }
 
-// v1.11.3: атомарное перемещение заметки между папками
+// v1.11.12: Атомарный перенос (сначала пишем новый файл, потом удаляем старый)
 export function moveNoteOnDisk(oldNote, newNote, dirHandle) {
     return withVaultLock(async () => {
-        await _deleteNoteFromDiskUnlocked(oldNote, dirHandle);
+        // 1. Сначала записываем в новое место
         await _writeNoteToDiskUnlocked(newNote, dirHandle);
+        // 2. Если запись успешна, удаляем из старого места
+        if (oldNote.folderId !== newNote.folderId) {
+            await _deleteNoteFromDiskUnlocked(oldNote, dirHandle);
+        }
     });
 }

@@ -1,6 +1,7 @@
-// js/utils.js — MAi Notes V1.11.3
-// Changes (v1.11.3): generateMarkdown writes ISO dates (created/updated).
-// parseMarkdown уже совместим с ISO (разбор через new Date(str).getTime()).
+// js/utils.js — MAi Notes V1.11.12
+// История изменений:
+//  V1.11.12 (23.10.2026): Исправлен YAML-парсер (поддержка двоеточий в значениях).
+//  V1.11.3 (22.10.2026): generateMarkdown writes ISO dates.
 import { state } from './state.js';
 
 export function genId() {
@@ -204,7 +205,6 @@ export function getNoteCountForDate(dateStr) {
     return state.notes.filter(n => !n.isPrompt && formatDateYYYYMMDD(getNoteCreatedAt(n)) === dateStr).length;
 }
 
-// v1.11.3: ISO dates in YAML (created/updated).
 export function generateMarkdown(note, folderName) {
     const safeTitle = String(note.title || 'Без названия').replace(/"/g, '\\"');
     const safeFolder = String(folderName || 'Входящие').replace(/"/g, '\\"');
@@ -233,6 +233,7 @@ export function generateMarkdown(note, folderName) {
     return `${yamlLines.join('\n')}\n\n# ${noteTitle(note)}\n\n${safeContent}`;
 }
 
+// v1.11.12: Regex-based YAML parser (fixes issues with colons in values)
 export function parseMarkdown(text, defaultFolderId, fileName = '') {
     const yamlRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
     const match = text.match(yamlRegex);
@@ -243,10 +244,10 @@ export function parseMarkdown(text, defaultFolderId, fileName = '') {
         const yamlText = match[1];
         content = text.slice(match[0].length).trim();
         yamlText.split('\n').forEach(line => {
-            const colonIdx = line.indexOf(':');
-            if (colonIdx > 0) {
-                const key = line.slice(0, colonIdx).trim();
-                let val = line.slice(colonIdx + 1).trim();
+            const matchLine = line.match(/^([a-zA-Z0-9_]+):\s*(.*)$/);
+            if (matchLine) {
+                const key = matchLine[1].trim();
+                let val = matchLine[2].trim();
                 if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1).replace(/\\"/g, '"');
                 if (val === 'true') meta[key] = true;
                 else if (val === 'false') meta[key] = false;
