@@ -5,7 +5,7 @@ import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, render
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
-    insertFormatting,
+    insertFormatting, onEdit, scheduleSave,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
     openSearch, closeSearch, handleSearchInput,
     openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter,
@@ -386,9 +386,8 @@ function attachListeners() {
             history.pushState({ state: 'focus' }, '');
             return;
         }
-        if (state.aiPanelOpen) { 
+        if (els.aiPanel.classList.contains('mobile-active')) { 
             clearAiPanel(); 
-            state.aiPanelOpen = false;
             history.pushState({ state: 'ai' }, ''); 
             return; 
         }
