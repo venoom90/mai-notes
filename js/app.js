@@ -56,8 +56,8 @@ function attachListeners() {
 
     // Calendar buttons
     if (els.btnOpenCalendar) els.btnOpenCalendar.addEventListener('click', openCalendar);
-    if (els.btnPrevMonth) els.btnPrevMonth.addEventListener('click', prevMonth);
-    if (els.btnNextMonth) els.btnNextMonth.addEventListener('click', nextMonth);
+    if (els.btnCalendarPrev) els.btnCalendarPrev.addEventListener('click', prevMonth);
+    if (els.btnCalendarNext) els.btnCalendarNext.addEventListener('click', nextMonth);
     if (els.btnCalendarToday) els.btnCalendarToday.addEventListener('click', goToToday);
     if (els.btnToggleCalendar) els.btnToggleCalendar.addEventListener('click', toggleCalendarExpand);
     

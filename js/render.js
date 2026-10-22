@@ -171,77 +171,77 @@ export function renderCalendarView() {
 
     const todayStr = formatDateYYYYMMDD(new Date());
 
-    // 1. Логика переключения видимости
+    // 1. Управление анимацией и кнопкой
     if (state.isCalendarExpanded) {
         els.calendarWeekStrip.style.display = 'none';
-        els.calendarFullGrid.classList.add('expanded');
-        els.btnToggleCalendar.innerHTML = `Свернуть календарь <i data-lucide="chevron-up" class="w-3 h-3"></i>`;
+        els.calendarFullWrapper.classList.add('expanded');
+        els.btnToggleCalendar.innerHTML = `Свернуть календарь <i data-lucide="chevron-up" class="w-4 h-4"></i>`;
     } else {
         els.calendarWeekStrip.style.display = 'flex';
-        els.calendarFullGrid.classList.remove('expanded');
-        els.btnToggleCalendar.innerHTML = `Развернуть календарь <i data-lucide="chevron-down" class="w-3 h-3"></i>`;
+        els.calendarFullWrapper.classList.remove('expanded');
+        els.btnToggleCalendar.innerHTML = `Развернуть календарь <i data-lucide="chevron-down" class="w-4 h-4"></i>`;
     }
 
-    // 2. Рендер полоски недели (Week Strip) - если не развернуто
-    if (!state.isCalendarExpanded) {
-        const weekDates = getWeekDates(state.calendarDate);
-        els.calendarWeekStrip.innerHTML = weekDates.map(d => {
-            const dateStr = formatDateYYYYMMDD(d);
-            const count = getNoteCountForDate(dateStr);
-            const isToday = dateStr === todayStr;
-            const isSelected = dateStr === state.selectedDate;
-            const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' }).toUpperCase();
-            const dayNum = d.getDate();
+    // 2. Рендер полоски недели (Week Strip)
+    const weekDates = getWeekDates(state.calendarDate);
+    els.calendarWeekStrip.innerHTML = weekDates.map(d => {
+        const dateStr = formatDateYYYYMMDD(d);
+        const count = getNoteCountForDate(dateStr);
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === state.selectedDate;
+        const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' }).toUpperCase();
+        const dayNum = d.getDate();
 
-            let cls = 'week-day-cell';
-            if (isToday) cls += ' today';
-            if (isSelected) cls += ' selected';
+        let cls = 'week-day-cell';
+        if (isToday) cls += ' today';
+        if (isSelected) cls += ' selected';
 
-            return `
-                <div class="${cls}" data-date="${dateStr}" id="week-cell-${dateStr}">
-                    <div class="day-label">${dayName}</div>
-                    <div class="day-number">${dayNum}</div>
-                    <div class="day-count">${count > 0 ? count : ''}</div>
+        return `
+            <div class="${cls}" data-date="${dateStr}" id="week-cell-${dateStr}">
+                <div class="day-label">${dayName}</div>
+                <div class="day-number">
+                    ${dayNum}
+                    ${count > 0 ? `<span class="day-count">${count}</span>` : ''}
                 </div>
-            `;
-        }).join('');
+            </div>
+        `;
+    }).join('');
+
+    // 3. Рендер полной сетки месяца (Full Grid)
+    let firstDay = new Date(year, month, 1).getDay();
+    firstDay = firstDay === 0 ? 6 : firstDay - 1; // Пн = 0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    let gridHtml = '';
+    
+    // Заголовки дней недели (ПН-ВС) для полной сетки
+    gridHtml += `<div class="grid grid-cols-7 gap-1 mb-2 text-center text-[0.65rem] font-bold text-outline opacity-70"><div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div></div>`;
+    gridHtml += `<div class="grid grid-cols-7 gap-y-1">`;
+
+    for (let i = 0; i < firstDay; i++) {
+        gridHtml += `<div class="full-grid-day empty"></div>`;
     }
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatDateYYYYMMDD(new Date(year, month, d));
+        const count = getNoteCountForDate(dateStr);
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === state.selectedDate;
 
-    // 3. Рендер полной сетки месяца (Full Grid) - если развернуто
-    if (state.isCalendarExpanded) {
-        let firstDay = new Date(year, month, 1).getDay();
-        firstDay = firstDay === 0 ? 6 : firstDay - 1; // Пн = 0
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let cls = 'full-grid-day';
+        if (isToday) cls += ' today';
+        if (isSelected) cls += ' selected';
 
-        let gridHtml = '';
-        
-        // Заголовки дней недели для полной сетки
-        gridHtml += `<div class="grid grid-cols-7 gap-1 mb-2 text-center text-[0.65rem] font-bold text-outline"><div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div></div>`;
-        gridHtml += `<div class="grid grid-cols-7 gap-y-2">`;
-
-        for (let i = 0; i < firstDay; i++) {
-            gridHtml += `<div class="full-grid-day empty"></div>`;
-        }
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = formatDateYYYYMMDD(new Date(year, month, d));
-            const count = getNoteCountForDate(dateStr);
-            const isToday = dateStr === todayStr;
-            const isSelected = dateStr === state.selectedDate;
-
-            let cls = 'full-grid-day';
-            if (isToday) cls += ' today';
-            if (isSelected) cls += ' selected';
-
-            gridHtml += `
-                <div class="${cls}" data-date="${dateStr}">
-                    <div class="day-number" style="width: 32px; height: 32px; font-size: 0.9rem;">${d}</div>
-                    <div class="day-count" style="margin-top: 0;">${count > 0 ? count : ''}</div>
+        gridHtml += `
+            <div class="${cls}" data-date="${dateStr}">
+                <div class="day-number" style="width: 34px; height: 34px; font-size: 0.9rem;">
+                    ${d}
+                    ${count > 0 ? `<span class="day-count" style="top: -2px; right: -4px;">${count}</span>` : ''}
                 </div>
-            `;
-        }
-        gridHtml += `</div>`;
-        els.calendarFullGrid.innerHTML = gridHtml;
+            </div>
+        `;
     }
+    gridHtml += `</div>`;
+    els.calendarFullGrid.innerHTML = gridHtml;
 
     // 4. Рендер списка заметок
     if (state.selectedDate) {
@@ -253,6 +253,15 @@ export function renderCalendarView() {
         const dayNotes = state.notes.filter(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
         
         els.calendarSelectedBadge.textContent = `${dayNotes.length} заметок`;
+        
+        // Подкрашиваем бейдж, если есть заметки
+        if (dayNotes.length > 0) {
+            els.calendarSelectedBadge.classList.add('bg-[var(--md-primary)]/10', 'text-primary');
+            els.calendarSelectedBadge.classList.remove('bg-[var(--md-surface-variant)]');
+        } else {
+            els.calendarSelectedBadge.classList.remove('bg-[var(--md-primary)]/10', 'text-primary');
+            els.calendarSelectedBadge.classList.add('bg-[var(--md-surface-variant)]');
+        }
 
         if (dayNotes.length === 0) {
             els.calendarNotesList.innerHTML = `<div class="col-span-full text-center text-outline italic py-6 bg-[var(--md-surface-variant)]/50 rounded-2xl">В этот день заметок нет.</div>`;

@@ -141,9 +141,12 @@ export const els = {
 
     // Calendar
     btnOpenCalendar: document.getElementById('btn-open-calendar'),
+    btnCalendarPrev: document.getElementById('btn-calendar-prev'),
+    btnCalendarNext: document.getElementById('btn-calendar-next'),
     btnCalendarToday: document.getElementById('btn-calendar-today'),
     btnToggleCalendar: document.getElementById('btn-toggle-calendar'),
     calendarWeekStrip: document.getElementById('calendar-week-strip'),
+    calendarFullWrapper: document.getElementById('calendar-full-wrapper'),
     calendarFullGrid: document.getElementById('calendar-full-grid'),
     calendarMonthTitle: document.getElementById('calendar-month-title'),
     calendarNotesContainer: document.getElementById('calendar-notes-container'),
