@@ -1,5 +1,5 @@
-import { state, els } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getPromptById, getPromptByName, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate } from './utils.js';
+import { state, els, PROMPT_ICON_CHOICES } from './state.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
 export function renderSidebar() {
     els.foldersList.innerHTML = sortedFolders().map(folder => {
@@ -45,6 +45,19 @@ export function renderSidebar() {
             </div>`;
         }).join('');
     }
+
+    // Промпты
+    const prompts = getAllPrompts();
+    els.promptsList.innerHTML = prompts.map(p => {
+        const isActive = state.activeId === p.id;
+        const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
+        return `<div class="${cls} flex items-center gap-1">
+            <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-prompt-select="${p.id}">
+                <i data-lucide="${escapeHtml(p.icon || 'sparkles')}" class="w-4 h-4 text-primary"></i>
+                <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(noteTitle(p))}</span>
+            </button>
+        </div>`;
+    }).join('');
 
     renderVaultStatus();
     updateIcons();
@@ -119,9 +132,14 @@ export function renderBreadcrumbs() {
         if (note) {
             els.crumbTitle.textContent = noteTitle(note);
             els.crumbSeparator.classList.remove('hidden');
-            els.moveNoteContainer.style.display = 'block';
-            els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-            els.folderMoveSelect.value = note.folderId;
+            
+            if (note.isPrompt) {
+                els.moveNoteContainer.style.display = 'none';
+            } else {
+                els.moveNoteContainer.style.display = 'block';
+                els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+                els.folderMoveSelect.value = note.folderId;
+            }
         }
     } else if (state.viewMode === 'calendar') {
         els.crumbTitle.textContent = 'Календарь';
@@ -129,7 +147,6 @@ export function renderBreadcrumbs() {
         els.moveNoteContainer.style.display = 'none';
     }
 
-    // Nav buttons state
     els.btnNavBack.disabled = state.historyIndex <= 0 && state.viewMode === 'folder';
     els.btnNavForward.disabled = state.historyIndex >= state.history.length - 1;
 }
@@ -140,6 +157,7 @@ export function renderFolderView() {
         const f = state.savedFilters.find(x => x.id === state.activeFilterId);
         if (f && f.rules) {
             notes = state.notes.filter(n => {
+                if (n.isPrompt) return false;
                 let match = true;
                 for (const rule of f.rules) {
                     let cond = false;
@@ -156,9 +174,10 @@ export function renderFolderView() {
             });
         }
     } else if (state.activeTag) {
-        notes = state.notes.filter(n => n.tags && n.tags.includes(state.activeTag));
+        notes = state.notes.filter(n => !n.isPrompt && n.tags && n.tags.includes(state.activeTag));
     } else if (state.activeContext) {
         notes = state.notes.filter(n => {
+            if (n.isPrompt) return false;
             const contexts = (n.content.match(/\[\[([^\]\n]+)\]\]/g) || []).map(m => m.slice(2, -2).trim());
             return contexts.includes(state.activeContext);
         });
@@ -225,7 +244,6 @@ export function renderCalendarView() {
 
     const todayStr = formatDateYYYYMMDD(new Date());
 
-    // 1. Управление анимацией и кнопкой
     if (state.isCalendarExpanded) {
         els.calendarWeekStrip.style.display = 'none';
         els.calendarFullWrapper.classList.add('expanded');
@@ -236,7 +254,6 @@ export function renderCalendarView() {
         els.btnToggleCalendar.innerHTML = `Развернуть календарь <i data-lucide="chevron-down" class="w-4 h-4"></i>`;
     }
 
-    // 2. Рендер полоски недели (Week Strip)
     const weekDates = getWeekDates(state.calendarDate);
     els.calendarWeekStrip.innerHTML = weekDates.map(d => {
         const dateStr = formatDateYYYYMMDD(d);
@@ -261,14 +278,11 @@ export function renderCalendarView() {
         `;
     }).join('');
 
-    // 3. Рендер полной сетки месяца (Full Grid)
     let firstDay = new Date(year, month, 1).getDay();
-    firstDay = firstDay === 0 ? 6 : firstDay - 1; // Пн = 0
+    firstDay = firstDay === 0 ? 6 : firstDay - 1;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     let gridHtml = '';
-    
-    // Заголовки дней недели (ПН-ВС) для полной сетки
     gridHtml += `<div class="grid grid-cols-7 gap-1 mb-2 text-center text-[0.65rem] font-bold text-outline opacity-70"><div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div></div>`;
     gridHtml += `<div class="grid grid-cols-7 gap-y-1">`;
 
@@ -297,18 +311,16 @@ export function renderCalendarView() {
     gridHtml += `</div>`;
     els.calendarFullGrid.innerHTML = gridHtml;
 
-    // 4. Рендер списка заметок
     if (state.selectedDate) {
         const d = new Date(state.selectedDate);
         const isToday = state.selectedDate === todayStr;
         els.calendarSelectedTitle.textContent = isToday ? 'Сегодня' : d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
         els.calendarSelectedDate.textContent = isToday ? d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
         
-        const dayNotes = state.notes.filter(n => formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
+        const dayNotes = state.notes.filter(n => !n.isPrompt && formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
         
         els.calendarSelectedBadge.textContent = `${dayNotes.length} заметок`;
         
-        // Подкрашиваем бейдж, если есть заметки
         if (dayNotes.length > 0) {
             els.calendarSelectedBadge.classList.add('bg-[var(--md-primary)]/10', 'text-primary');
             els.calendarSelectedBadge.classList.remove('bg-[var(--md-surface-variant)]');
@@ -334,7 +346,6 @@ export function renderCalendarView() {
     
     updateIcons();
 
-    // Авто-скролл к выбранному дню в недельной полоске
     if (!state.isCalendarExpanded && state.selectedDate) {
         setTimeout(() => {
             const activeCell = document.getElementById(`week-cell-${state.selectedDate}`);
@@ -348,9 +359,20 @@ export function renderCalendarView() {
 export function renderEditor() {
     const note = getNoteById(state.activeId);
     if (!note) return;
-    els.titleInput.value = note.title; els.contentInput.value = note.content;
-    els.titleInput.style.height = 'auto'; els.titleInput.style.height = els.titleInput.scrollHeight + 'px';
     
+    els.titleInput.value = note.title; 
+    els.contentInput.value = note.content;
+    els.titleInput.style.height = 'auto'; 
+    els.titleInput.style.height = els.titleInput.scrollHeight + 'px';
+    
+    if (note.isPrompt) {
+        els.promptBadge.classList.remove('hidden');
+        els.btnPromptSettings.classList.remove('hidden');
+    } else {
+        els.promptBadge.classList.add('hidden');
+        els.btnPromptSettings.classList.add('hidden');
+    }
+
     if (state.editorMode === 'preview') {
         els.contentInput.classList.add('hidden'); els.preview.classList.remove('hidden');
         els.titleInput.readOnly = true;
@@ -361,11 +383,12 @@ export function renderEditor() {
         els.titleInput.readOnly = false;
         els.contentInput.style.height = 'auto';
         els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
-        els.backlinksContainer.classList.add('hidden'); // Скрываем в режиме редактирования
+        els.backlinksContainer.classList.add('hidden');
     }
     
     renderOutline(note.content);
-    updatePreviewButton(); renderChipPalette();
+    updatePreviewButton(); 
+    renderChipPalette();
 }
 
 export function renderOutline(content) {
@@ -383,6 +406,10 @@ export function renderOutline(content) {
 }
 
 export function renderBacklinks(note) {
+    if (note.isPrompt) {
+        els.backlinksContainer.classList.add('hidden');
+        return;
+    }
     const backlinks = getBacklinks(note);
     if (backlinks.length === 0) {
         els.backlinksContainer.classList.add('hidden');
@@ -463,18 +490,25 @@ export function renderSaveStatus() {
 export function renderChipPalette() {
     if (!state.activeId || state.editorMode === 'preview') { els.chipPalette.style.display = 'none'; return; }
     els.chipPalette.style.display = 'flex';
-    els.chipPalette.innerHTML = (window.PROMPTS || []).map(p => `<button type="button" class="prompt-chip-palette-btn" data-prompt-insert="${escapeHtml(p.name)}"><i data-lucide="${escapeHtml(p.icon)}" class="w-3.5 h-3.5"></i><span>${escapeHtml(p.name)}</span></button>`).join('');
-    updateIcons();
+    
+    // В этой версии палитра чипов показывает только встроенные промпты, но мы её скрываем, так как теперь есть выбор из пользовательских промптов
+    els.chipPalette.innerHTML = ''; 
 }
 
 export function renderMarkdown(text) {
-    if (!text || !text.trim()) { els.preview.innerHTML = ''; return; }
+    renderMarkdownTo(els.preview, text, { highlight: true });
+}
+
+export function renderMarkdownTo(el, text, options = {}) {
+    if (!text || !text.trim()) { el.innerHTML = ''; return; }
     if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') return;
     try {
         const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(text, { gfm: true, breaks: true }));
-        els.preview.innerHTML = cleanHtml;
-        els.preview.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });
-        renderHighlightsInPreview();
+        el.innerHTML = cleanHtml;
+        el.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });
+        if (options.highlight) {
+            renderHighlightsInPreview();
+        }
     } catch (e) {}
 }
 
@@ -494,7 +528,11 @@ export function renderHighlightsInPreview() {
             if (match.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
             if (match[1]) {
                 const rawName = match[2].trim();
-                const chip = document.createElement('button'); chip.className = 'prompt-chip'; chip.setAttribute('data-prompt-name', rawName); chip.textContent = rawName;
+                const exists = !!getPromptByName(rawName);
+                const chip = document.createElement('button'); 
+                chip.className = exists ? 'prompt-chip' : 'prompt-chip prompt-chip-broken'; 
+                chip.setAttribute('data-prompt-name', rawName); 
+                chip.textContent = rawName;
                 frag.appendChild(chip);
             } else if (match[3]) {
                 const title = match[4].trim(), existingNote = findNoteByTitle(title);
@@ -528,14 +566,38 @@ export function renderActionSheetFolders() {
 export function renderSearchResults(query) {
     if (!query.trim()) { els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Введите запрос...</div>`; return; }
     const q = query.toLowerCase();
-    const results = state.notes.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)).slice(0, 20);
-    if (results.length === 0) { els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Ничего не найдено.</div>`; return; }
-    els.searchResults.innerHTML = results.map(n => `
-        <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
-            <div class="font-bold text-base">${escapeHtml(noteTitle(n))}</div>
-            <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(notePreview(n))}</div>
-        </button>
-    `).join('');
+    const results = state.notes.filter(n => !n.isPrompt && (n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))).slice(0, 20);
+    const prompts = state.notes.filter(n => n.isPrompt && (n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))).slice(0, 10);
+
+    let html = '';
+
+    if (results.length > 0) {
+        html += `<div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 mt-2 px-1">Заметки</div>`;
+        html += results.map(n => `
+            <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
+                <div class="font-bold text-base">${escapeHtml(noteTitle(n))}</div>
+                <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(notePreview(n))}</div>
+            </button>
+        `).join('');
+    }
+
+    if (prompts.length > 0) {
+        html += `<div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 mt-6 px-1">Промпты</div>`;
+        html += prompts.map(n => `
+            <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
+                <div class="font-bold text-base flex items-center gap-2"><i data-lucide="${escapeHtml(n.icon || 'sparkles')}" class="w-4 h-4 text-primary"></i> ${escapeHtml(noteTitle(n))}</div>
+                <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(n.description || notePreview(n))}</div>
+            </button>
+        `).join('');
+    }
+
+    if (results.length === 0 && prompts.length === 0) {
+        els.searchResults.innerHTML = `<div class="text-center text-outline italic mt-10">Ничего не найдено.</div>`;
+        return;
+    }
+
+    els.searchResults.innerHTML = html;
+    updateIcons();
 }
 
 export function renderFilterRuleRow(index, rule) {
@@ -561,30 +623,31 @@ export function renderFilterRuleRow(index, rule) {
     </div>`;
 }
 
-// --- PICKER RENDER ---
 export function renderPickerList(query) {
     const q = query.toLowerCase().trim();
     
     let items = [];
     if (state.pickerType === 'tag') {
         items = collectAllTags().map(t => t.tag);
-    } else {
+    } else if (state.pickerType === 'context') {
         items = collectAllContexts().map(c => c.context);
+    } else if (state.pickerType === 'prompt') {
+        items = getAllPrompts().map(p => p.title);
     }
     
     const filtered = items.filter(i => i.toLowerCase().includes(q));
     
     let html = '';
     
-    if (q && !filtered.includes(q)) {
-        const icon = state.pickerType === 'tag' ? 'hash' : 'link';
-        const prefix = state.pickerType === 'tag' ? '#' : '[[';
-        const suffix = state.pickerType === 'tag' ? '' : ']]';
+    if (q && !filtered.map(f => f.toLowerCase()).includes(q)) {
+        const icon = state.pickerType === 'tag' ? 'hash' : (state.pickerType === 'prompt' ? 'sparkles' : 'link');
+        const prefix = state.pickerType === 'tag' ? '#' : (state.pickerType === 'prompt' ? '[!prompt:' : '[[;
+        const suffix = state.pickerType === 'tag' ? '' : (state.pickerType === 'prompt' ? ']' : ']]');
         
         html += `
             <button class="flex items-center gap-3 p-3 hover:bg-[var(--md-primary)]/10 text-[var(--md-primary)] rounded-xl text-left w-full font-bold" data-pick-value="${escapeHtml(q)}">
                 <i data-lucide="${icon}" class="w-5 h-5"></i>
-                <span>Создать: ${prefix}${escapeHtml(q)}${suffix}</span>
+                <span>${state.pickerType === 'prompt' ? 'Создать промпт: ' : 'Создать: '} ${prefix}${escapeHtml(q)}${suffix}</span>
             </button>
             <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-2"></div>
         `;
@@ -594,7 +657,7 @@ export function renderPickerList(query) {
         html += `<div class="text-center text-outline italic p-4">Список пуст. Начните печатать...</div>`;
     } else {
         html += filtered.map(item => {
-            const icon = state.pickerType === 'tag' ? 'hash' : 'link';
+            const icon = state.pickerType === 'tag' ? 'hash' : (state.pickerType === 'prompt' ? 'sparkles' : 'link');
             const prefix = state.pickerType === 'tag' ? '#' : '';
             return `
                 <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-pick-value="${escapeHtml(item)}">
@@ -606,5 +669,66 @@ export function renderPickerList(query) {
     }
 
     els.pickerList.innerHTML = html;
+    updateIcons();
+}
+
+// --- AI PANEL ---
+export function renderAiPanel() {
+    if (!els.aiPanel) return;
+
+    // Header
+    const promptName = state.aiActivePrompt ? state.aiActivePrompt.name : 'Gemini';
+    els.aiHeaderTitle.textContent = promptName;
+
+    // Dropdown list
+    const prompts = getAllPrompts();
+    els.aiDropdownMenu.innerHTML = prompts.map(p => `
+        <button class="w-full text-left px-4 py-2 hover:bg-black/5 text-sm flex items-center gap-2 ${state.aiActivePrompt && state.aiActivePrompt.id === p.id ? 'bg-black/5 font-bold' : ''}" data-ai-select-prompt="${p.id}">
+            <i data-lucide="${escapeHtml(p.icon || 'sparkles')}" class="w-4 h-4"></i>
+            ${escapeHtml(p.title)}
+        </button>
+    `).join('');
+
+    // States
+    els.aiEmpty.classList.add('hidden');
+    els.aiLoading.classList.add('hidden');
+    els.aiError.classList.add('hidden');
+    els.aiOutputWrapper.classList.add('hidden');
+    els.aiActions.classList.add('hidden');
+
+    if (state.aiState === 'empty') {
+        els.aiEmpty.classList.remove('hidden');
+    } else if (state.aiState === 'loading') {
+        els.aiLoading.classList.remove('hidden');
+    } else if (state.aiState === 'streaming') {
+        els.aiOutputWrapper.classList.remove('hidden');
+    } else if (state.aiState === 'done') {
+        els.aiOutputWrapper.classList.remove('hidden');
+        els.aiActions.classList.remove('hidden');
+    } else if (state.aiState === 'error') {
+        els.aiError.classList.remove('hidden');
+        els.aiErrorMsg.textContent = state.aiErrorMsg;
+    }
+
+    updateIcons();
+}
+
+export function renderPromptSettings() {
+    const iconGrid = els.promptSettingsIconGrid;
+    const prompt = getNoteById(state.promptSettingsId);
+    if (!prompt) return;
+
+    const currentIcon = prompt.icon || 'sparkles';
+    els.promptSettingsIconCustom.value = currentIcon;
+    els.promptSettingsDescription.value = prompt.description || '';
+
+    let html = '';
+    PROMPT_ICON_CHOICES.forEach(iconName => {
+        const isSel = iconName === currentIcon;
+        html += `<button type="button" class="icon-grid-btn p-2 rounded-xl flex items-center justify-center ${isSel ? 'bg-[var(--md-primary)] text-white' : 'bg-[var(--md-surface-variant)] text-outline hover:bg-black/10'}" data-icon="${iconName}">
+            <i data-lucide="${iconName}" class="w-5 h-5 pointer-events-none"></i>
+        </button>`;
+    });
+    iconGrid.innerHTML = html;
     updateIcons();
 }

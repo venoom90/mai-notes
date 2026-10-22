@@ -57,6 +57,7 @@
         /* Chips & Highlights */
         .prompt-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.15em 0.6em; font-size: 0.9em; line-height: 1.4; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.15s; vertical-align: middle; }
         .prompt-chip:hover { opacity: 0.8; }
+        .prompt-chip-broken { text-decoration: line-through; color: var(--md-outline); opacity: 0.7; }
         .tag-highlight { display: inline-flex; align-items: center; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.1em 0.5em; font-size: 0.9em; cursor: pointer; border: none; margin: 0 0.1em; }
         .wiki-link { color: var(--md-primary); text-decoration: underline; text-decoration-style: dotted; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; font-size: inherit; text-align: left; }
         .wiki-link:hover { text-decoration-style: solid; }
@@ -65,7 +66,9 @@
         /* Панели */
         #ai-panel { display: none; flex-direction: column; }
         @media (min-width: 1024px) { #ai-panel { display: flex; } }
-        @media (max-width: 1023px) { #ai-panel.mobile-active { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; max-width: 100%; border-left: none; } }
+        @media (max-width: 1023px) { 
+            #ai-panel.mobile-active { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; max-width: 100%; border-left: none; background: var(--md-surface); } 
+        }
         
         /* Плавный выезд левой панели */
         #left-panel { transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1); }
@@ -131,27 +134,27 @@
         
         .day-number { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1rem; font-weight: 500; transition: all 0.2s; position: relative; }
         
-        /* Надстрочный индекс для количества заметок (Вариант А) */
         .day-count { position: absolute; top: 0px; right: -2px; font-size: 0.6rem; font-weight: 800; color: var(--md-primary); line-height: 1; }
         
-        /* Состояния дней */
         .week-day-cell.today .day-number, .full-grid-day.today .day-number { background: rgba(103, 80, 164, 0.15); color: var(--md-primary); }
         .week-day-cell.selected .day-number, .full-grid-day.selected .day-number { background: var(--md-primary); color: var(--md-on-primary); box-shadow: 0 2px 8px rgba(103, 80, 164, 0.3); }
         
-        /* Индекс выбранного дня делаем белым */
         .week-day-cell.selected .day-count, .full-grid-day.selected .day-count { color: var(--md-on-primary); }
         
         .full-grid-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; transition: background 0.15s; }
         .full-grid-day:hover { background: rgba(0,0,0,0.03); }
         .full-grid-day.empty { opacity: 0; pointer-events: none; }
         
-        /* Плавное раскрытие через Grid (без обрезки) */
         .expand-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .expand-wrapper.expanded { grid-template-rows: 1fr; }
         .expand-wrapper > div { overflow: hidden; }
         
         /* Snackbar */
         .snackbar { transition: opacity 0.3s, transform 0.3s; }
+        
+        /* AI Panel */
+        .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
+        .icon-grid-btn { transition: all 0.15s; }
     </style>
     <link rel="manifest" href="manifest.json">
 </head>
@@ -171,6 +174,7 @@
     <div id="filter-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="picker-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
     <div id="settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
+    <div id="prompt-settings-backdrop" class="hidden fixed inset-0 bg-black/50 z-50 transition-opacity"></div>
 
     <!-- ЛЕВАЯ ПАНЕЛЬ -->
     <aside id="left-panel" class="w-72 border-r border-[var(--md-outline)] flex-col flex bg-[var(--md-surface-variant)] shadow-2xl">
@@ -220,6 +224,12 @@
                 <button id="btn-new-filter" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="filter" class="w-4 h-4 text-outline"></i></button>
             </div>
             <div id="filters-list" class="flex flex-col gap-1 mb-4"></div>
+
+            <div class="flex items-center justify-between px-1 mb-1 mt-2">
+                <div class="text-xs font-bold text-outline uppercase tracking-wider flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> Промпты</div>
+                <button id="btn-new-prompt" type="button" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="plus" class="w-4 h-4 text-outline"></i></button>
+            </div>
+            <div id="prompts-list" class="flex flex-col gap-0.5 mb-4"></div>
 
             <!-- БЭКАП И ВОССТАНОВЛЕНИЕ -->
             <div class="mt-auto pt-4 border-t border-[var(--md-outline)]/20">
@@ -289,6 +299,11 @@
             </div>
 
             <div id="view-editor" class="pb-32">
+                <div class="flex items-center gap-3 mb-4">
+                    <span id="prompt-badge" class="hidden bg-[var(--md-primary)] text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">PROMPT</span>
+                    <button id="btn-prompt-settings" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-[var(--md-surface-variant)] hover:bg-black/10 text-outline"><i data-lucide="settings" class="w-4 h-4"></i></button>
+                </div>
+
                 <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
                 <textarea id="note-title" rows="1" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6"></textarea>
                 <textarea id="note-content" placeholder="Текст заметки..."></textarea>
@@ -369,6 +384,7 @@
             
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="tag"><i data-lucide="hash" class="w-5 h-5"></i></button>
             <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="context"><i data-lucide="link" class="w-5 h-5"></i></button>
+            <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="prompt"><i data-lucide="sparkles" class="w-5 h-5"></i></button>
         </div>
     </main>
 
@@ -380,17 +396,48 @@
         </div>
 
         <!-- ИИ Панель -->
-        <div class="p-4 border-b border-[var(--md-outline)] flex items-center justify-between gap-2">
-            <div class="font-bold text-sm text-outline uppercase flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Gemini</div>
-            <button id="btn-ai-close" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="x" class="w-5 h-5 text-outline"></i></button>
+        <div class="p-4 border-b border-[var(--md-outline)] flex items-center justify-between gap-2 relative">
+            <div class="relative flex-1 flex items-center gap-1">
+                <div class="font-bold text-sm text-outline uppercase flex items-center gap-2 truncate">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-primary shrink-0"></i> 
+                    <span id="ai-header-title" class="truncate">Gemini</span>
+                </div>
+                <button id="ai-dropdown-btn" class="w-6 h-6 flex items-center justify-center rounded hover:bg-black/10 shrink-0"><i data-lucide="chevron-down" class="w-4 h-4 text-outline"></i></button>
+                <div id="ai-dropdown-menu" class="ai-dropdown-menu hidden"></div>
+            </div>
+            <button id="btn-ai-close" type="button" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 shrink-0"><i data-lucide="x" class="w-5 h-5 text-outline"></i></button>
         </div>
-        <div id="ai-panel-empty" class="p-4 text-sm text-outline italic flex items-center justify-center text-center">Выберите чип в тексте, чтобы запустить.</div>
-        <div id="ai-panel-active" class="flex-col p-4 gap-3 overflow-y-auto" style="display:none;">
-            <div id="ai-prompt-title" class="font-bold text-primary text-lg"></div>
-            <div id="ai-prompt-description" class="text-sm text-outline"></div>
+        
+        <div class="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
+            <!-- Empty -->
+            <div id="ai-empty" class="text-sm text-outline italic flex items-center justify-center text-center py-10">Выберите промпт из списка выше или кликните по чипу в тексте.</div>
+            
+            <!-- Loading -->
+            <div id="ai-loading" class="hidden flex-col items-center justify-center py-10 gap-3">
+                <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-primary"></i>
+                <span class="text-sm text-outline">Анализирую заметку...</span>
+            </div>
+            
+            <!-- Error -->
+            <div id="ai-error" class="hidden flex-col items-center justify-center py-6 gap-3 text-center">
+                <i data-lucide="alert-circle" class="w-10 h-10 text-red-500"></i>
+                <div id="ai-error-msg" class="text-sm text-red-600 font-medium"></div>
+                <button id="btn-ai-retry" class="mt-2 bg-[var(--md-surface)] border border-[var(--md-outline)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/5">Повторить</button>
+            </div>
+
+            <!-- Output -->
+            <div id="ai-output-wrapper" class="hidden flex-col flex-1">
+                <div id="ai-output" class="markdown-body text-sm text-[var(--md-on-surface)]"></div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div id="ai-actions" class="hidden p-4 border-t border-[var(--md-outline)] flex gap-2 justify-between bg-[var(--md-surface)]">
+            <button id="btn-ai-copy" class="flex-1 py-2 flex items-center justify-center gap-1 rounded-xl border border-[var(--md-outline)] hover:bg-black/5 text-xs font-medium"><i data-lucide="copy" class="w-4 h-4"></i> Копировать</button>
+            <button id="btn-ai-insert" class="flex-1 py-2 flex items-center justify-center gap-1 rounded-xl bg-[var(--md-primary)] text-white hover:opacity-90 text-xs font-medium"><i data-lucide="arrow-down-to-line" class="w-4 h-4"></i> Вставить</button>
+            <button id="btn-ai-regenerate" class="w-10 h-10 flex items-center justify-center rounded-xl border border-[var(--md-outline)] hover:bg-black/5"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
         </div>
     </aside>
-    <div id="ai-backdrop" class="hidden fixed inset-0 bg-black/50 z-40"></div>
 
     <!-- ACTION SHEET (MENU) -->
     <div id="action-sheet" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]">
@@ -450,6 +497,28 @@
         </div>
     </div>
 
+    <!-- PROMPT SETTINGS MODAL -->
+    <div id="prompt-settings-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[80vh] w-full md:max-w-md md:mx-auto md:bottom-10 md:rounded-3xl">
+        <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
+            <div class="font-bold text-lg flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-primary"></i> Настройки промпта</div>
+            <button id="btn-close-prompt-settings" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="p-4 overflow-y-auto flex flex-col gap-4">
+            <div>
+                <label class="text-xs font-bold text-outline uppercase mb-2 block">Иконка</label>
+                <div id="prompt-settings-icon-grid" class="grid grid-cols-6 gap-2"></div>
+                <input type="text" id="prompt-settings-icon-custom" class="mt-2 bg-[var(--md-surface-variant)] p-2 rounded-lg text-sm w-full hidden" placeholder="Кастомное имя lucide">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-outline uppercase mb-1 block">Описание</label>
+                <input type="text" id="prompt-settings-description" placeholder="Кратко о том, что делает промпт..." class="bg-[var(--md-surface-variant)] p-3 rounded-xl w-full text-sm">
+            </div>
+        </div>
+        <div class="p-4 border-t border-[var(--md-outline)]">
+            <button id="btn-prompt-settings-save" class="w-full bg-primary text-white p-3 rounded-xl font-medium shadow-md">Сохранить</button>
+        </div>
+    </div>
+
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="bottom-sheet fixed bottom-0 inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90vh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
@@ -473,6 +542,14 @@
                 </div>
             </div>
 
+            <!-- ИИ -->
+            <div class="bg-[var(--md-surface-variant)]/50 p-4 rounded-2xl border border-[var(--md-outline)]/20">
+                <div class="font-bold text-sm mb-2 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4"></i> ИИ-Ассистент (Gemini)</div>
+                <div class="text-xs text-outline mb-3">URL прокси Google Apps Script для безопасных запросов к Gemini.</div>
+                <input type="url" id="settings-ai-proxy-url" placeholder="https://script.google.com/macros/s/.../exec" class="bg-[var(--md-surface)] border border-[var(--md-outline)]/30 p-3 rounded-xl w-full text-sm mb-2">
+                <button id="btn-settings-save-ai" class="w-full bg-primary text-white p-2 rounded-xl text-sm font-medium shadow-sm hover:opacity-90">Сохранить URL</button>
+            </div>
+
             <!-- Данные -->
             <div>
                 <div class="font-bold text-sm mb-2 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Данные</div>
@@ -488,8 +565,8 @@
 
             <!-- О приложении -->
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.10.3</div>
-                <div class="text-xs text-outline mt-1">Local-First PWA</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.0</div>
+                <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
     </div>

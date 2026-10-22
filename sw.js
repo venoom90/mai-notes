@@ -1,8 +1,8 @@
-const CACHE_NAME = 'mai-cache-v44';
+const CACHE_NAME = 'mai-cache-v45';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
-  './js/render.js', './js/logic.js', './js/app.js', './js/fs.js'
+  './js/render.js', './js/logic.js', './js/app.js', './js/fs.js', './js/ai.js'
 ];
 
 self.addEventListener('install', (event) => {

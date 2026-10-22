@@ -34,20 +34,54 @@ export const state = {
     vaultStatus: 'local', // 'local', 'connected', 'prompt', 'error'
     isSyncing: false,
     snackbarTimeout: null,
-    fsError: null
+    fsError: null,
+    // Sprint 4 (AI & Prompts)
+    settings: { aiProxyUrl: '' },
+    aiState: 'empty', // empty, loading, streaming, done, error
+    aiActivePrompt: null, // { id, name }
+    aiResponse: '',
+    aiErrorMsg: '',
+    aiAbortController: null,
+    promptSettingsId: null,
+    aiDropdownOpen: false
 };
 
-export const PROMPTS = [
-    { id: 'coach',     name: 'Тренер',    icon: 'compass',     description: 'Задаёт вопросы, помогает развить мысль' },
-    { id: 'analyst',   name: 'Аналитик',  icon: 'bar-chart-3', description: 'Структурирует, находит паттерны и связи' },
-    { id: 'motivator', name: 'Мотиватор', icon: 'zap',         description: 'Фокусирует на действии, подбадривает' }
+export const DEFAULT_PROMPTS = [
+    {
+        id: 'seed-coach',
+        title: 'Тренер',
+        content: 'Ты — профессиональный коуч. Используй модель GROW.\nПо заметке пользователя задай 3 глубоких открытых вопроса, которые помогут продвинуться от текущего состояния к цели. Не давай советов — только вопросы. Будь краток, говори на «ты».',
+        icon: 'compass',
+        description: 'Задаёт вопросы и помогает развить мысль'
+    },
+    {
+        id: 'seed-analyst',
+        title: 'Аналитик',
+        content: 'Ты — аналитик. Прочитай заметку пользователя и:\n1) Выдели 3 ключевые идеи (список);\n2) Найди скрытые паттерны и связи;\n3) Укажи противоречия или пробелы;\n4) Предложи следующий шаг.\nОтвечай структурно, без воды.',
+        icon: 'bar-chart-3',
+        description: 'Структурирует, находит паттерны'
+    },
+    {
+        id: 'seed-motivator',
+        title: 'Мотиватор',
+        content: 'Ты — мотиватор. Из заметки пользователя вычлени ближайший конкретный шаг (одно действие, которое можно сделать за 15 минут) и коротко вдохнови на него. Максимум 5 строк. Глагол в начале, без «нужно» и «стоит».',
+        icon: 'zap',
+        description: 'Фокусирует на действии'
+    }
+];
+
+export const PROMPT_ICON_CHOICES = [
+    'sparkles', 'compass', 'bar-chart-3', 'zap', 'megaphone', 'pen-tool', 'brain', 'target',
+    'search', 'lightbulb', 'book-open', 'code', 'message-square', 'help-circle', 'activity',
+    'check-circle', 'alert-circle', 'feather', 'award', 'coffee', 'smile', 'heart', 'star', 'sun'
 ];
 
 export const STORAGE_KEY = 'mai_notes';
 export const FOLDERS_KEY = 'mai_folders';
 export const FILTERS_KEY = 'mai_filters';
-export const LEGACY_TITLE_KEY = 'mai_title';
-export const LEGACY_CONTENT_KEY = 'mai_content';
+export const SETTINGS_KEY = 'mai_settings';
+export const PROMPTS_SEEDED_KEY = 'mai_prompts_seeded';
+export const SYSTEM_PROMPTS_FOLDER_ID = '__prompts__';
 
 export const els = {
     mainContent: document.getElementById('main-content'),
@@ -71,6 +105,12 @@ export const els = {
     contextsSectionLabel: document.getElementById('contexts-section-label'),
     filtersList: document.getElementById('filters-list'),
     btnNewFilter: document.getElementById('btn-new-filter'),
+    
+    // Prompts
+    promptsList: document.getElementById('prompts-list'),
+    btnNewPrompt: document.getElementById('btn-new-prompt'),
+    promptBadge: document.getElementById('prompt-badge'),
+    btnPromptSettings: document.getElementById('btn-prompt-settings'),
 
     btnNewNote: document.getElementById('btn-new-note'),
     btnNewFolder: document.getElementById('btn-new-folder'),
@@ -89,13 +129,31 @@ export const els = {
     
     // AI Panel
     aiPanel: document.getElementById('ai-panel'),
-    aiPanelEmpty: document.getElementById('ai-panel-empty'),
-    aiPanelActive: document.getElementById('ai-panel-active'),
-    aiPromptTitle: document.getElementById('ai-prompt-title'),
-    aiPromptDescription: document.getElementById('ai-prompt-description'),
+    aiHeaderTitle: document.getElementById('ai-header-title'),
+    aiDropdownBtn: document.getElementById('ai-dropdown-btn'),
+    aiDropdownMenu: document.getElementById('ai-dropdown-menu'),
+    aiEmpty: document.getElementById('ai-empty'),
+    aiLoading: document.getElementById('ai-loading'),
+    aiError: document.getElementById('ai-error'),
+    aiErrorMsg: document.getElementById('ai-error-msg'),
+    btnAiRetry: document.getElementById('btn-ai-retry'),
+    aiOutputWrapper: document.getElementById('ai-output-wrapper'),
+    aiOutput: document.getElementById('ai-output'),
+    aiActions: document.getElementById('ai-actions'),
+    btnAiCopy: document.getElementById('btn-ai-copy'),
+    btnAiInsert: document.getElementById('btn-ai-insert'),
+    btnAiRegenerate: document.getElementById('btn-ai-regenerate'),
     btnAiClose: document.getElementById('btn-ai-close'),
-    aiBackdrop: document.getElementById('ai-backdrop'),
     
+    // Prompt Settings Modal
+    promptSettingsBackdrop: document.getElementById('prompt-settings-backdrop'),
+    promptSettingsModal: document.getElementById('prompt-settings-modal'),
+    promptSettingsIconGrid: document.getElementById('prompt-settings-icon-grid'),
+    promptSettingsIconCustom: document.getElementById('prompt-settings-icon-custom'),
+    promptSettingsDescription: document.getElementById('prompt-settings-description'),
+    btnPromptSettingsSave: document.getElementById('btn-prompt-settings-save'),
+    btnClosePromptSettings: document.getElementById('btn-close-prompt-settings'),
+
     crumbFolderBtn: document.getElementById('crumb-folder-btn'),
     crumbFolderName: document.getElementById('crumb-folder-name'),
     crumbSeparator: document.getElementById('breadcrumb-separator'),
@@ -145,6 +203,8 @@ export const els = {
     settingsModal: document.getElementById('settings-modal'),
     btnOpenSettings: document.getElementById('btn-open-settings'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
+    settingsAiProxyUrl: document.getElementById('settings-ai-proxy-url'),
+    btnSettingsSaveAi: document.getElementById('btn-settings-save-ai'),
     btnConnectVault: document.getElementById('btn-connect-vault'),
     btnDisconnectVault: document.getElementById('btn-disconnect-vault'),
     settingsVaultDesc: document.getElementById('settings-vault-desc'),

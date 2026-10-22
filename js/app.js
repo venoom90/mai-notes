@@ -1,20 +1,21 @@
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
-import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs } from './storage.js';
+import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts } from './storage.js';
 import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
 import { 
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
-    insertChipAtCursor, toggleLeftPanel, closeLeftPanel, onEdit, scheduleSave,
+    insertFormatting,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
-    openSearch, closeSearch, handleSearchInput, insertFormatting,
+    openSearch, closeSearch, handleSearchInput,
     openFilterModal, closeFilterModal, addFilterRule, removeFilterRule, updateFilterRule, saveFilter,
     openPicker, closePicker, handlePickerSearch, insertPickedItem,
     shareNoteFile, exportAllData, handleImportFiles,
     goBack, goForward, toggleFocusMode, goToFolderView,
     openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday, toggleCalendarExpand,
     initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings,
-    showSnackbar
+    showSnackbar, createPrompt, deletePrompt, openPromptSettings, closePromptSettings, savePromptSettings,
+    triggerAiFromChip, closeAiPanel, clearAiPanel, handleAiCopy, handleAiInsert, handleAiRegenerate, saveAiSettings
 } from './logic.js';
 import { verifyPermission } from './fs.js';
 
@@ -30,7 +31,7 @@ function attachListeners() {
         const deltaX = touchStartX - e.changedTouches[0].screenX;
         const deltaY = Math.abs(touchStartY - e.changedTouches[0].screenY);
         if (touchStartX < 50 && deltaX < -80 && deltaY < 50 && !state.leftPanelOpen) {
-            toggleLeftPanel();
+            import('./logic.js').then(m => m.toggleLeftPanel());
         }
     }, { passive: true });
 
@@ -43,13 +44,13 @@ function attachListeners() {
         els.leftPanel.addEventListener('touchend', (e) => {
             const deltaX = panelTouchStartX - e.changedTouches[0].screenX;
             if (deltaX > 80) {
-                closeLeftPanel();
+                import('./logic.js').then(m => m.closeLeftPanel());
             }
         }, { passive: true });
     }
 
-    if (els.btnMenu) els.btnMenu.addEventListener('click', toggleLeftPanel);
-    if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', closeLeftPanel);
+    if (els.btnMenu) els.btnMenu.addEventListener('click', () => import('./logic.js').then(m => m.toggleLeftPanel()));
+    if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', () => import('./logic.js').then(m => m.closeLeftPanel()));
 
     // Vault & Settings
     if (els.btnOpenSettings) els.btnOpenSettings.addEventListener('click', openSettings);
@@ -61,6 +62,7 @@ function attachListeners() {
     if (els.btnRestoreAccess) els.btnRestoreAccess.addEventListener('click', restoreAccess);
     if (els.btnSettingsExport) els.btnSettingsExport.addEventListener('click', exportAllData);
     if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
+    if (els.btnSettingsSaveAi) els.btnSettingsSaveAi.addEventListener('click', saveAiSettings);
 
     // Nav buttons
     if (els.btnNavBack) els.btnNavBack.addEventListener('click', goBack);
@@ -68,14 +70,13 @@ function attachListeners() {
     if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
     if (els.btnCloseFocus) els.btnCloseFocus.addEventListener('click', toggleFocusMode);
 
-    // Calendar buttons
+    // Calendar
     if (els.btnOpenCalendar) els.btnOpenCalendar.addEventListener('click', openCalendar);
     if (els.btnCalendarPrev) els.btnCalendarPrev.addEventListener('click', prevMonth);
     if (els.btnCalendarNext) els.btnCalendarNext.addEventListener('click', nextMonth);
     if (els.btnCalendarToday) els.btnCalendarToday.addEventListener('click', goToToday);
     if (els.btnToggleCalendar) els.btnToggleCalendar.addEventListener('click', toggleCalendarExpand);
     
-    // Week Strip clicks
     if (els.calendarWeekStrip) {
         els.calendarWeekStrip.addEventListener('click', (e) => {
             const dayCell = e.target.closest('[data-date]');
@@ -83,7 +84,6 @@ function attachListeners() {
         });
     }
     
-    // Full Grid clicks
     if (els.calendarFullGrid) {
         els.calendarFullGrid.addEventListener('click', (e) => {
             const dayCell = e.target.closest('[data-date]');
@@ -91,7 +91,6 @@ function attachListeners() {
         });
     }
     
-    // Notes in calendar clicks
     if (els.calendarNotesList) {
         els.calendarNotesList.addEventListener('click', (e) => {
             const card = e.target.closest('.note-card');
@@ -102,6 +101,7 @@ function attachListeners() {
     els.btnNewNote.addEventListener('click', createNote);
     if (els.fabNewNote) els.fabNewNote.addEventListener('click', createNote);
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
+    els.btnNewPrompt.addEventListener('click', createPrompt);
     els.btnPreview.addEventListener('click', togglePreviewMode);
     els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
     
@@ -135,6 +135,15 @@ function attachListeners() {
         }
         const selectBtn = e.target.closest('[data-folder-select]');
         if (selectBtn) selectFolder(selectBtn.getAttribute('data-folder-select'));
+    });
+
+    els.promptsList.addEventListener('click', (e) => {
+        const selectBtn = e.target.closest('[data-prompt-select]');
+        if (selectBtn) selectNote(selectBtn.getAttribute('data-prompt-select'));
+    });
+
+    els.btnPromptSettings.addEventListener('click', () => {
+        if (state.activeId) openPromptSettings(state.activeId);
     });
 
     els.tagsList.addEventListener('click', (e) => {
@@ -188,7 +197,13 @@ function attachListeners() {
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
-        if (t.closest('[data-prompt-name]')) { e.preventDefault(); return; }
+        
+        if (t.closest('[data-prompt-name]')) { 
+            e.preventDefault(); 
+            triggerAiFromChip(t.closest('[data-prompt-name]').getAttribute('data-prompt-name'));
+            return; 
+        }
+        
         if (t.closest('.wiki-link') && t.closest('.wiki-link').hasAttribute('data-target-id')) {
             e.preventDefault(); selectNote(t.closest('.wiki-link').getAttribute('data-target-id')); return;
         }
@@ -226,11 +241,6 @@ function attachListeners() {
             }, 0);
             return;
         }
-    });
-
-    els.chipPalette.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-prompt-insert]');
-        if (btn) insertChipAtCursor(btn.getAttribute('data-prompt-insert'));
     });
 
     if (els.formatToolbar) {
@@ -287,6 +297,56 @@ function attachListeners() {
         if (btn) insertPickedItem(btn.getAttribute('data-pick-value'));
     });
 
+    // AI Listeners
+    if (els.btnAiClose) els.btnAiClose.addEventListener('click', clearAiPanel);
+    if (els.btnAiRetry) els.btnAiRetry.addEventListener('click', handleAiRegenerate);
+    if (els.btnAiCopy) els.btnAiCopy.addEventListener('click', handleAiCopy);
+    if (els.btnAiInsert) els.btnAiInsert.addEventListener('click', handleAiInsert);
+    if (els.btnAiRegenerate) els.btnAiRegenerate.addEventListener('click', handleAiRegenerate);
+    
+    if (els.aiDropdownBtn) {
+        els.aiDropdownBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            els.aiDropdownMenu.classList.toggle('hidden');
+        });
+    }
+    document.addEventListener('click', (e) => {
+        if (els.aiDropdownMenu && !els.aiDropdownMenu.contains(e.target) && e.target !== els.aiDropdownBtn) {
+            els.aiDropdownMenu.classList.add('hidden');
+        }
+    });
+    if (els.aiDropdownMenu) {
+        els.aiDropdownMenu.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-ai-select-prompt]');
+            if (btn) {
+                els.aiDropdownMenu.classList.add('hidden');
+                const promptId = btn.getAttribute('data-ai-select-prompt');
+                const prompt = getNoteById(promptId);
+                if (prompt && state.activeId) {
+                    import('./logic.js').then(m => m.openAiPanel(prompt, getNoteById(state.activeId)));
+                }
+            }
+        });
+    }
+
+    // Prompt Settings Modal
+    if (els.btnClosePromptSettings) els.btnClosePromptSettings.addEventListener('click', closePromptSettings);
+    if (els.promptSettingsBackdrop) els.promptSettingsBackdrop.addEventListener('click', closePromptSettings);
+    if (els.btnPromptSettingsSave) els.btnPromptSettingsSave.addEventListener('click', savePromptSettings);
+    if (els.promptSettingsIconGrid) {
+        els.promptSettingsIconGrid.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-icon]');
+            if (btn) {
+                els.promptSettingsIconCustom.value = btn.getAttribute('data-icon');
+                const btns = els.promptSettingsIconGrid.querySelectorAll('button');
+                btns.forEach(b => {
+                    b.className = 'icon-grid-btn p-2 rounded-xl flex items-center justify-center bg-[var(--md-surface-variant)] text-outline hover:bg-black/10';
+                });
+                btn.className = 'icon-grid-btn p-2 rounded-xl flex items-center justify-center bg-[var(--md-primary)] text-white';
+            }
+        });
+    }
+
     if (els.btnDesktopSearch) els.btnDesktopSearch.addEventListener('click', openSearch);
     if (els.btnMobileSearch) els.btnMobileSearch.addEventListener('click', openSearch);
     els.btnCloseSearch.addEventListener('click', closeSearch);
@@ -304,7 +364,7 @@ function attachListeners() {
         if (e.target.files.length > 0) handleImportFiles(Array.from(e.target.files));
     });
 
-    // --- VISIBILITY CHANGE (Android background fix) ---
+    // --- VISIBILITY CHANGE ---
     document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState === 'visible') {
             if (state.vaultHandle && state.vaultStatus === 'connected') {
@@ -319,13 +379,19 @@ function attachListeners() {
 
     // --- ANDROID BACK BUTTON (POPSTATE) ---
     window.addEventListener('popstate', (e) => {
+        if (els.promptSettingsModal.classList.contains('open')) { closePromptSettings(); history.pushState({ state: 'settings' }, ''); return; }
         if (els.settingsModal.classList.contains('open')) { closeSettings(); history.pushState({ state: 'settings' }, ''); return; }
         if (state.isFocusMode) {
             toggleFocusMode();
             history.pushState({ state: 'focus' }, '');
             return;
         }
-        
+        if (state.aiPanelOpen) { 
+            clearAiPanel(); 
+            state.aiPanelOpen = false;
+            history.pushState({ state: 'ai' }, ''); 
+            return; 
+        }
         if (state.actionMenuNoteId) { closeActionMenu(); history.pushState({ state: 'actionMenu' }, ''); return; }
         if (els.filterModal.classList.contains('open')) { closeFilterModal(); history.pushState({ state: 'filter' }, ''); return; }
         if (els.pickerModal.classList.contains('open')) { closePicker(); history.pushState({ state: 'picker' }, ''); return; }
@@ -354,6 +420,7 @@ function attachListeners() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            if (els.promptSettingsModal.classList.contains('open')) { e.preventDefault(); closePromptSettings(); return; }
             if (els.settingsModal.classList.contains('open')) { e.preventDefault(); closeSettings(); return; }
             if (els.pickerModal.classList.contains('open')) { e.preventDefault(); closePicker(); return; }
             if (state.searchOpen) { e.preventDefault(); closeSearch(); return; }
@@ -361,6 +428,7 @@ function attachListeners() {
             if (state.actionMenuNoteId) { e.preventDefault(); closeActionMenu(); return; }
             if (state.leftPanelOpen) { e.preventDefault(); closeLeftPanel(); return; }
             if (state.isFocusMode) { e.preventDefault(); toggleFocusMode(); return; }
+            if (state.aiState === 'streaming') { e.preventDefault(); clearAiPanel(); return; }
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); togglePreviewMode(); }
@@ -379,8 +447,10 @@ function attachListeners() {
 }
 
 async function init() {
+    loadSettings();
     state.folders = loadFolders(); persistFolders();
     state.notes = loadNotes(); validateFolderRefs();
+    seedDefaultPrompts(); // Создаем промпты до первого рендера
     state.savedFilters = loadFilters();
     try { persistNotes(); } catch (_) {}
 
@@ -398,7 +468,6 @@ async function init() {
 
     renderAll(); attachListeners();
     
-    // Асинхронная инициализация Vault
     await initVault();
 }
 

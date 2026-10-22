@@ -5,7 +5,6 @@ const DB_NAME = 'mai_fs_db';
 const STORE_NAME = 'handles';
 const HANDLE_KEY = 'vault';
 
-// --- IndexedDB Helpers ---
 function getDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 1);
@@ -50,7 +49,6 @@ export async function clearHandleFromDB() {
     });
 }
 
-// --- Permission Helpers ---
 export async function verifyPermission(fileHandle, readWrite = true) {
     const options = {};
     if (readWrite) options.mode = 'readwrite';
@@ -65,12 +63,10 @@ export async function requestPermission(fileHandle, readWrite = true) {
     return false;
 }
 
-// --- FS Operations ---
 export function isFileSystemSupported() {
     return 'showDirectoryPicker' in window;
 }
 
-// Генерация имени файла
 export function generateFileName(note) {
     let safeTitle = sanitizeFileName(note.title || 'Без_названия').slice(0, 40).trim();
     if (!safeTitle) safeTitle = 'Без_названия';
@@ -83,7 +79,6 @@ export function generateFileName(note) {
     return `${safeTitle}_${shortId}_${datePart}.md`;
 }
 
-// Рекурсивное чтение файлов
 export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
     const notes = [];
     const isRoot = rootHandle === null;
@@ -97,7 +92,7 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
             folderId = existingFolder.id;
         } else {
             folderId = genId();
-            state.folders.push({ id: folderId, name: currentFolderName, updatedAt: Date.now() });
+            state.folders.push({ id: folderId, name: currentFolderName, updatedAt: Date.now(), isSystem: false });
         }
     }
 
@@ -108,7 +103,7 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
                 const file = await entry.getFile();
                 const text = await file.text();
                 const { note } = parseMarkdown(text, folderId);
-                note.fileName = entry.name; // Save filename for O(1) access
+                note.fileName = entry.name;
                 notes.push(note);
             } catch (e) {
                 console.warn('Ошибка чтения файла:', entry.name, e);
@@ -118,7 +113,6 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
             notes.push(...subNotes);
         }
         
-        // Async breathing room
         fileCount++;
         if (fileCount % 5 === 0) {
             await new Promise(r => setTimeout(r, 0));
@@ -127,7 +121,6 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
     return notes;
 }
 
-// Запись файла на диск (O(1) С ИСПРАВЛЕНИЕМ ДУБЛЕЙ)
 export async function writeNoteToDisk(note, dirHandle) {
     if (!dirHandle) return;
     
@@ -142,11 +135,9 @@ export async function writeNoteToDisk(note, dirHandle) {
         
         const newFileName = generateFileName(note);
 
-        // 1. Удаляем старую версию файла, если имя изменилось
         if (note.fileName && note.fileName !== newFileName) {
             try { await targetDir.removeEntry(note.fileName); } catch (_) {}
         } else if (!note.fileName) {
-            // Fallback для старых заметок без fileName
             const shortId = String(note.id).slice(0, 4);
             for await (const entry of targetDir.values()) {
                 if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId) && entry.name !== newFileName) {
@@ -155,7 +146,6 @@ export async function writeNoteToDisk(note, dirHandle) {
             }
         }
 
-        // 2. Создаем и пишем новый файл
         const fileHandle = await targetDir.getFileHandle(newFileName, { create: true });
         const writable = await fileHandle.createWritable();
         
@@ -165,7 +155,7 @@ export async function writeNoteToDisk(note, dirHandle) {
         await writable.write(content);
         await writable.close();
         
-        note.fileName = newFileName; // Обновляем в памяти
+        note.fileName = newFileName;
         return newFileName;
     } catch (e) {
         console.error('Ошибка записи на диск:', e);
@@ -173,7 +163,6 @@ export async function writeNoteToDisk(note, dirHandle) {
     }
 }
 
-// Удаление файла с диска
 export async function deleteNoteFromDisk(note, dirHandle) {
     if (!dirHandle) return;
     try {
@@ -200,7 +189,6 @@ export async function deleteNoteFromDisk(note, dirHandle) {
     }
 }
 
-// Удаление папки на диске
 export async function deleteFolderFromDisk(folderName, dirHandle) {
     if (!dirHandle) return;
     try {

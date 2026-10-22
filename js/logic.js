@@ -1,8 +1,9 @@
-import { state, els, FILTERS_KEY } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates } from './utils.js';
-import { persistNotes, persistFolders, persistFilters } from './storage.js';
-import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus } from './render.js';
+import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts } from './utils.js';
+import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings } from './storage.js';
+import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus, renderAiPanel, renderPromptSettings } from './render.js';
 import { isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, requestPermission, readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk } from './fs.js';
+import { sendAiRequest, typewriter, buildUserContext } from './ai.js';
 
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.add('mobile-active'); }
 export function closeLeftPanel() { if (!state.leftPanelOpen) return; state.leftPanelOpen = false; els.leftPanel.classList.remove('mobile-active'); els.leftPanelBackdrop.classList.remove('mobile-active'); }
@@ -48,7 +49,6 @@ export async function connectVault() {
             state.vaultStatus = 'connected';
             await saveHandleToDB(handle);
             
-            // При подключении новой папки - синхронизируем всё, что есть в памяти
             await syncVault(true);
             closeSettings();
             renderAll();
@@ -85,7 +85,7 @@ export async function syncVault(isNewConnection = false) {
     state.isSyncing = true;
     state.saveStatus = 'saving';
     renderSaveStatus();
-    renderSidebar(); // Update Vault widget spinner
+    renderSidebar();
 
     try {
         const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
@@ -136,7 +136,6 @@ export async function syncVault(isNewConnection = false) {
         state.saveStatus = 'error';
         state.isSyncing = false;
         
-        // Если ошибка связана с правами доступа
         if (e.name === 'NotAllowedError') {
             state.vaultStatus = 'prompt';
             showSnackbar('Нет доступа к папке. Нажмите "Восстановить".', 'error');
@@ -150,6 +149,8 @@ export async function syncVault(isNewConnection = false) {
 }
 
 export function openSettings() {
+    loadSettings();
+    els.settingsAiProxyUrl.value = state.settings.aiProxyUrl || '';
     els.settingsBackdrop.classList.remove('hidden');
     setTimeout(() => els.settingsModal.classList.add('open'), 10);
     renderVaultStatus();
@@ -157,6 +158,13 @@ export function openSettings() {
 export function closeSettings() {
     els.settingsModal.classList.remove('open');
     els.settingsBackdrop.classList.add('hidden');
+}
+
+export function saveAiSettings() {
+    const url = els.settingsAiProxyUrl.value.trim();
+    state.settings.aiProxyUrl = url;
+    persistSettings();
+    showSnackbar('Настройки ИИ сохранены', 'info');
 }
 
 // --- NAVIGATION HISTORY ---
@@ -178,6 +186,7 @@ export function goBack() {
         if (note) {
             state.activeId = id; state.activeFolderId = note.folderId; 
             state.viewMode = 'editor'; state.editorMode = 'preview';
+            clearAiPanel();
             renderAll();
         }
     } else {
@@ -193,6 +202,7 @@ export function goForward() {
         if (note) {
             state.activeId = id; state.activeFolderId = note.folderId; 
             state.viewMode = 'editor'; state.editorMode = 'preview';
+            clearAiPanel();
             renderAll();
         }
     }
@@ -200,10 +210,9 @@ export function goForward() {
 
 export function goToFolderView() {
     state.viewMode = 'folder'; state.activeId = null; 
+    clearAiPanel();
     renderAll();
 }
-
-// --- FOCUS MODE ---
 
 export function toggleFocusMode() {
     state.isFocusMode = !state.isFocusMode;
@@ -214,8 +223,6 @@ export function toggleFocusMode() {
     }
 }
 
-// --- CALENDAR LOGIC ---
-
 export function openCalendar() {
     const today = new Date();
     state.viewMode = 'calendar';
@@ -223,6 +230,7 @@ export function openCalendar() {
     state.calendarDate = today;
     state.selectedDate = formatDateYYYYMMDD(today);
     state.isCalendarExpanded = false;
+    clearAiPanel();
     renderAll();
     closeLeftPanel();
 }
@@ -305,6 +313,7 @@ export async function createNote() {
     state.notes.unshift(note); state.activeId = note.id; 
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.viewMode = 'editor'; state.editorMode = 'edit'; 
+    clearAiPanel();
     persistNotes(); state.saveStatus = 'idle';
     pushToHistory(note.id);
     
@@ -318,11 +327,17 @@ export async function createNote() {
 
 export function selectNote(id, pushHist = true) {
     const note = getNoteById(id); if (!note) return;
-    const defaultMode = note.content.trim() ? 'preview' : 'edit';
+    const defaultMode = (note.content.trim() || note.isPrompt) ? 'preview' : 'edit';
+    
     if (id === state.activeId && state.viewMode === 'editor') { closeLeftPanel(); return; }
     
-    state.activeId = id; state.activeFolderId = note.folderId; 
-    state.viewMode = 'editor'; state.editorMode = defaultMode; state.saveStatus = 'idle';
+    if (state.activeId !== id) clearAiPanel();
+
+    state.activeId = id; 
+    state.activeFolderId = note.folderId; 
+    state.viewMode = 'editor'; 
+    state.editorMode = defaultMode; 
+    state.saveStatus = 'idle';
     if (pushHist) pushToHistory(id);
     
     renderAll(); closeLeftPanel();
@@ -341,6 +356,7 @@ export async function deleteNote(id) {
         const candidates = notesInFolder(state.activeFolderId); 
         state.activeId = candidates.length > 0 ? candidates[0].id : null; 
         state.viewMode = state.activeId ? 'editor' : 'folder';
+        clearAiPanel();
     }
     persistNotes(); state.saveStatus = 'idle'; renderAll();
 }
@@ -375,7 +391,7 @@ export async function createFolder() {
     const name = raw.trim();
     if (state.folders.some(f => f.name.toLowerCase() === name.toLowerCase())) { window.alert('Папка уже есть'); return; }
     
-    state.folders.push({ id: genId(), name: name, updatedAt: Date.now() });
+    state.folders.push({ id: genId(), name: name, updatedAt: Date.now(), isSystem: false });
     
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await state.vaultHandle.getDirectoryHandle(name, { create: true }); } 
@@ -386,7 +402,7 @@ export async function createFolder() {
 }
 
 export async function renameFolder(id) {
-    if (id === 'inbox') return;
+    if (id === 'inbox' || id === SYSTEM_PROMPTS_FOLDER_ID) return;
     const folder = getFolderById(id); if (!folder) return;
     const raw = window.prompt('Новое имя папки:', folder.name); if (raw === null) return;
     const name = raw.trim(); if (!name) return;
@@ -417,7 +433,7 @@ export async function renameFolder(id) {
 }
 
 export async function deleteFolder(id) {
-    if (id === 'inbox') return;
+    if (id === 'inbox' || id === SYSTEM_PROMPTS_FOLDER_ID) return;
     const folder = getFolderById(id); if (!folder) return;
     const count = folderNotesCount(id);
     if (!window.confirm(`Удалить папку «${folder.name}»? ${count} заметок переместятся в «Входящие».`)) return;
@@ -439,18 +455,9 @@ export function selectFolder(id) {
     state.viewMode = 'folder'; renderAll(); closeLeftPanel();
 }
 
-export function insertChipAtCursor(promptName) {
-    if (!state.activeId || state.editorMode === 'preview') return;
-    const ta = els.contentInput, chip = `[!prompt:${promptName}]`, value = ta.value;
-    let start = ta.selectionStart ?? value.length, end = ta.selectionEnd ?? value.length;
-    ta.value = value.slice(0, start) + chip + value.slice(end);
-    try { ta.setSelectionRange(start + chip.length, start + chip.length); ta.focus(); } catch (_) {}
-    onEdit(); 
-}
-
 export function insertFormatting(type) {
     if (state.editorMode === 'preview') return;
-    if (type === 'tag' || type === 'context') { openPicker(type); return; }
+    if (type === 'tag' || type === 'context' || type === 'prompt') { openPicker(type); return; }
     
     const ta = els.contentInput;
     const start = ta.selectionStart; const end = ta.selectionEnd; const val = ta.value; const sel = val.substring(start, end);
@@ -570,7 +577,7 @@ export function addFilterRule() {
     const tags = collectAllTags();
     if (tags.length > 0) defaultRule.value = tags[0].tag;
     else {
-        const folders = state.folders;
+        const folders = sortedFolders();
         if(folders.length > 0) { defaultRule.type = 'folder'; defaultRule.value = folders[0].id; }
     }
     state.draftFilter.push(defaultRule);
@@ -590,7 +597,7 @@ export function updateFilterRule(index, field, value) {
         state.draftFilter[index][field] = value;
         if (field === 'type') {
             const tags = collectAllTags();
-            const folders = state.folders;
+            const folders = sortedFolders();
             const contexts = collectAllContexts();
             if (value === 'tag' && tags.length) state.draftFilter[index].value = tags[0].tag;
             else if (value === 'folder' && folders.length) state.draftFilter[index].value = folders[0].id;
@@ -617,7 +624,7 @@ export function saveFilter() {
 
 export function openPicker(type) {
     state.pickerType = type;
-    els.pickerTitle.textContent = type === 'tag' ? 'Выбрать тег' : 'Выбрать контекст';
+    els.pickerTitle.textContent = type === 'tag' ? 'Выбрать тег' : (type === 'prompt' ? 'Выбрать промпт' : 'Выбрать контекст');
     els.pickerSearch.value = '';
     renderPickerList('');
     els.pickerBackdrop.classList.remove('hidden');
@@ -642,6 +649,8 @@ export function insertPickedItem(value) {
     let insert = '';
     if (state.pickerType === 'tag') {
         insert = `#${value} `;
+    } else if (state.pickerType === 'prompt') {
+        insert = `[!prompt:${value}] `;
     } else {
         insert = `[[${value}]] `;
     }
@@ -654,6 +663,249 @@ export function insertPickedItem(value) {
     
     onEdit();
     closePicker();
+}
+
+// --- PROMPTS CRUD ---
+
+export function createPrompt() {
+    const raw = window.prompt('Имя нового промпта:'); 
+    if (!raw || !raw.trim()) return;
+    const name = raw.trim();
+    if (getPromptByName(name)) { window.alert('Промпт с таким именем уже существует.'); return; }
+
+    const now = Date.now();
+    const note = { 
+        id: genId(), title: name, content: '', updatedAt: now, createdAt: now, 
+        tags: [], folderId: SYSTEM_PROMPTS_FOLDER_ID, isPinned: false, 
+        isPrompt: true, icon: 'sparkles', description: '' 
+    };
+    state.notes.unshift(note); state.activeId = note.id; 
+    state.viewMode = 'editor'; state.editorMode = 'edit'; 
+    clearAiPanel();
+    persistNotes(); state.saveStatus = 'idle';
+    pushToHistory(note.id);
+    
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        writeNoteToDisk(note, state.vaultHandle).catch(console.error);
+    }
+
+    renderAll(); closeLeftPanel();
+    setTimeout(() => els.titleInput.focus(), 50);
+}
+
+export async function deletePrompt(id) {
+    const note = getNoteById(id); if (!note || !note.isPrompt) return;
+    
+    let usageCount = 0;
+    const regex = new RegExp(`\\[!prompt:${note.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'gi');
+    state.notes.forEach(n => {
+        if (!n.isPrompt && n.content.match(regex)) usageCount++;
+    });
+
+    const msg = usageCount > 0 
+        ? `Промпт «${note.title}» используется в ${usageCount} заметках. При удалении чипы станут неактивны. Продолжить?`
+        : `Удалить промпт «${note.title}»?`;
+        
+    if (!window.confirm(msg)) return;
+
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        await deleteNoteFromDisk(note, state.vaultHandle);
+    }
+
+    state.notes = state.notes.filter(n => n.id !== id);
+    if (state.activeId === id) { 
+        state.activeId = null; 
+        state.viewMode = 'folder';
+        clearAiPanel();
+    }
+    persistNotes(); state.saveStatus = 'idle'; renderAll();
+}
+
+export function openPromptSettings(id) {
+    state.promptSettingsId = id;
+    renderPromptSettings();
+    els.promptSettingsBackdrop.classList.remove('hidden');
+    setTimeout(() => els.promptSettingsModal.classList.add('open'), 10);
+}
+
+export function closePromptSettings() {
+    els.promptSettingsModal.classList.remove('open');
+    els.promptSettingsBackdrop.classList.add('hidden');
+    setTimeout(() => { state.promptSettingsId = null; }, 300);
+}
+
+export async function savePromptSettings() {
+    if (!state.promptSettingsId) return;
+    const note = getNoteById(state.promptSettingsId);
+    if (!note) return;
+
+    let icon = els.promptSettingsIconCustom.value.trim() || 'sparkles';
+    note.icon = icon;
+    note.description = els.promptSettingsDescription.value.trim();
+    note.updatedAt = Date.now();
+    
+    persistNotes();
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        await writeNoteToDisk(note, state.vaultHandle);
+    }
+    
+    closePromptSettings();
+    renderAll();
+    showSnackbar('Настройки промпта сохранены');
+}
+
+// --- AI LOGIC ---
+
+export function triggerAiFromChip(name) {
+    const prompt = getPromptByName(name);
+    if (!prompt) {
+        if(window.confirm(`Промпт «${name}» не найден. Создать его?`)) {
+            const now = Date.now();
+            const newNote = { 
+                id: genId(), title: name, content: '', updatedAt: now, createdAt: now, 
+                tags: [], folderId: SYSTEM_PROMPTS_FOLDER_ID, isPinned: false,
+                isPrompt: true, icon: 'sparkles', description: ''
+            };
+            state.notes.unshift(newNote); 
+            persistNotes(); renderAll();
+            selectNote(newNote.id);
+        }
+        return;
+    }
+    
+    if (!state.activeId) return;
+    const note = getNoteById(state.activeId);
+    if (!note) return;
+
+    openAiPanel(prompt, note);
+}
+
+export function openAiPanel(prompt, note) {
+    state.aiActivePrompt = { id: prompt.id, name: prompt.title };
+    state.aiState = 'loading';
+    state.aiResponse = '';
+    state.aiErrorMsg = '';
+    els.aiPanel.classList.add('mobile-active'); // Для мобильных
+    renderAiPanel();
+    executeAiRequest(prompt, note);
+}
+
+export function closeAiPanel() {
+    els.aiPanel.classList.remove('mobile-active');
+    if (state.aiAbortController) {
+        state.aiAbortController.abort();
+        state.aiAbortController = null;
+    }
+}
+
+export function clearAiPanel() {
+    closeAiPanel();
+    state.aiState = 'empty';
+    state.aiActivePrompt = null;
+    state.aiResponse = '';
+    state.aiErrorMsg = '';
+    renderAiPanel();
+}
+
+export async function executeAiRequest(prompt, note) {
+    if (!prompt.content.trim()) {
+        state.aiState = 'error';
+        state.aiErrorMsg = 'Промпт пуст. Заполните инструкцию.';
+        renderAiPanel();
+        return;
+    }
+
+    if (!state.settings.aiProxyUrl) {
+        state.aiState = 'error';
+        state.aiErrorMsg = 'URL прокси не настроен. Откройте Настройки.';
+        renderAiPanel();
+        return;
+    }
+
+    state.aiState = 'loading';
+    state.aiErrorMsg = '';
+    state.aiResponse = '';
+    renderAiPanel();
+
+    state.aiAbortController = new AbortController();
+    
+    // Таймаут 90 секунд
+    const timeoutId = setTimeout(() => {
+        if (state.aiAbortController) state.aiAbortController.abort('timeout');
+    }, 90000);
+
+    try {
+        const user = buildUserContext(note);
+        const text = await sendAiRequest({
+            system: prompt.content,
+            user: user,
+            signal: state.aiAbortController.signal
+        });
+
+        clearTimeout(timeoutId);
+        state.aiState = 'streaming';
+        renderAiPanel();
+        
+        // Устанавливаем заголовок
+        els.aiHeaderTitle.textContent = prompt.title;
+
+        state.aiResponse = text;
+        typewriter(els.aiOutput, text, () => {
+            state.aiState = 'done';
+            renderAiPanel();
+        });
+        
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            state.aiErrorMsg = err === 'timeout' ? 'Превышено время ожидания (90 сек).' : 'Запрос отменен.';
+        } else {
+            state.aiErrorMsg = err.message || 'Ошибка сети.';
+        }
+        state.aiState = 'error';
+        renderAiPanel();
+    } finally {
+        state.aiAbortController = null;
+    }
+}
+
+export function handleAiCopy() {
+    if (!state.aiResponse) return;
+    navigator.clipboard.writeText(state.aiResponse).then(() => {
+        showSnackbar('Скопировано в буфер обмена');
+    }).catch(() => {
+        showSnackbar('Не удалось скопировать', 'error');
+    });
+}
+
+export async function handleAiInsert() {
+    if (!state.aiResponse || !state.activeId) return;
+    const note = getNoteById(state.activeId);
+    if (!note) return;
+
+    const promptName = state.aiActivePrompt ? state.aiActivePrompt.name : 'ИИ';
+    const quotedText = state.aiResponse.split('\n').map(line => `> ${line}`).join('\n');
+    const block = `\n\n> ✨ **${promptName}**\n>\n${quotedText}\n`;
+
+    note.content += block;
+    note.updatedAt = Date.now();
+    persistNotes();
+    
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        await writeNoteToDisk(note, state.vaultHandle);
+    }
+    
+    renderAll();
+    showSnackbar('Ответ вставлен в заметку');
+}
+
+export function handleAiRegenerate() {
+    if (!state.aiActivePrompt || !state.activeId) return;
+    const note = getNoteById(state.activeId);
+    const prompt = getNoteById(state.aiActivePrompt.id);
+    if (note && prompt) {
+        executeAiRequest(prompt, note);
+    }
 }
 
 // --- EXPORT / IMPORT ---
@@ -800,7 +1052,7 @@ export async function handleImportFiles(files) {
                             const dirName = relativePath.split('/')[0];
                             let folder = state.folders.find(f => f.name === dirName);
                             if (!folder) {
-                                folder = { id: genId(), name: dirName || 'Входящие', updatedAt: Date.now() };
+                                folder = { id: genId(), name: dirName || 'Входящие', updatedAt: Date.now(), isSystem: false };
                                 state.folders.push(folder);
                             }
                             const { note } = parseMarkdown(text, folder.id);
@@ -824,7 +1076,6 @@ export async function handleImportFiles(files) {
         else if (file.name.endsWith('.md')) {
             const text = await file.text();
             const { note } = parseMarkdown(text, state.activeFolderId || 'inbox');
-            // ИСПРАВЛЕНИЕ: Ставим дату создания на сегодня, чтобы импорт появился в календаре
             note.createdAt = Date.now(); 
             
             const existingIdx = state.notes.findIndex(n => n.id === note.id);
@@ -837,7 +1088,6 @@ export async function handleImportFiles(files) {
     if (importedCount > 0) {
         persistNotes(); persistFolders();
         
-        // ИСПРАВЛЕНИЕ: Выгружаем импортированное на диск, если подключен Vault
         if (state.vaultHandle && state.vaultStatus === 'connected') {
             try {
                 for (const note of state.notes) {
@@ -846,7 +1096,7 @@ export async function handleImportFiles(files) {
             } catch (e) { console.error('Disk write error during import', e); }
         }
         
-        state.saveStatus = 'saved'; // Сброс зависшего статуса
+        state.saveStatus = 'saved';
         renderSaveStatus();
         renderAll();
         alert(`Успешно импортировано файлов: ${importedCount}`);
