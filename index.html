@@ -25,7 +25,7 @@
             :root { --md-surface: #141218; --md-surface-variant: #49454F; --md-primary: #D0BCFF; --md-on-primary: #381E72; --md-on-surface: #E6E0E9; --md-outline: #938F99; }
         }
         
-        /* v1.11.8: Жесткая блокировка горизонтального скролла */
+        /* v1.11.9: Жесткая блокировка горизонтального скролла */
         html, body { margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; overflow-x: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; background-color: var(--md-surface); }
         
         .bg-surface { background-color: var(--md-surface); }
@@ -109,7 +109,7 @@
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        /* v1.11.8: Исправление нижних шторок (Bottom Sheets) */
+        /* v1.11.9: Исправление нижних шторок (Bottom Sheets) */
         .bottom-sheet { 
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
             transform: translateY(100%); 
@@ -117,8 +117,8 @@
             visibility: hidden; 
             pointer-events: none; 
             padding-bottom: env(safe-area-inset-bottom); 
-            will-change: transform; /* Аппаратное ускорение */
-            backface-visibility: hidden; /* Предотвращает мерцание/смещение */
+            will-change: transform; 
+            backface-visibility: hidden; 
         }
         .bottom-sheet.open { transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
         
@@ -166,11 +166,11 @@
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        /* v1.11.8: ПУЛЕНЕПРОБИВАЕМОЕ ЦЕНТРИРОВАНИЕ ДИАЛОГОВ */
+        /* v1.11.9: ИСПРАВЛЕНИЕ ЦЕНТРИРОВАНИЯ ДИАЛОГОВ (Возврат к нативному) */
         dialog { 
-            /* Принудительно сбрасываем Tailwind Preflight */
+            /* Сбрасываем Tailwind Preflight */
             margin: auto !important; 
-            inset: 0 !important; /* Современный сброс позиционирования */
+            inset: auto !important; /* Очищаем left/right/top/bottom */
             position: fixed !important;
             
             border: none; 
@@ -178,16 +178,14 @@
             padding: 24px; 
             background: var(--md-surface); 
             color: var(--md-on-surface); 
-            width: calc(100vw - 48px); 
+            width: calc(100% - 32px); /* Используем 100% вместо 100vw */
             max-width: 400px; 
             box-shadow: 0 8px 24px rgba(0,0,0,0.2); 
             box-sizing: border-box; 
             max-height: 85dvh; 
-            overflow-y: auto; 
-            overflow-x: hidden;
+            overflow: visible !important; /* Отключаем обрезку контента */
             word-break: break-word; 
-            /* Убираем любые transform, которые могут вызвать смещение */
-            transform: none !important; 
+            transform: none !important; /* Убираем любые transform */
         }
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
         .dialog-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; }
@@ -204,7 +202,7 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- v1.11.8: M3 Dialogs -->
+    <!-- v1.11.9: M3 Dialogs -->
     <dialog id="app-dialog-alert">
         <div class="dialog-title" id="app-dialog-alert-title">Уведомление</div>
         <div class="dialog-msg" id="app-dialog-alert-msg"></div>
@@ -233,7 +231,7 @@
         </div>
     </dialog>
 
-    <!-- v1.11.8: Wrapper to isolate Flexbox from dialogs -->
+    <!-- v1.11.9: Wrapper to isolate Flexbox from dialogs -->
     <div id="app-layout" class="flex w-full h-full overflow-hidden">
         <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
 
@@ -609,7 +607,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.8</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.9</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
