@@ -25,7 +25,6 @@
             :root { --md-surface: #141218; --md-surface-variant: #49454F; --md-primary: #D0BCFF; --md-on-primary: #381E72; --md-on-surface: #E6E0E9; --md-outline: #938F99; }
         }
         
-        /* v1.11.9: Жесткая блокировка горизонтального скролла */
         html, body { margin: 0; padding: 0; height: 100dvh; width: 100vw; overflow: hidden; overflow-x: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; background-color: var(--md-surface); }
         
         .bg-surface { background-color: var(--md-surface); }
@@ -109,17 +108,7 @@
         .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        /* v1.11.9: Исправление нижних шторок (Bottom Sheets) */
-        .bottom-sheet { 
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
-            transform: translateY(100%); 
-            opacity: 0; 
-            visibility: hidden; 
-            pointer-events: none; 
-            padding-bottom: env(safe-area-inset-bottom); 
-            will-change: transform; 
-            backface-visibility: hidden; 
-        }
+        .bottom-sheet { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; transform: translateY(100%); opacity: 0; visibility: hidden; pointer-events: none; padding-bottom: env(safe-area-inset-bottom); will-change: transform; backface-visibility: hidden; }
         .bottom-sheet.open { transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto; }
         
         #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
@@ -166,28 +155,42 @@
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        /* v1.11.9: ИСПРАВЛЕНИЕ ЦЕНТРИРОВАНИЯ ДИАЛОГОВ (Возврат к нативному) */
-        dialog { 
-            /* Сбрасываем Tailwind Preflight */
-            margin: auto !important; 
-            inset: auto !important; /* Очищаем left/right/top/bottom */
-            position: fixed !important;
-            
-            border: none; 
-            border-radius: 28px; 
-            padding: 24px; 
-            background: var(--md-surface); 
-            color: var(--md-on-surface); 
-            width: calc(100% - 32px); /* Используем 100% вместо 100vw */
-            max-width: 400px; 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2); 
-            box-sizing: border-box; 
-            max-height: 85dvh; 
-            overflow: visible !important; /* Отключаем обрезку контента */
-            word-break: break-word; 
-            transform: none !important; /* Убираем любые transform */
+        /* v1.11.10: Custom Modals (Замена нативного <dialog>) */
+        .custom-dialog-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
         }
-        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+        .custom-dialog-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .custom-dialog {
+            background: var(--md-surface);
+            color: var(--md-on-surface);
+            border-radius: 28px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+            max-height: 100%;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .custom-dialog-overlay.open .custom-dialog {
+            transform: scale(1);
+        }
         .dialog-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; }
         .dialog-msg { font-size: 0.95rem; color: var(--md-outline); margin-bottom: 24px; white-space: pre-wrap; }
         .dialog-input { background: var(--md-surface-variant); padding: 12px; border-radius: 8px; border: 1px solid var(--md-outline)/30; width: 100%; margin-bottom: 24px; font-size: 1rem; box-sizing: border-box; }
@@ -202,36 +205,40 @@
 </head>
 <body class="bg-surface text-[var(--md-on-surface)]">
 
-    <!-- v1.11.9: M3 Dialogs -->
-    <dialog id="app-dialog-alert">
-        <div class="dialog-title" id="app-dialog-alert-title">Уведомление</div>
-        <div class="dialog-msg" id="app-dialog-alert-msg"></div>
-        <div class="dialog-actions">
-            <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-alert-ok">ОК</button>
-            <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-alert-close" style="display:none;"></button>
+    <!-- v1.11.10: Custom Modals -->
+    <div id="app-dialog-alert" class="custom-dialog-overlay hidden">
+        <div class="custom-dialog">
+            <div class="dialog-title" id="app-dialog-alert-title">Уведомление</div>
+            <div class="dialog-msg" id="app-dialog-alert-msg"></div>
+            <div class="dialog-actions">
+                <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-alert-ok">ОК</button>
+            </div>
         </div>
-    </dialog>
+    </div>
 
-    <dialog id="app-dialog-confirm">
-        <div class="dialog-title" id="app-dialog-confirm-title">Подтверждение</div>
-        <div class="dialog-msg" id="app-dialog-confirm-msg"></div>
-        <div class="dialog-actions">
-            <button type="button" class="dialog-btn dialog-btn-cancel" id="app-dialog-confirm-cancel">Отмена</button>
-            <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-confirm-ok">ОК</button>
+    <div id="app-dialog-confirm" class="custom-dialog-overlay hidden">
+        <div class="custom-dialog">
+            <div class="dialog-title" id="app-dialog-confirm-title">Подтверждение</div>
+            <div class="dialog-msg" id="app-dialog-confirm-msg"></div>
+            <div class="dialog-actions">
+                <button type="button" class="dialog-btn dialog-btn-cancel" id="app-dialog-confirm-cancel">Отмена</button>
+                <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-confirm-ok">ОК</button>
+            </div>
         </div>
-    </dialog>
+    </div>
 
-    <dialog id="app-dialog-prompt">
-        <div class="dialog-title" id="app-dialog-prompt-title">Ввод</div>
-        <div class="dialog-msg" id="app-dialog-prompt-msg"></div>
-        <input type="text" class="dialog-input" id="app-dialog-prompt-input">
-        <div class="dialog-actions">
-            <button type="button" class="dialog-btn dialog-btn-cancel" id="app-dialog-prompt-cancel">Отмена</button>
-            <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-prompt-ok">ОК</button>
+    <div id="app-dialog-prompt" class="custom-dialog-overlay hidden">
+        <div class="custom-dialog">
+            <div class="dialog-title" id="app-dialog-prompt-title">Ввод</div>
+            <div class="dialog-msg" id="app-dialog-prompt-msg"></div>
+            <input type="text" class="dialog-input" id="app-dialog-prompt-input">
+            <div class="dialog-actions">
+                <button type="button" class="dialog-btn dialog-btn-cancel" id="app-dialog-prompt-cancel">Отмена</button>
+                <button type="button" class="dialog-btn dialog-btn-confirm" id="app-dialog-prompt-ok">ОК</button>
+            </div>
         </div>
-    </dialog>
+    </div>
 
-    <!-- v1.11.9: Wrapper to isolate Flexbox from dialogs -->
     <div id="app-layout" class="flex w-full h-full overflow-hidden">
         <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
 
@@ -607,7 +614,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.9</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.10</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
