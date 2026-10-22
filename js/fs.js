@@ -1,3 +1,4 @@
+// js/fs.js
 import { state } from './state.js';
 import { generateMarkdown, parseMarkdown, sanitizeFileName, genId } from './utils.js';
 
@@ -98,18 +99,21 @@ export async function readAllFilesFromDisk(dirHandle, rootHandle = null) {
 
     let fileCount = 0;
     for await (const entry of dirHandle.values()) {
+        if (entry.name.startsWith('.')) continue;
+
         if (entry.kind === 'file' && entry.name.endsWith('.md')) {
             try {
                 const file = await entry.getFile();
                 const text = await file.text();
-                const { note } = parseMarkdown(text, folderId);
+                const { note } = parseMarkdown(text, folderId, entry.name);
                 note.fileName = entry.name;
-                note.fileMtime = file.lastModified; // ИСПРАВЛЕНИЕ: Сохраняем время изменения файла
+                note.fileMtime = file.lastModified;
                 notes.push(note);
             } catch (e) {
                 console.warn('Ошибка чтения файла:', entry.name, e);
             }
         } else if (entry.kind === 'directory') {
+            if (entry.name.startsWith('.')) continue;
             const subNotes = await readAllFilesFromDisk(entry, currentRoot);
             notes.push(...subNotes);
         }
@@ -138,13 +142,6 @@ export async function writeNoteToDisk(note, dirHandle) {
 
         if (note.fileName && note.fileName !== newFileName) {
             try { await targetDir.removeEntry(note.fileName); } catch (_) {}
-        } else if (!note.fileName) {
-            const shortId = String(note.id).slice(0, 4);
-            for await (const entry of targetDir.values()) {
-                if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId) && entry.name !== newFileName) {
-                    try { await targetDir.removeEntry(entry.name); } catch (_) {}
-                }
-            }
         }
 
         const fileHandle = await targetDir.getFileHandle(newFileName, { create: true });
@@ -165,7 +162,7 @@ export async function writeNoteToDisk(note, dirHandle) {
 }
 
 export async function deleteNoteFromDisk(note, dirHandle) {
-    if (!dirHandle) return;
+    if (!dirHandle || !note.fileName) return;
     try {
         let targetDir = dirHandle;
         if (note.folderId !== 'inbox') {
@@ -175,16 +172,10 @@ export async function deleteNoteFromDisk(note, dirHandle) {
             }
         }
         
-        if (note.fileName) {
-            try { await targetDir.removeEntry(note.fileName); } catch (_) {}
-        } else {
-            const shortId = String(note.id).slice(0, 4);
-            for await (const entry of targetDir.values()) {
-                if (entry.kind === 'file' && entry.name.endsWith('.md') && entry.name.includes(shortId)) {
-                    await targetDir.removeEntry(entry.name);
-                }
-            }
-        }
+        try { 
+            await targetDir.removeEntry(note.fileName); 
+        } catch (_) {}
+        
     } catch (e) {
         console.warn('Ошибка удаления файла:', e);
     }

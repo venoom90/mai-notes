@@ -1,5 +1,6 @@
+// js/logic.js
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus, renderAiPanel, renderPromptSettings } from './render.js';
 import { isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, requestPermission, readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk } from './fs.js';
@@ -273,6 +274,8 @@ export function toggleCalendarExpand() {
 
 export function scheduleSave() {
     if (state.saveTimeout) clearTimeout(state.saveTimeout);
+    const noteIdToSave = state.activeId;
+    
     state.saveTimeout = setTimeout(async () => {
         state.saveTimeout = null;
         const ok = persistNotes(); 
@@ -280,8 +283,8 @@ export function scheduleSave() {
             state.saveStatus = 'saved'; 
             renderSaveStatus();
             
-            if (state.vaultHandle && state.vaultStatus === 'connected' && state.activeId) {
-                const note = getNoteById(state.activeId);
+            if (state.vaultHandle && state.vaultStatus === 'connected' && noteIdToSave) {
+                const note = getNoteById(noteIdToSave);
                 if (note) {
                     try { await writeNoteToDisk(note, state.vaultHandle); } 
                     catch (e) { 
@@ -311,7 +314,10 @@ export function onEdit() {
 
 export async function createNote() {
     const now = Date.now();
-    const note = { id: genId(), title: '', content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId || 'inbox', isPinned: false };
+    let targetFolder = state.activeFolderId || 'inbox';
+    if (targetFolder === SYSTEM_PROMPTS_FOLDER_ID) targetFolder = 'inbox';
+
+    const note = { id: genId(), title: '', content: '', updatedAt: now, createdAt: now, tags: [], folderId: targetFolder, isPinned: false };
     state.notes.unshift(note); state.activeId = note.id; 
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.viewMode = 'editor'; state.editorMode = 'edit'; 
@@ -473,7 +479,6 @@ export function insertFormatting(type) {
 }
 
 export function togglePreviewMode() { 
-    // ИСПРАВЛЕНИЕ: Принудительно сохраняем текст перед переключением
     if (state.editorMode === 'edit') {
         onEdit(); 
     }
@@ -517,7 +522,9 @@ export function setActionMenuMode(mode) {
 export async function togglePinFromMenu() {
     const note = getNoteById(state.actionMenuNoteId); if (!note) return;
     note.isPinned = !note.isPinned; note.updatedAt = Date.now();
-    if (state.vaultHandle && state.vaultStatus === 'connected') await writeNoteToDisk(note, state.vaultHandle);
+    try {
+        if (state.vaultHandle && state.vaultStatus === 'connected') await writeNoteToDisk(note, state.vaultHandle);
+    } catch(e) { console.error(e); }
     persistNotes(); renderAll(); closeActionMenu();
 }
 
@@ -529,9 +536,11 @@ export async function renameNoteFromMenu() {
         note.title = raw.trim(); note.updatedAt = Date.now();
         syncNoteTags(note); persistNotes(); 
         
-        if (state.vaultHandle && state.vaultStatus === 'connected') {
-            await writeNoteToDisk(note, state.vaultHandle); 
-        }
+        try {
+            if (state.vaultHandle && state.vaultStatus === 'connected') {
+                await writeNoteToDisk(note, state.vaultHandle); 
+            }
+        } catch(e) { console.error(e); }
         renderAll();
     }
 }
@@ -548,10 +557,12 @@ export async function moveNoteFromMenu(folderId) {
     note.folderId = folderId; note.updatedAt = Date.now();
     persistNotes(); closeActionMenu(); renderAll();
     
-    if (state.vaultHandle && state.vaultStatus === 'connected') {
-        await deleteNoteFromDisk(oldNote, state.vaultHandle);
-        await writeNoteToDisk(note, state.vaultHandle);
-    }
+    try {
+        if (state.vaultHandle && state.vaultStatus === 'connected') {
+            await deleteNoteFromDisk(oldNote, state.vaultHandle);
+            await writeNoteToDisk(note, state.vaultHandle);
+        }
+    } catch(e) { console.error(e); }
 }
 
 export function openSearch() {
@@ -752,9 +763,11 @@ export async function savePromptSettings() {
     note.updatedAt = Date.now();
     
     persistNotes();
-    if (state.vaultHandle && state.vaultStatus === 'connected') {
-        await writeNoteToDisk(note, state.vaultHandle);
-    }
+    try {
+        if (state.vaultHandle && state.vaultStatus === 'connected') {
+            await writeNoteToDisk(note, state.vaultHandle);
+        }
+    } catch(e) { console.error(e); }
     
     closePromptSettings();
     renderAll();
@@ -890,16 +903,17 @@ export async function handleAiInsert() {
 
     const promptName = state.aiActivePrompt ? state.aiActivePrompt.name : 'ИИ';
     
-    // ИСПРАВЛЕНИЕ: Убрали цитаты (>) и делаем красивый блок
     const block = `\n\n---\n**✨ ${promptName}**\n\n${state.aiResponse}\n\n---\n`;
 
     note.content += block;
     note.updatedAt = Date.now();
     persistNotes();
     
-    if (state.vaultHandle && state.vaultStatus === 'connected') {
-        await writeNoteToDisk(note, state.vaultHandle);
-    }
+    try {
+        if (state.vaultHandle && state.vaultStatus === 'connected') {
+            await writeNoteToDisk(note, state.vaultHandle);
+        }
+    } catch(e) { console.error(e); }
     
     renderAll();
     showSnackbar('Ответ вставлен в заметку');
@@ -1061,7 +1075,7 @@ export async function handleImportFiles(files) {
                                 folder = { id: genId(), name: dirName || 'Входящие', updatedAt: Date.now(), isSystem: false };
                                 state.folders.push(folder);
                             }
-                            const { note } = parseMarkdown(text, folder.id);
+                            const { note } = parseMarkdown(text, folder.id, zipEntry.name);
                             
                             const existingIdx = state.notes.findIndex(n => n.id === note.id);
                             if (existingIdx >= 0) {
@@ -1081,7 +1095,7 @@ export async function handleImportFiles(files) {
         } 
         else if (file.name.endsWith('.md')) {
             const text = await file.text();
-            const { note } = parseMarkdown(text, state.activeFolderId || 'inbox');
+            const { note } = parseMarkdown(text, state.activeFolderId || 'inbox', file.name);
             note.createdAt = Date.now(); 
             
             const existingIdx = state.notes.findIndex(n => n.id === note.id);

@@ -1,3 +1,4 @@
+// js/app.js
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts } from './storage.js';
@@ -103,7 +104,14 @@ function attachListeners() {
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
     els.btnNewPrompt.addEventListener('click', createPrompt);
     els.btnPreview.addEventListener('click', togglePreviewMode);
-    els.btnDeleteNote.addEventListener('click', () => { if (state.activeId) deleteNote(state.activeId); });
+    
+    els.btnDeleteNote.addEventListener('click', () => { 
+        if (state.activeId) {
+            const note = getNoteById(state.activeId);
+            if (note && note.isPrompt) deletePrompt(state.activeId);
+            else deleteNote(state.activeId);
+        }
+    });
     
     if (els.folderMoveSelect) {
         els.folderMoveSelect.addEventListener('change', async (e) => {
@@ -113,11 +121,13 @@ function attachListeners() {
                 note.folderId = e.target.value; note.updatedAt = Date.now(); 
                 persistNotes(); renderAll(); 
                 
-                if (state.vaultHandle && state.vaultStatus === 'connected') {
-                    const { deleteNoteFromDisk, writeNoteToDisk } = await import('./fs.js');
-                    await deleteNoteFromDisk(oldNote, state.vaultHandle);
-                    await writeNoteToDisk(note, state.vaultHandle);
-                }
+                try {
+                    if (state.vaultHandle && state.vaultStatus === 'connected') {
+                        const { deleteNoteFromDisk, writeNoteToDisk } = await import('./fs.js');
+                        await deleteNoteFromDisk(oldNote, state.vaultHandle);
+                        await writeNoteToDisk(note, state.vaultHandle);
+                    }
+                } catch(err) { console.error(err); }
             }
         });
     }
@@ -177,7 +187,6 @@ function attachListeners() {
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     
-    // ИСПРАВЛЕНИЕ: Принудительно сохраняем при потере фокуса (спасает на мобильных)
     els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
     els.titleInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
 
@@ -214,7 +223,7 @@ function attachListeners() {
             e.preventDefault(); const title = t.closest('.wiki-link-broken').getAttribute('data-new-title');
             if (window.confirm(`Создать заметку «${title}»?`)) {
                 const now = Date.now();
-                const newNote = { id: genId(), title: title, content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId, isPinned: false };
+                const newNote = { id: genId(), title: title, content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId === '__prompts__' ? 'inbox' : state.activeFolderId, isPinned: false };
                 state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit'; 
                 persistNotes(); renderAll();
             }

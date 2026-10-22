@@ -1,3 +1,4 @@
+// js/utils.js
 import { state } from './state.js';
 
 export function genId() {
@@ -59,11 +60,9 @@ export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     if (!ta || ta.classList.contains('hidden')) return;
     
-    // ИСПРАВЛЕНИЕ: Используем visualViewport для корректного определения высоты с клавиатурой
     const vv = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     
     ta.style.height = 'auto';
-    // Оставляем место для клавиатуры и шапки
     const max = Math.max(200, vv - 250); 
     ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
 }
@@ -239,7 +238,7 @@ export function generateMarkdown(note, folderName) {
     return `${yamlLines.join('\n')}\n\n# ${noteTitle(note)}\n\n${safeContent}`;
 }
 
-export function parseMarkdown(text, defaultFolderId) {
+export function parseMarkdown(text, defaultFolderId, fileName = '') {
     const yamlRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
     const match = text.match(yamlRegex);
     let meta = {};
@@ -249,38 +248,55 @@ export function parseMarkdown(text, defaultFolderId) {
         const yamlText = match[1];
         content = text.slice(match[0].length).trim();
         yamlText.split('\n').forEach(line => {
-            const [key, ...rest] = line.split(':');
-            if (key && rest.length > 0) {
-                let val = rest.join(':').trim();
+            const colonIdx = line.indexOf(':');
+            if (colonIdx > 0) {
+                const key = line.slice(0, colonIdx).trim();
+                let val = line.slice(colonIdx + 1).trim();
                 if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1).replace(/\\"/g, '"');
-                if (val === 'true') meta[key.trim()] = true;
-                else if (val === 'false') meta[key.trim()] = false;
-                else if (!isNaN(val) && val !== '') meta[key.trim()] = Number(val);
-                else meta[key.trim()] = val;
+                if (val === 'true') meta[key] = true;
+                else if (val === 'false') meta[key] = false;
+                else if (/^\d+$/.test(val)) meta[key] = Number(val);
+                else meta[key] = val; 
             }
         });
     }
 
     const lines = content.split('\n');
+    let extractedTitle = '';
     if (lines[0] && lines[0].startsWith('# ')) {
+        extractedTitle = lines[0].replace(/^#\s+/, '').trim();
         lines.shift(); 
         content = lines.join('\n').trim();
     }
 
     const isPrompt = meta.type === 'prompt';
     
+    let finalId = meta.id ? String(meta.id) : '';
+    if (!finalId) {
+        finalId = fileName ? fileName.replace(/[^a-zA-Z0-9_-]/g, '_') : genId();
+    }
+
+    let parsedUpdated = Date.now();
+    if (meta.updated) {
+        parsedUpdated = typeof meta.updated === 'number' ? meta.updated : new Date(meta.updated).getTime() || Date.now();
+    }
+    let parsedCreated = parsedUpdated;
+    if (meta.created) {
+        parsedCreated = typeof meta.created === 'number' ? meta.created : new Date(meta.created).getTime() || parsedUpdated;
+    }
+
     const note = {
-        id: meta.id || genId(),
-        title: meta.title || (lines[0] ? lines[0].replace(/^#+\s*/, '') : 'Импортированная заметка'),
+        id: finalId,
+        title: String(meta.title || extractedTitle || (fileName ? fileName.replace('.md', '') : 'Импортированная заметка')),
         content: content,
-        updatedAt: meta.updated || Date.now(),
-        createdAt: meta.created || meta.updated || Date.now(),
+        updatedAt: parsedUpdated,
+        createdAt: parsedCreated,
         tags: [],
         folderId: isPrompt ? '__prompts__' : (defaultFolderId || 'inbox'),
         isPinned: !!meta.pinned,
         isPrompt: isPrompt,
-        icon: meta.icon || 'sparkles',
-        description: meta.description || ''
+        icon: String(meta.icon || 'sparkles'),
+        description: String(meta.description || '')
     };
     syncNoteTags(note);
     return { note, folderName: meta.folder };

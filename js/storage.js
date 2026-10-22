@@ -1,3 +1,4 @@
+// js/storage.js
 import { state, STORAGE_KEY, FOLDERS_KEY, FILTERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY, SETTINGS_KEY, PROMPTS_SEEDED_KEY, SYSTEM_PROMPTS_FOLDER_ID, DEFAULT_PROMPTS } from './state.js';
 import { genId, isValidNote, syncNoteTags, makeDefaultFolder } from './utils.js';
 
@@ -10,7 +11,7 @@ export function loadNotes() {
             if (Array.isArray(parsed)) {
                 return parsed.filter(isValidNote).map(n => {
                     const note = { 
-                        id: n.id, title: n.title, content: n.content, updatedAt: n.updatedAt, 
+                        id: String(n.id), title: String(n.title), content: String(n.content), updatedAt: n.updatedAt, 
                         createdAt: n.createdAt || n.updatedAt,
                         tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox',
                         isPinned: !!n.isPinned,
