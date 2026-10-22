@@ -1,3 +1,8 @@
+// js/render.js — MAi Notes V1.11.3
+// Changes (v1.11.3): XSS-экранирование data-* и <option> значений, где раньше вставлялись ID/имена без escapeHtml.
+// Затронуто: renderSidebar (filters, prompts), renderFolderView (action-menu),
+//            renderBacklinks, renderActionSheetFolders, renderSearchResults,
+//            renderFilterRuleRow (<option>), renderAiPanel (dropdown prompts).
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
@@ -36,23 +41,24 @@ export function renderSidebar() {
         els.filtersList.innerHTML = state.savedFilters.map(f => {
             const isActive = f.id === state.activeFilterId;
             const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
+            // v1.11.3: escapeHtml для f.id
             return `<div class="${cls} flex items-center gap-1">
-                <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-filter-select="${f.id}">
+                <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-filter-select="${escapeHtml(f.id)}">
                     <i data-lucide="filter" class="w-4 h-4 text-outline"></i>
                     <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(f.name)}</span>
                 </button>
-                <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${f.id}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${escapeHtml(f.id)}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>`;
         }).join('');
     }
 
-    // Промпты
     const prompts = getAllPrompts();
     els.promptsList.innerHTML = prompts.map(p => {
         const isActive = state.activeId === p.id;
         const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
+        // v1.11.3: escapeHtml для p.id
         return `<div class="${cls} flex items-center gap-1">
-            <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-prompt-select="${p.id}">
+            <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-prompt-select="${escapeHtml(p.id)}">
                 <i data-lucide="${escapeHtml(p.icon || 'sparkles')}" class="w-4 h-4 text-primary"></i>
                 <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(noteTitle(p))}</span>
             </button>
@@ -74,7 +80,6 @@ export function renderVaultStatus() {
         els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-green-500';
         els.vaultIcon.setAttribute('data-lucide', 'hard-drive');
         els.vaultRestoreBanner.classList.add('hidden');
-        
         if (els.settingsVaultDesc) {
             els.settingsVaultDesc.textContent = `Подключено: ${state.vaultName}. Все заметки сохраняются в файлы .md`;
             els.btnConnectVault.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4"></i> Сменить папку';
@@ -86,16 +91,13 @@ export function renderVaultStatus() {
         els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-yellow-500';
         els.vaultIcon.setAttribute('data-lucide', 'alert-circle');
         els.vaultRestoreBanner.classList.remove('hidden');
-        
         const nameSpan = document.getElementById('restore-banner-vault-name');
         if (nameSpan) nameSpan.textContent = state.vaultName;
-        
     } else if (state.vaultStatus === 'local') {
         els.vaultNameDisplay.textContent = 'Браузер (Кэш)';
         els.vaultIndicator.className = 'w-2 h-2 rounded-full bg-gray-400';
         els.vaultIcon.setAttribute('data-lucide', 'monitor');
         els.vaultRestoreBanner.classList.add('hidden');
-        
         if (els.settingsVaultDesc) {
             els.settingsVaultDesc.textContent = `Выберите папку на устройстве. Заметки будут сохраняться в файлы .md. (Работает на Android/PC)`;
             els.btnConnectVault.innerHTML = '<i data-lucide="folder-open" class="w-4 h-4"></i> Подключить папку';
@@ -120,19 +122,15 @@ export function renderBreadcrumbs() {
         } else if (state.activeContext) {
             title = `[[${state.activeContext}]]`;
         }
-        
         els.crumbTitle.textContent = title;
         if (title) els.crumbSeparator.classList.remove('hidden');
         else els.crumbSeparator.classList.add('hidden');
-        
-        els.moveNoteContainer.style.display = 'none'; 
-    } 
-    else if (state.viewMode === 'editor') {
+        els.moveNoteContainer.style.display = 'none';
+    } else if (state.viewMode === 'editor') {
         const note = getNoteById(state.activeId);
         if (note) {
             els.crumbTitle.textContent = noteTitle(note);
             els.crumbSeparator.classList.remove('hidden');
-            
             if (note.isPrompt) {
                 els.moveNoteContainer.style.display = 'none';
             } else {
@@ -217,6 +215,7 @@ export function renderFolderView() {
         const contextHtml = contexts.map(c => `<span class="text-[10px] bg-[var(--md-surface-variant)] text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
         const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3.5 h-3.5 text-primary fill-primary absolute top-4 right-12"></i>` : '';
 
+        // v1.11.3: escapeHtml для note.id
         return `
             <div class="note-card" data-note-id="${escapeHtml(note.id)}">
                 ${pinHtml}
@@ -226,7 +225,7 @@ export function renderFolderView() {
                     <span class="text-[10px] text-outline mr-auto">${relativeTime(note.updatedAt)}</span>
                     ${tagsHtml}${contextHtml}
                 </div>
-                <button class="note-card-actions p-1.5 rounded-full text-outline hover:text-[var(--md-on-surface)] hover:bg-black/10 transition-colors" data-action-menu="${note.id}">
+                <button class="note-card-actions p-1.5 rounded-full text-outline hover:text-[var(--md-on-surface)] hover:bg-black/10 transition-colors" data-action-menu="${escapeHtml(note.id)}">
                     <i data-lucide="more-vertical" class="w-4 h-4 pointer-events-none"></i>
                 </button>
             </div>
@@ -238,7 +237,6 @@ export function renderFolderView() {
 export function renderCalendarView() {
     const year = state.calendarDate.getFullYear();
     const month = state.calendarDate.getMonth();
-    
     const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
     els.calendarMonthTitle.textContent = `${monthNames[month]} ${year}`;
 
@@ -262,11 +260,9 @@ export function renderCalendarView() {
         const isSelected = dateStr === state.selectedDate;
         const dayName = d.toLocaleDateString('ru-RU', { weekday: 'short' }).toUpperCase();
         const dayNum = d.getDate();
-
         let cls = 'week-day-cell';
         if (isToday) cls += ' today';
         if (isSelected) cls += ' selected';
-
         return `
             <div class="${cls}" data-date="${dateStr}" id="week-cell-${dateStr}">
                 <div class="day-label">${dayName}</div>
@@ -285,20 +281,15 @@ export function renderCalendarView() {
     let gridHtml = '';
     gridHtml += `<div class="grid grid-cols-7 gap-1 mb-2 text-center text-[0.65rem] font-bold text-outline opacity-70"><div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div></div>`;
     gridHtml += `<div class="grid grid-cols-7 gap-y-1">`;
-
-    for (let i = 0; i < firstDay; i++) {
-        gridHtml += `<div class="full-grid-day empty"></div>`;
-    }
+    for (let i = 0; i < firstDay; i++) gridHtml += `<div class="full-grid-day empty"></div>`;
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = formatDateYYYYMMDD(new Date(year, month, d));
         const count = getNoteCountForDate(dateStr);
         const isToday = dateStr === todayStr;
         const isSelected = dateStr === state.selectedDate;
-
         let cls = 'full-grid-day';
         if (isToday) cls += ' today';
         if (isSelected) cls += ' selected';
-
         gridHtml += `
             <div class="${cls}" data-date="${dateStr}">
                 <div class="day-number" style="width: 34px; height: 34px; font-size: 0.9rem;">
@@ -316,11 +307,10 @@ export function renderCalendarView() {
         const isToday = state.selectedDate === todayStr;
         els.calendarSelectedTitle.textContent = isToday ? 'Сегодня' : d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
         els.calendarSelectedDate.textContent = isToday ? d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-        
+
         const dayNotes = state.notes.filter(n => !n.isPrompt && formatDateYYYYMMDD(getNoteCreatedAt(n)) === state.selectedDate);
-        
         els.calendarSelectedBadge.textContent = `${dayNotes.length} заметок`;
-        
+
         if (dayNotes.length > 0) {
             els.calendarSelectedBadge.classList.add('bg-[var(--md-primary)]/10', 'text-primary');
             els.calendarSelectedBadge.classList.remove('bg-[var(--md-surface-variant)]');
@@ -343,15 +333,13 @@ export function renderCalendarView() {
             `).join('');
         }
     }
-    
+
     updateIcons();
 
     if (!state.isCalendarExpanded && state.selectedDate) {
         setTimeout(() => {
             const activeCell = document.getElementById(`week-cell-${state.selectedDate}`);
-            if (activeCell) {
-                activeCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            }
+            if (activeCell) activeCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }, 100);
     }
 }
@@ -359,12 +347,12 @@ export function renderCalendarView() {
 export function renderEditor() {
     const note = getNoteById(state.activeId);
     if (!note) return;
-    
-    els.titleInput.value = note.title; 
+
+    els.titleInput.value = note.title;
     els.contentInput.value = note.content;
-    els.titleInput.style.height = 'auto'; 
+    els.titleInput.style.height = 'auto';
     els.titleInput.style.height = els.titleInput.scrollHeight + 'px';
-    
+
     if (note.isPrompt) {
         els.promptBadge.classList.remove('hidden');
         els.btnPromptSettings.classList.remove('hidden');
@@ -385,9 +373,9 @@ export function renderEditor() {
         els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
         els.backlinksContainer.classList.add('hidden');
     }
-    
+
     renderOutline(note.content);
-    updatePreviewButton(); 
+    updatePreviewButton();
     renderChipPalette();
 }
 
@@ -416,8 +404,9 @@ export function renderBacklinks(note) {
         return;
     }
     els.backlinksContainer.classList.remove('hidden');
+    // v1.11.3: escapeHtml для bl.id
     els.backlinksList.innerHTML = backlinks.map(bl => `
-        <button type="button" class="text-left w-full p-2 rounded-xl bg-[var(--md-surface-variant)] hover:bg-black/5 transition-colors flex flex-col gap-1" data-backlink-id="${bl.id}">
+        <button type="button" class="text-left w-full p-2 rounded-xl bg-[var(--md-surface-variant)] hover:bg-black/5 transition-colors flex flex-col gap-1" data-backlink-id="${escapeHtml(bl.id)}">
             <div class="font-bold text-sm text-[var(--md-primary)] truncate">${escapeHtml(noteTitle(bl))}</div>
             <div class="text-xs text-[var(--md-outline)] line-clamp-1">${escapeHtml(notePreview(bl))}</div>
         </button>
@@ -425,7 +414,7 @@ export function renderBacklinks(note) {
 }
 
 export function renderAll() {
-    renderSidebar(); 
+    renderSidebar();
     renderBreadcrumbs();
 
     if (state.viewMode === 'editor') {
@@ -452,7 +441,7 @@ export function renderAll() {
         els.outlineContainer.classList.add('hidden');
         renderFolderView();
     }
-    
+
     if (els.fabNewNote) {
         els.fabNewNote.style.display = (state.viewMode === 'editor' && state.editorMode === 'edit') ? 'none' : 'flex';
     }
@@ -490,9 +479,7 @@ export function renderSaveStatus() {
 export function renderChipPalette() {
     if (!state.activeId || state.editorMode === 'preview') { els.chipPalette.style.display = 'none'; return; }
     els.chipPalette.style.display = 'flex';
-    
-    // В этой версии палитра чипов показывает только встроенные промпты, но мы её скрываем, так как теперь есть выбор из пользовательских промптов
-    els.chipPalette.innerHTML = ''; 
+    els.chipPalette.innerHTML = '';
 }
 
 export function renderMarkdown(text) {
@@ -506,9 +493,7 @@ export function renderMarkdownTo(el, text, options = {}) {
         const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(text, { gfm: true, breaks: true }));
         el.innerHTML = cleanHtml;
         el.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });
-        if (options.highlight) {
-            renderHighlightsInPreview();
-        }
+        if (options.highlight) renderHighlightsInPreview();
     } catch (e) {}
 }
 
@@ -529,9 +514,9 @@ export function renderHighlightsInPreview() {
             if (match[1]) {
                 const rawName = match[2].trim();
                 const exists = !!getPromptByName(rawName);
-                const chip = document.createElement('button'); 
-                chip.className = exists ? 'prompt-chip' : 'prompt-chip prompt-chip-broken'; 
-                chip.setAttribute('data-prompt-name', rawName); 
+                const chip = document.createElement('button');
+                chip.className = exists ? 'prompt-chip' : 'prompt-chip prompt-chip-broken';
+                chip.setAttribute('data-prompt-name', rawName);
                 chip.textContent = rawName;
                 frag.appendChild(chip);
             } else if (match[3]) {
@@ -554,8 +539,9 @@ export function renderHighlightsInPreview() {
 }
 
 export function renderActionSheetFolders() {
+    // v1.11.3: escapeHtml для f.id
     els.sheetFoldersList.innerHTML = sortedFolders().map(f => `
-        <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-sheet-move-to="${f.id}">
+        <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-sheet-move-to="${escapeHtml(f.id)}">
             <i data-lucide="${f.id === 'inbox' ? 'inbox' : 'folder'}" class="w-5 h-5 text-primary"></i>
             <span class="flex-1 font-medium">${escapeHtml(f.name)}</span>
         </button>
@@ -573,8 +559,9 @@ export function renderSearchResults(query) {
 
     if (results.length > 0) {
         html += `<div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 mt-2 px-1">Заметки</div>`;
+        // v1.11.3: escapeHtml для n.id
         html += results.map(n => `
-            <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
+            <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${escapeHtml(n.id)}">
                 <div class="font-bold text-base">${escapeHtml(noteTitle(n))}</div>
                 <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(notePreview(n))}</div>
             </button>
@@ -583,8 +570,9 @@ export function renderSearchResults(query) {
 
     if (prompts.length > 0) {
         html += `<div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 mt-6 px-1">Промпты</div>`;
+        // v1.11.3: escapeHtml для n.id
         html += prompts.map(n => `
-            <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${n.id}">
+            <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${escapeHtml(n.id)}">
                 <div class="font-bold text-base flex items-center gap-2"><i data-lucide="${escapeHtml(n.icon || 'sparkles')}" class="w-4 h-4 text-primary"></i> ${escapeHtml(noteTitle(n))}</div>
                 <div class="text-sm text-outline line-clamp-2 mt-1">${escapeHtml(n.description || notePreview(n))}</div>
             </button>
@@ -601,10 +589,11 @@ export function renderSearchResults(query) {
 }
 
 export function renderFilterRuleRow(index, rule) {
-    const folders = sortedFolders().map(f => `<option value="${f.id}">${f.name}</option>`).join('');
-    const tags = collectAllTags().map(t => `<option value="${t.tag}">#${t.tag}</option>`).join('');
-    const contexts = collectAllContexts().map(c => `<option value="${c.context}">${c.context}</option>`).join('');
-    
+    // v1.11.3: escapeHtml для option value/name
+    const folders = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join('');
+    const tags = collectAllTags().map(t => `<option value="${escapeHtml(t.tag)}">#${escapeHtml(t.tag)}</option>`).join('');
+    const contexts = collectAllContexts().map(c => `<option value="${escapeHtml(c.context)}">${escapeHtml(c.context)}</option>`).join('');
+
     return `
     <div class="filter-rule-row" data-rule-index="${index}">
         <select class="rule-logic bg-transparent border border-[var(--md-outline)] rounded-lg p-2 text-sm outline-none">
@@ -625,25 +614,18 @@ export function renderFilterRuleRow(index, rule) {
 
 export function renderPickerList(query) {
     const q = query.toLowerCase().trim();
-    
     let items = [];
-    if (state.pickerType === 'tag') {
-        items = collectAllTags().map(t => t.tag);
-    } else if (state.pickerType === 'context') {
-        items = collectAllContexts().map(c => c.context);
-    } else if (state.pickerType === 'prompt') {
-        items = getAllPrompts().map(p => p.title);
-    }
-    
+    if (state.pickerType === 'tag') items = collectAllTags().map(t => t.tag);
+    else if (state.pickerType === 'context') items = collectAllContexts().map(c => c.context);
+    else if (state.pickerType === 'prompt') items = getAllPrompts().map(p => p.title);
+
     const filtered = items.filter(i => i.toLowerCase().includes(q));
-    
     let html = '';
-    
+
     if (q && !filtered.map(f => f.toLowerCase()).includes(q)) {
         const icon = state.pickerType === 'tag' ? 'hash' : (state.pickerType === 'prompt' ? 'sparkles' : 'link');
         const prefix = state.pickerType === 'tag' ? '#' : (state.pickerType === 'prompt' ? '[!prompt:' : '[[');
         const suffix = state.pickerType === 'tag' ? '' : (state.pickerType === 'prompt' ? ']' : ']]');
-        
         html += `
             <button class="flex items-center gap-3 p-3 hover:bg-[var(--md-primary)]/10 text-[var(--md-primary)] rounded-xl text-left w-full font-bold" data-pick-value="${escapeHtml(q)}">
                 <i data-lucide="${icon}" class="w-5 h-5"></i>
@@ -676,20 +658,18 @@ export function renderPickerList(query) {
 export function renderAiPanel() {
     if (!els.aiPanel) return;
 
-    // Header
     const promptName = state.aiActivePrompt ? state.aiActivePrompt.name : 'Gemini';
     els.aiHeaderTitle.textContent = promptName;
 
-    // Dropdown list
     const prompts = getAllPrompts();
+    // v1.11.3: escapeHtml для p.id
     els.aiDropdownMenu.innerHTML = prompts.map(p => `
-        <button class="w-full text-left px-4 py-2 hover:bg-black/5 text-sm flex items-center gap-2 ${state.aiActivePrompt && state.aiActivePrompt.id === p.id ? 'bg-black/5 font-bold' : ''}" data-ai-select-prompt="${p.id}">
+        <button class="w-full text-left px-4 py-2 hover:bg-black/5 text-sm flex items-center gap-2 ${state.aiActivePrompt && state.aiActivePrompt.id === p.id ? 'bg-black/5 font-bold' : ''}" data-ai-select-prompt="${escapeHtml(p.id)}">
             <i data-lucide="${escapeHtml(p.icon || 'sparkles')}" class="w-4 h-4"></i>
             ${escapeHtml(p.title)}
         </button>
     `).join('');
 
-    // States
     els.aiEmpty.classList.add('hidden');
     els.aiLoading.classList.add('hidden');
     els.aiError.classList.add('hidden');

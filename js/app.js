@@ -1,10 +1,14 @@
-// js/app.js
+// js/app.js — MAi Notes V1.11.3
+// Changes (v1.11.3):
+//  + init(): state.tombstones = loadTombstones()
+//  + visibilitychange: авто-синк (кулдаун 60с, guard isSyncing)
+//  + import syncVault, loadTombstones
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
-import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts } from './storage.js';
+import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
 import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
-import { 
-    createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder, 
+import {
+    createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder,
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
     insertFormatting, onEdit, scheduleSave,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
@@ -16,18 +20,19 @@ import {
     openCalendar, prevMonth, nextMonth, selectCalendarDay, goToToday, toggleCalendarExpand,
     initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings,
     showSnackbar, createPrompt, deletePrompt, openPromptSettings, closePromptSettings, savePromptSettings,
-    triggerAiFromChip, closeAiPanel, clearAiPanel, handleAiCopy, handleAiInsert, handleAiRegenerate, saveAiSettings
+    triggerAiFromChip, closeAiPanel, clearAiPanel, handleAiCopy, handleAiInsert, handleAiRegenerate, saveAiSettings,
+    syncVault
 } from './logic.js';
 import { verifyPermission } from './fs.js';
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
-    
+
     els.mainContent.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
     }, { passive: true });
-    
+
     els.mainContent.addEventListener('touchend', (e) => {
         const deltaX = touchStartX - e.changedTouches[0].screenX;
         const deltaY = Math.abs(touchStartY - e.changedTouches[0].screenY);
@@ -41,7 +46,6 @@ function attachListeners() {
         els.leftPanel.addEventListener('touchstart', (e) => {
             panelTouchStartX = e.changedTouches[0].screenX;
         }, { passive: true });
-        
         els.leftPanel.addEventListener('touchend', (e) => {
             const deltaX = panelTouchStartX - e.changedTouches[0].screenX;
             if (deltaX > 80) {
@@ -53,7 +57,6 @@ function attachListeners() {
     if (els.btnMenu) els.btnMenu.addEventListener('click', () => import('./logic.js').then(m => m.toggleLeftPanel()));
     if (els.leftPanelBackdrop) els.leftPanelBackdrop.addEventListener('click', () => import('./logic.js').then(m => m.closeLeftPanel()));
 
-    // Vault & Settings
     if (els.btnOpenSettings) els.btnOpenSettings.addEventListener('click', openSettings);
     if (els.vaultStatusBtn) els.vaultStatusBtn.addEventListener('click', openSettings);
     if (els.btnCloseSettings) els.btnCloseSettings.addEventListener('click', closeSettings);
@@ -65,33 +68,29 @@ function attachListeners() {
     if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
     if (els.btnSettingsSaveAi) els.btnSettingsSaveAi.addEventListener('click', saveAiSettings);
 
-    // Nav buttons
     if (els.btnNavBack) els.btnNavBack.addEventListener('click', goBack);
     if (els.btnNavForward) els.btnNavForward.addEventListener('click', goForward);
     if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
     if (els.btnCloseFocus) els.btnCloseFocus.addEventListener('click', toggleFocusMode);
 
-    // Calendar
     if (els.btnOpenCalendar) els.btnOpenCalendar.addEventListener('click', openCalendar);
     if (els.btnCalendarPrev) els.btnCalendarPrev.addEventListener('click', prevMonth);
     if (els.btnCalendarNext) els.btnCalendarNext.addEventListener('click', nextMonth);
     if (els.btnCalendarToday) els.btnCalendarToday.addEventListener('click', goToToday);
     if (els.btnToggleCalendar) els.btnToggleCalendar.addEventListener('click', toggleCalendarExpand);
-    
+
     if (els.calendarWeekStrip) {
         els.calendarWeekStrip.addEventListener('click', (e) => {
             const dayCell = e.target.closest('[data-date]');
             if (dayCell) selectCalendarDay(dayCell.getAttribute('data-date'));
         });
     }
-    
     if (els.calendarFullGrid) {
         els.calendarFullGrid.addEventListener('click', (e) => {
             const dayCell = e.target.closest('[data-date]');
             if (dayCell) selectCalendarDay(dayCell.getAttribute('data-date'));
         });
     }
-    
     if (els.calendarNotesList) {
         els.calendarNotesList.addEventListener('click', (e) => {
             const card = e.target.closest('.note-card');
@@ -104,30 +103,28 @@ function attachListeners() {
     els.btnNewFolder.addEventListener('click', () => import('./logic.js').then(m => m.createFolder()));
     els.btnNewPrompt.addEventListener('click', createPrompt);
     els.btnPreview.addEventListener('click', togglePreviewMode);
-    
-    els.btnDeleteNote.addEventListener('click', () => { 
+
+    els.btnDeleteNote.addEventListener('click', () => {
         if (state.activeId) {
             const note = getNoteById(state.activeId);
             if (note && note.isPrompt) deletePrompt(state.activeId);
             else deleteNote(state.activeId);
         }
     });
-    
+
     if (els.folderMoveSelect) {
         els.folderMoveSelect.addEventListener('change', async (e) => {
             const note = getNoteById(state.activeId);
-            if(note) { 
+            if (note) {
                 const oldNote = { ...note };
-                note.folderId = e.target.value; note.updatedAt = Date.now(); 
-                persistNotes(); renderAll(); 
-                
+                note.folderId = e.target.value; note.updatedAt = Date.now();
+                persistNotes(); renderAll();
                 try {
                     if (state.vaultHandle && state.vaultStatus === 'connected') {
-                        const { deleteNoteFromDisk, writeNoteToDisk } = await import('./fs.js');
-                        await deleteNoteFromDisk(oldNote, state.vaultHandle);
-                        await writeNoteToDisk(note, state.vaultHandle);
+                        const { moveNoteOnDisk } = await import('./fs.js');
+                        await moveNoteOnDisk(oldNote, note, state.vaultHandle);
                     }
-                } catch(err) { console.error(err); }
+                } catch (err) { console.error(err); }
             }
         });
     }
@@ -176,17 +173,14 @@ function attachListeners() {
     els.viewFolder.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('[data-action-menu]');
         if (actionBtn) { e.preventDefault(); e.stopPropagation(); openActionMenu(actionBtn.getAttribute('data-action-menu')); return; }
-        
         const emptyBtn = e.target.closest('#empty-create-note-btn');
         if (emptyBtn) { e.preventDefault(); createNote(); return; }
-        
         const card = e.target.closest('.note-card');
         if (card) selectNote(card.getAttribute('data-note-id'));
     });
 
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
-    
     els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
     els.titleInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
 
@@ -196,9 +190,7 @@ function attachListeners() {
         const text = btn.getAttribute('data-outline-text');
         const headers = Array.from(els.preview.querySelectorAll('h2, h3'));
         const target = headers.find(h => h.textContent.trim() === text);
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     els.backlinksList.addEventListener('click', (e) => {
@@ -209,13 +201,12 @@ function attachListeners() {
     els.preview.addEventListener('click', (e) => {
         const t = e.target;
         if (!t || typeof t.closest !== 'function') return;
-        
-        if (t.closest('[data-prompt-name]')) { 
-            e.preventDefault(); 
+
+        if (t.closest('[data-prompt-name]')) {
+            e.preventDefault();
             triggerAiFromChip(t.closest('[data-prompt-name]').getAttribute('data-prompt-name'));
-            return; 
+            return;
         }
-        
         if (t.closest('.wiki-link') && t.closest('.wiki-link').hasAttribute('data-target-id')) {
             e.preventDefault(); selectNote(t.closest('.wiki-link').getAttribute('data-target-id')); return;
         }
@@ -224,7 +215,7 @@ function attachListeners() {
             if (window.confirm(`Создать заметку «${title}»?`)) {
                 const now = Date.now();
                 const newNote = { id: genId(), title: title, content: '', updatedAt: now, createdAt: now, tags: [], folderId: state.activeFolderId === '__prompts__' ? 'inbox' : state.activeFolderId, isPinned: false };
-                state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit'; 
+                state.notes.unshift(newNote); state.activeId = newNote.id; state.editorMode = 'edit';
                 persistNotes(); renderAll();
             }
             return;
@@ -249,7 +240,7 @@ function attachListeners() {
                 if (newLine === line) return;
                 lines[lineIdx] = newLine;
                 note.content = lines.join('\n'); note.updatedAt = Date.now();
-                persistNotes(); renderEditor(); 
+                persistNotes(); renderEditor();
             }, 0);
             return;
         }
@@ -284,7 +275,7 @@ function attachListeners() {
     els.filterBackdrop.addEventListener('click', closeFilterModal);
     els.btnAddFilterRule.addEventListener('click', addFilterRule);
     els.btnSaveFilter.addEventListener('click', saveFilter);
-    
+
     els.filterRulesContainer.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-remove-rule');
         if (btn) {
@@ -309,13 +300,12 @@ function attachListeners() {
         if (btn) insertPickedItem(btn.getAttribute('data-pick-value'));
     });
 
-    // AI Listeners
     if (els.btnAiClose) els.btnAiClose.addEventListener('click', clearAiPanel);
     if (els.btnAiRetry) els.btnAiRetry.addEventListener('click', handleAiRegenerate);
     if (els.btnAiCopy) els.btnAiCopy.addEventListener('click', handleAiCopy);
     if (els.btnAiInsert) els.btnAiInsert.addEventListener('click', handleAiInsert);
     if (els.btnAiRegenerate) els.btnAiRegenerate.addEventListener('click', handleAiRegenerate);
-    
+
     if (els.aiDropdownBtn) {
         els.aiDropdownBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -341,7 +331,6 @@ function attachListeners() {
         });
     }
 
-    // Prompt Settings Modal
     if (els.btnClosePromptSettings) els.btnClosePromptSettings.addEventListener('click', closePromptSettings);
     if (els.promptSettingsBackdrop) els.promptSettingsBackdrop.addEventListener('click', closePromptSettings);
     if (els.btnPromptSettingsSave) els.btnPromptSettingsSave.addEventListener('click', savePromptSettings);
@@ -363,46 +352,44 @@ function attachListeners() {
     if (els.btnMobileSearch) els.btnMobileSearch.addEventListener('click', openSearch);
     els.btnCloseSearch.addEventListener('click', closeSearch);
     els.searchInput.addEventListener('input', handleSearchInput);
-    els.btnClearSearch.addEventListener('click', () => { els.searchInput.value = ''; handleSearchInput({target:{value:''}}); els.searchInput.focus(); });
+    els.btnClearSearch.addEventListener('click', () => { els.searchInput.value = ''; handleSearchInput({ target: { value: '' } }); els.searchInput.focus(); });
     els.searchResults.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-search-id]');
         if (btn) { closeSearch(); selectNote(btn.getAttribute('data-search-id')); }
     });
 
-    // --- BACKUP LISTENERS ---
     els.btnExportAll.addEventListener('click', exportAllData);
     els.btnImportData.addEventListener('click', () => els.importFileInput.click());
     els.importFileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) handleImportFiles(Array.from(e.target.files));
     });
 
-    // --- VISIBILITY CHANGE ---
+    // v1.11.3: visibilitychange → авто-синк (кулдаун 60с)
     document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible') {
-            if (state.vaultHandle && state.vaultStatus === 'connected') {
-                const perm = await verifyPermission(state.vaultHandle, true);
-                if (!perm) {
-                    state.vaultStatus = 'prompt';
-                    renderAll();
-                }
-            }
+        if (document.visibilityState !== 'visible') return;
+        if (!state.vaultHandle || state.vaultStatus !== 'connected') return;
+
+        const perm = await verifyPermission(state.vaultHandle, true);
+        if (!perm) {
+            state.vaultStatus = 'prompt';
+            renderAll();
+            return;
         }
+
+        const now = Date.now();
+        if (state.isSyncing) return;
+        if (now - (state.lastVisibilitySync || 0) < 60000) return;
+
+        state.lastVisibilitySync = now;
+        try { await syncVault(); }
+        catch (e) { console.warn('[visibility sync]', e); }
     });
 
-    // --- ANDROID BACK BUTTON (POPSTATE) ---
     window.addEventListener('popstate', (e) => {
         if (els.promptSettingsModal.classList.contains('open')) { closePromptSettings(); history.pushState({ state: 'settings' }, ''); return; }
         if (els.settingsModal.classList.contains('open')) { closeSettings(); history.pushState({ state: 'settings' }, ''); return; }
-        if (state.isFocusMode) {
-            toggleFocusMode();
-            history.pushState({ state: 'focus' }, '');
-            return;
-        }
-        if (els.aiPanel.classList.contains('mobile-active')) { 
-            clearAiPanel(); 
-            history.pushState({ state: 'ai' }, ''); 
-            return; 
-        }
+        if (state.isFocusMode) { toggleFocusMode(); history.pushState({ state: 'focus' }, ''); return; }
+        if (els.aiPanel.classList.contains('mobile-active')) { clearAiPanel(); history.pushState({ state: 'ai' }, ''); return; }
         if (state.actionMenuNoteId) { closeActionMenu(); history.pushState({ state: 'actionMenu' }, ''); return; }
         if (els.filterModal.classList.contains('open')) { closeFilterModal(); history.pushState({ state: 'filter' }, ''); return; }
         if (els.pickerModal.classList.contains('open')) { closePicker(); history.pushState({ state: 'picker' }, ''); return; }
@@ -410,16 +397,10 @@ function attachListeners() {
         if (state.leftPanelOpen) { closeLeftPanel(); history.pushState({ state: 'leftPanel' }, ''); return; }
 
         if (state.viewMode === 'editor') {
-            if (state.historyIndex > 0) {
-                goBack();
-                history.pushState({ state: 'editor' }, ''); 
-            } else {
-                goToFolderView();
-                history.pushState({ state: 'folder' }, '');
-            }
+            if (state.historyIndex > 0) { goBack(); history.pushState({ state: 'editor' }, ''); }
+            else { goToFolderView(); history.pushState({ state: 'folder' }, ''); }
             return;
         }
-        
         if (state.viewMode === 'calendar') {
             goToFolderView();
             history.pushState({ state: 'folder' }, '');
@@ -446,7 +427,7 @@ function attachListeners() {
     });
 
     window.addEventListener('resize', () => {
-        autoResizeTextarea(); 
+        autoResizeTextarea();
         if (window.innerWidth >= 768 && state.leftPanelOpen) closeLeftPanel();
     });
 
@@ -459,16 +440,17 @@ function attachListeners() {
 
 async function init() {
     loadSettings();
+    state.tombstones = loadTombstones(); // v1.11.3
     state.folders = loadFolders(); persistFolders();
     state.notes = loadNotes(); validateFolderRefs();
-    seedDefaultPrompts(); 
+    seedDefaultPrompts();
     state.savedFilters = loadFilters();
     try { persistNotes(); } catch (_) {}
 
-    state.activeFolderId = 'inbox'; 
+    state.activeFolderId = 'inbox';
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.activeId = null; state.viewMode = 'folder';
-    state.editorMode = 'preview'; 
+    state.editorMode = 'preview';
     state.pickerType = null;
     state.history = [];
     state.historyIndex = -1;
@@ -478,7 +460,7 @@ async function init() {
     state.isCalendarExpanded = false;
 
     renderAll(); attachListeners();
-    
+
     await initVault();
 }
 

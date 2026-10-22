@@ -1,3 +1,8 @@
+// js/state.js — MAi Notes V1.11.3
+// Changes (v1.11.3):
+//  + state.tombstones        — надгробия удалённых заметок (TTL 30 дней)
+//  + state.lastVisibilitySync — кулдаун авто-синка при visibilitychange
+//  + TOMBS_KEY               — ключ localStorage для tombstones
 export const state = {
     notes: [],
     folders: [],
@@ -8,8 +13,8 @@ export const state = {
     activeContext: null,
     activeFilterId: null,
     saveTimeout: null,
-    saveStatus: 'idle', // idle, saving, saved, error
-    viewMode: 'folder', // 'folder', 'editor', 'calendar'
+    saveStatus: 'idle',
+    viewMode: 'folder',
     editorMode: 'preview',
     activePrompt: null,
     activePromptRawName: null,
@@ -20,30 +25,29 @@ export const state = {
     searchOpen: false,
     draftFilter: [],
     pickerType: null,
-    // Sprint 1
     history: [],
     historyIndex: -1,
     isFocusMode: false,
-    // Sprint 2 (Calendar)
     calendarDate: new Date(),
     selectedDate: null,
     isCalendarExpanded: false,
-    // Sprint 3 (File System)
     vaultHandle: null,
     vaultName: 'Браузер (Кэш)',
-    vaultStatus: 'local', // 'local', 'connected', 'prompt', 'error'
+    vaultStatus: 'local',
     isSyncing: false,
     snackbarTimeout: null,
     fsError: null,
-    // Sprint 4 (AI & Prompts)
     settings: { aiProxyUrl: '' },
-    aiState: 'empty', // empty, loading, streaming, done, error
-    aiActivePrompt: null, // { id, name }
+    aiState: 'empty',
+    aiActivePrompt: null,
     aiResponse: '',
     aiErrorMsg: '',
     aiAbortController: null,
     promptSettingsId: null,
-    aiDropdownOpen: false
+    aiDropdownOpen: false,
+    // v1.11.3
+    tombstones: [],
+    lastVisibilitySync: 0
 };
 
 export const DEFAULT_PROMPTS = [
@@ -82,8 +86,8 @@ export const FILTERS_KEY = 'mai_filters';
 export const SETTINGS_KEY = 'mai_settings';
 export const PROMPTS_SEEDED_KEY = 'mai_prompts_seeded';
 export const SYSTEM_PROMPTS_FOLDER_ID = '__prompts__';
+export const TOMBS_KEY = 'mai_tombstones'; // v1.11.3
 
-// Legacy keys for migration
 export const LEGACY_TITLE_KEY = 'mai_title';
 export const LEGACY_CONTENT_KEY = 'mai_content';
 
@@ -92,8 +96,6 @@ export const els = {
     leftPanel: document.getElementById('left-panel'),
     leftPanelBackdrop: document.getElementById('left-panel-backdrop'),
     btnMenu: document.getElementById('btn-menu'),
-    
-    // Vault Widget
     vaultWidget: document.getElementById('vault-widget'),
     vaultStatusBtn: document.getElementById('vault-status-btn'),
     vaultNameDisplay: document.getElementById('vault-name-display'),
@@ -101,7 +103,6 @@ export const els = {
     vaultIcon: document.getElementById('vault-icon'),
     vaultRestoreBanner: document.getElementById('vault-restore-banner'),
     btnRestoreAccess: document.getElementById('btn-restore-access'),
-
     foldersList: document.getElementById('folders-list'),
     tagsList: document.getElementById('tags-list'),
     tagsSectionLabel: document.getElementById('tags-section-label'),
@@ -109,29 +110,22 @@ export const els = {
     contextsSectionLabel: document.getElementById('contexts-section-label'),
     filtersList: document.getElementById('filters-list'),
     btnNewFilter: document.getElementById('btn-new-filter'),
-    
-    // Prompts
     promptsList: document.getElementById('prompts-list'),
     btnNewPrompt: document.getElementById('btn-new-prompt'),
     promptBadge: document.getElementById('prompt-badge'),
     btnPromptSettings: document.getElementById('btn-prompt-settings'),
-
     btnNewNote: document.getElementById('btn-new-note'),
     btnNewFolder: document.getElementById('btn-new-folder'),
     btnDeleteNote: document.getElementById('btn-delete-note'),
     btnPreview: document.getElementById('btn-preview'),
-    
     viewEditor: document.getElementById('view-editor'),
     viewFolder: document.getElementById('view-folder'),
     viewCalendar: document.getElementById('view-calendar'),
-    
     titleInput: document.getElementById('note-title'),
     contentInput: document.getElementById('note-content'),
     preview: document.getElementById('note-preview'),
     statusText: document.getElementById('save-status'),
     chipPalette: document.getElementById('chip-palette'),
-    
-    // AI Panel
     aiPanel: document.getElementById('ai-panel'),
     aiHeaderTitle: document.getElementById('ai-header-title'),
     aiDropdownBtn: document.getElementById('ai-dropdown-btn'),
@@ -148,8 +142,6 @@ export const els = {
     btnAiInsert: document.getElementById('btn-ai-insert'),
     btnAiRegenerate: document.getElementById('btn-ai-regenerate'),
     btnAiClose: document.getElementById('btn-ai-close'),
-    
-    // Prompt Settings Modal
     promptSettingsBackdrop: document.getElementById('prompt-settings-backdrop'),
     promptSettingsModal: document.getElementById('prompt-settings-modal'),
     promptSettingsIconGrid: document.getElementById('prompt-settings-icon-grid'),
@@ -157,18 +149,14 @@ export const els = {
     promptSettingsDescription: document.getElementById('prompt-settings-description'),
     btnPromptSettingsSave: document.getElementById('btn-prompt-settings-save'),
     btnClosePromptSettings: document.getElementById('btn-close-prompt-settings'),
-
     crumbFolderBtn: document.getElementById('crumb-folder-btn'),
     crumbFolderName: document.getElementById('crumb-folder-name'),
     crumbSeparator: document.getElementById('breadcrumb-separator'),
     crumbTitle: document.getElementById('breadcrumb-title'),
-    
     moveNoteContainer: document.getElementById('move-note-container'),
     folderMoveSelect: document.getElementById('folder-move-select'),
-
     fabNewNote: document.getElementById('fab-new-note'),
     formatToolbar: document.getElementById('format-toolbar'),
-
     actionSheetBackdrop: document.getElementById('action-sheet-backdrop'),
     actionSheet: document.getElementById('action-sheet'),
     actionSheetMain: document.getElementById('action-sheet-main'),
@@ -177,7 +165,6 @@ export const els = {
     sheetFoldersList: document.getElementById('sheet-folders-list'),
     btnSheetBack: document.getElementById('btn-sheet-back'),
     pinLabel: document.getElementById('pin-label'),
-
     searchBackdrop: document.getElementById('search-backdrop'),
     searchModal: document.getElementById('search-modal'),
     searchInput: document.getElementById('search-input'),
@@ -186,7 +173,6 @@ export const els = {
     btnClearSearch: document.getElementById('btn-clear-search'),
     btnDesktopSearch: document.getElementById('btn-desktop-search'),
     btnMobileSearch: document.getElementById('btn-mobile-search'),
-
     filterBackdrop: document.getElementById('filter-backdrop'),
     filterModal: document.getElementById('filter-modal'),
     filterNameInput: document.getElementById('filter-name-input'),
@@ -194,15 +180,12 @@ export const els = {
     btnAddFilterRule: document.getElementById('btn-add-filter-rule'),
     btnSaveFilter: document.getElementById('btn-save-filter'),
     btnCloseFilter: document.getElementById('btn-close-filter'),
-
     pickerBackdrop: document.getElementById('picker-backdrop'),
     pickerModal: document.getElementById('picker-modal'),
     pickerTitle: document.getElementById('picker-title'),
     pickerSearch: document.getElementById('picker-search'),
     pickerList: document.getElementById('picker-list'),
     btnClosePicker: document.getElementById('btn-close-picker'),
-
-    // Settings
     settingsBackdrop: document.getElementById('settings-backdrop'),
     settingsModal: document.getElementById('settings-modal'),
     btnOpenSettings: document.getElementById('btn-open-settings'),
@@ -214,13 +197,9 @@ export const els = {
     settingsVaultDesc: document.getElementById('settings-vault-desc'),
     btnSettingsExport: document.getElementById('btn-settings-export'),
     btnSettingsImport: document.getElementById('btn-settings-import'),
-
-    // Backup
     btnExportAll: document.getElementById('btn-export-all'),
     btnImportData: document.getElementById('btn-import-data'),
     importFileInput: document.getElementById('import-file-input'),
-
-    // Navigation & Focus
     btnNavBack: document.getElementById('btn-nav-back'),
     btnNavForward: document.getElementById('btn-nav-forward'),
     btnFocusMode: document.getElementById('btn-focus-mode'),
@@ -229,8 +208,6 @@ export const els = {
     outlineList: document.getElementById('outline-list'),
     backlinksContainer: document.getElementById('backlinks-container'),
     backlinksList: document.getElementById('backlinks-list'),
-
-    // Calendar
     btnOpenCalendar: document.getElementById('btn-open-calendar'),
     btnCalendarPrev: document.getElementById('btn-calendar-prev'),
     btnCalendarNext: document.getElementById('btn-calendar-next'),
@@ -245,8 +222,6 @@ export const els = {
     calendarSelectedDate: document.getElementById('calendar-selected-date'),
     calendarSelectedBadge: document.getElementById('calendar-selected-badge'),
     calendarNotesList: document.getElementById('calendar-notes-list'),
-    
-    // Snackbar
     snackbar: document.getElementById('snackbar'),
     snackbarMessage: document.getElementById('snackbar-message')
 };

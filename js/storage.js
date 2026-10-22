@@ -1,6 +1,11 @@
-// js/storage.js
-import { state, STORAGE_KEY, FOLDERS_KEY, FILTERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY, SETTINGS_KEY, PROMPTS_SEEDED_KEY, SYSTEM_PROMPTS_FOLDER_ID, DEFAULT_PROMPTS } from './state.js';
+// js/storage.js — MAi Notes V1.11.3
+// Changes (v1.11.3): tombstones API
+//  + loadTombstones / persistTombstones / addTombstone / removeTombstone / isTombstoned
+//  + TTL 30 дней для надгробий
+import { state, STORAGE_KEY, FOLDERS_KEY, FILTERS_KEY, LEGACY_TITLE_KEY, LEGACY_CONTENT_KEY, SETTINGS_KEY, PROMPTS_SEEDED_KEY, SYSTEM_PROMPTS_FOLDER_ID, DEFAULT_PROMPTS, TOMBS_KEY } from './state.js';
 import { genId, isValidNote, syncNoteTags, makeDefaultFolder } from './utils.js';
+
+const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function loadNotes() {
     let raw = null;
@@ -10,8 +15,8 @@ export function loadNotes() {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
                 return parsed.filter(isValidNote).map(n => {
-                    const note = { 
-                        id: String(n.id), title: String(n.title), content: String(n.content), updatedAt: n.updatedAt, 
+                    const note = {
+                        id: String(n.id), title: String(n.title), content: String(n.content), updatedAt: n.updatedAt,
                         createdAt: n.createdAt || n.updatedAt,
                         tags: [], folderId: typeof n.folderId === 'string' ? n.folderId : 'inbox',
                         isPinned: !!n.isPinned,
@@ -42,7 +47,7 @@ export function loadNotes() {
 }
 
 export function persistNotes() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes)); return true; } 
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.notes)); return true; }
     catch (e) { console.error(e); state.saveStatus = 'error'; return false; }
 }
 
@@ -70,7 +75,7 @@ export function loadFolders() {
 }
 
 export function persistFolders() {
-    try { localStorage.setItem(FOLDERS_KEY, JSON.stringify(state.folders)); return true; } 
+    try { localStorage.setItem(FOLDERS_KEY, JSON.stringify(state.folders)); return true; }
     catch (e) { return false; }
 }
 
@@ -82,7 +87,7 @@ export function loadFilters() {
 }
 
 export function persistFilters() {
-    try { localStorage.setItem(FILTERS_KEY, JSON.stringify(state.savedFilters)); return true; } 
+    try { localStorage.setItem(FILTERS_KEY, JSON.stringify(state.savedFilters)); return true; }
     catch (e) { return false; }
 }
 
@@ -90,9 +95,9 @@ export function validateFolderRefs() {
     const ids = new Set(state.folders.map(f => f.id));
     let changed = false;
     state.notes.forEach(n => {
-        if (!ids.has(n.folderId)) { 
-            n.folderId = n.isPrompt ? SYSTEM_PROMPTS_FOLDER_ID : 'inbox'; 
-            changed = true; 
+        if (!ids.has(n.folderId)) {
+            n.folderId = n.isPrompt ? SYSTEM_PROMPTS_FOLDER_ID : 'inbox';
+            changed = true;
         }
     });
     if (changed) persistNotes();
@@ -119,13 +124,11 @@ export function seedDefaultPrompts() {
     try {
         const seeded = localStorage.getItem(PROMPTS_SEEDED_KEY);
         if (seeded) return;
-        
         const existingPrompts = state.notes.filter(n => n.isPrompt);
         if (existingPrompts.length > 0) {
             localStorage.setItem(PROMPTS_SEEDED_KEY, 'true');
             return;
         }
-
         const now = Date.now();
         DEFAULT_PROMPTS.forEach((dp, index) => {
             state.notes.push({
@@ -142,10 +145,50 @@ export function seedDefaultPrompts() {
                 description: dp.description
             });
         });
-        
         persistNotes();
         localStorage.setItem(PROMPTS_SEEDED_KEY, 'true');
     } catch (e) {
         console.warn('Ошибка при создании дефолтных промптов', e);
     }
+}
+
+// ===== TOMBSTONES (v1.11.3) =====
+
+export function loadTombstones() {
+    try {
+        const raw = localStorage.getItem(TOMBS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        const now = Date.now();
+        return parsed.filter(t => t && typeof t.id === 'string' && typeof t.deletedAt === 'number' && (now - t.deletedAt) < TOMBSTONE_TTL_MS);
+    } catch (e) {
+        console.warn('Повреждены tombstones', e);
+        return [];
+    }
+}
+
+export function persistTombstones() {
+    try { localStorage.setItem(TOMBS_KEY, JSON.stringify(state.tombstones)); return true; }
+    catch (e) { return false; }
+}
+
+export function addTombstone(id) {
+    if (!id) return;
+    const existing = state.tombstones.find(t => t.id === id);
+    if (existing) existing.deletedAt = Date.now();
+    else state.tombstones.push({ id, deletedAt: Date.now() });
+    const now = Date.now();
+    state.tombstones = state.tombstones.filter(t => (now - t.deletedAt) < TOMBSTONE_TTL_MS);
+    persistTombstones();
+}
+
+export function removeTombstone(id) {
+    if (!id) return;
+    state.tombstones = state.tombstones.filter(t => t.id !== id);
+    persistTombstones();
+}
+
+export function isTombstoned(id) {
+    return !!id && state.tombstones.some(t => t.id === id);
 }

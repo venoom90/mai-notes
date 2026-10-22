@@ -1,4 +1,6 @@
-// js/utils.js
+// js/utils.js — MAi Notes V1.11.3
+// Changes (v1.11.3): generateMarkdown writes ISO dates (created/updated).
+// parseMarkdown уже совместим с ISO (разбор через new Date(str).getTime()).
 import { state } from './state.js';
 
 export function genId() {
@@ -48,7 +50,7 @@ export function isValidNote(n) {
 }
 
 export function sortedNotes() { return state.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt); }
-export function notesInFolder(folderId) { 
+export function notesInFolder(folderId) {
     return state.notes.filter(n => n.folderId === folderId && !n.isPrompt).sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
@@ -59,11 +61,9 @@ export function notesInFolder(folderId) {
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     if (!ta || ta.classList.contains('hidden')) return;
-    
     const vv = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    
     ta.style.height = 'auto';
-    const max = Math.max(200, vv - 250); 
+    const max = Math.max(200, vv - 250);
     ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
 }
 
@@ -80,10 +80,10 @@ export function notePreview(note) {
     return firstLine ? firstLine.slice(0, 60) : 'Пустая заметка';
 }
 
-export function noteTitle(note) { 
+export function noteTitle(note) {
     if (!note || !note.title) return 'Без названия';
     const title = String(note.title).trim();
-    return title ? title : 'Без названия'; 
+    return title ? title : 'Без названия';
 }
 
 export function makeDefaultFolder() { return { id: 'inbox', name: 'Входящие', updatedAt: Date.now(), isSystem: false }; }
@@ -167,14 +167,9 @@ export function getOutline(content) {
     const outline = [];
     lines.forEach(line => {
         const h2Match = line.match(/^##\s+(.+)$/);
-        if (h2Match) {
-            outline.push({ level: 2, text: h2Match[1].trim() });
-            return;
-        }
+        if (h2Match) { outline.push({ level: 2, text: h2Match[1].trim() }); return; }
         const h3Match = line.match(/^###\s+(.+)$/);
-        if (h3Match) {
-            outline.push({ level: 3, text: h3Match[1].trim() });
-        }
+        if (h3Match) { outline.push({ level: 3, text: h3Match[1].trim() }); }
     });
     return outline;
 }
@@ -196,7 +191,6 @@ export function getWeekDates(date) {
     const day = curr.getDay() || 7;
     const monday = new Date(curr);
     monday.setDate(curr.getDate() - day + 1);
-    
     const week = [];
     for (let i = 0; i < 7; i++) {
         const d = new Date(monday);
@@ -210,6 +204,7 @@ export function getNoteCountForDate(dateStr) {
     return state.notes.filter(n => !n.isPrompt && formatDateYYYYMMDD(getNoteCreatedAt(n)) === dateStr).length;
 }
 
+// v1.11.3: ISO dates in YAML (created/updated).
 export function generateMarkdown(note, folderName) {
     const safeTitle = String(note.title || 'Без названия').replace(/"/g, '\\"');
     const safeFolder = String(folderName || 'Входящие').replace(/"/g, '\\"');
@@ -223,18 +218,18 @@ export function generateMarkdown(note, folderName) {
         `title: "${safeTitle}"`,
         `folder: "${safeFolder}"`,
         `pinned: ${!!note.isPinned}`,
-        `created: ${created}`,
-        `updated: ${ts}`
+        `created: "${new Date(created).toISOString()}"`,
+        `updated: "${new Date(ts).toISOString()}"`
     ];
-    
+
     if (note.isPrompt) {
         yamlLines.push(`type: prompt`);
         yamlLines.push(`icon: "${note.icon || 'sparkles'}"`);
         yamlLines.push(`description: "${String(note.description || '').replace(/"/g, '\\"')}"`);
     }
-    
+
     yamlLines.push('---');
-    
+
     return `${yamlLines.join('\n')}\n\n# ${noteTitle(note)}\n\n${safeContent}`;
 }
 
@@ -256,7 +251,7 @@ export function parseMarkdown(text, defaultFolderId, fileName = '') {
                 if (val === 'true') meta[key] = true;
                 else if (val === 'false') meta[key] = false;
                 else if (/^\d+$/.test(val)) meta[key] = Number(val);
-                else meta[key] = val; 
+                else meta[key] = val;
             }
         });
     }
@@ -265,12 +260,12 @@ export function parseMarkdown(text, defaultFolderId, fileName = '') {
     let extractedTitle = '';
     if (lines[0] && lines[0].startsWith('# ')) {
         extractedTitle = lines[0].replace(/^#\s+/, '').trim();
-        lines.shift(); 
+        lines.shift();
         content = lines.join('\n').trim();
     }
 
     const isPrompt = meta.type === 'prompt';
-    
+
     let finalId = meta.id ? String(meta.id) : '';
     if (!finalId) {
         finalId = fileName ? fileName.replace(/[^a-zA-Z0-9_-]/g, '_') : genId();

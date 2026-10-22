@@ -1,5 +1,6 @@
-// sw.js
-const CACHE_NAME = 'mai-cache-v50';
+// sw.js — MAi Notes V1.11.3
+// Changes (v1.11.3): CACHE_NAME → mai-cache-v51
+const CACHE_NAME = 'mai-cache-v51';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
