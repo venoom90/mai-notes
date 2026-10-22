@@ -2,14 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <!-- v1.11.6: Added viewport-fit=cover for safe areas, interactive-widget=resizes-content -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com;">
     
     <title>MAi</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
     
-    <!-- v1.11.4: Локальные vendor-библиотеки -->
     <script src="vendor/tailwind.js"></script>
     <script src="vendor/lucide.js"></script>
     <script src="vendor/marked.min.js"></script>
@@ -84,7 +82,7 @@
         }
         @media (min-width: 768px) { #left-panel-backdrop { display: none !important; } }
 
-        /* v1.11.6: Safe Area for Header */
+        /* v1.11.6.2: Safe Area for Header */
         header { min-height: calc(4rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); height: auto; }
 
         body.focus-mode #left-panel, body.focus-mode header, body.focus-mode #format-toolbar, body.focus-mode #ai-panel, body.focus-mode #breadcrumbs { display: none !important; }
@@ -158,8 +156,27 @@
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        /* v1.11.6: Fixed Dialog Overflow and Padding */
-        dialog { margin: auto; border: none; border-radius: 28px; padding: 24px; background: var(--md-surface); color: var(--md-on-surface); max-width: 400px; width: 90%; box-shadow: 0 8px 24px rgba(0,0,0,0.2); box-sizing: border-box; max-height: 85dvh; overflow-y: auto; word-break: break-word; }
+        /* v1.11.6.2: Bulletproof Dialog Centering */
+        dialog { 
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            margin: 0;
+            border: none; 
+            border-radius: 28px; 
+            padding: 24px; 
+            background: var(--md-surface); 
+            color: var(--md-on-surface); 
+            width: calc(100vw - 32px); 
+            max-width: 400px; 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2); 
+            box-sizing: border-box; 
+            max-height: 85dvh; 
+            overflow-y: auto; 
+            overflow-x: hidden;
+            word-break: break-word; 
+        }
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
         .dialog-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; }
         .dialog-msg { font-size: 0.95rem; color: var(--md-outline); margin-bottom: 24px; white-space: pre-wrap; }
@@ -577,7 +594,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.6</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.6.2</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
