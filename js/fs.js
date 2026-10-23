@@ -1,7 +1,6 @@
-// js/fs.js — MAi Notes V1.11.12
+// js/fs.js — MAi Notes V1.11.24
 // История изменений:
-//  V1.11.12 (23.10.2026): Атомарный moveNoteOnDisk (сначала запись, потом удаление).
-//  V1.11.3 (22.10.2026): withVaultLock, IDB cache, tombstone skip, stable filename.
+//  V1.11.24 (24.10.2026): Добавлена функция saveLogToDisk для сохранения логов в _logs.
 import { state } from './state.js';
 import { generateMarkdown, parseMarkdown, sanitizeFileName, genId } from './utils.js';
 import { isTombstoned } from './storage.js';
@@ -126,6 +125,8 @@ export async function _readAllFilesUnlocked(dirHandle, rootHandle = null) {
             }
         } else if (entry.kind === 'directory') {
             if (entry.name.startsWith('.')) continue;
+            // v1.11.24: Игнорируем папку с логами
+            if (entry.name === '_logs') continue; 
             const subNotes = await _readAllFilesUnlocked(entry, dirHandle);
             notes.push(...subNotes);
         }
@@ -235,14 +236,32 @@ export function renameFolderOnDisk(oldName, newName, dirHandle) {
     });
 }
 
-// v1.11.12: Атомарный перенос (сначала пишем новый файл, потом удаляем старый)
 export function moveNoteOnDisk(oldNote, newNote, dirHandle) {
     return withVaultLock(async () => {
-        // 1. Сначала записываем в новое место
         await _writeNoteToDiskUnlocked(newNote, dirHandle);
-        // 2. Если запись успешна, удаляем из старого места
         if (oldNote.folderId !== newNote.folderId) {
             await _deleteNoteFromDiskUnlocked(oldNote, dirHandle);
         }
+    });
+}
+
+// v1.11.24: Сохранение логов в папку _logs
+export function saveLogToDisk(logText, dirHandle) {
+    return withVaultLock(async () => {
+        if (!dirHandle) throw new Error('Нет доступа к папке');
+        
+        const logsDir = await dirHandle.getDirectoryHandle('_logs', { create: true });
+        
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0,10);
+        const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-');
+        const fileName = `mai_log_${dateStr}_${timeStr}.txt`;
+        
+        const fileHandle = await logsDir.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(logText);
+        await writable.close();
+        
+        return fileName;
     });
 }

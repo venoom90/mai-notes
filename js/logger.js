@@ -1,12 +1,33 @@
-// js/logger.js — MAi Notes V1.0.2
+// js/logger.js — MAi Notes V1.0.3
 // История изменений:
-//  V1.0.2 (23.10.2026): Увеличен лимит логов до 20000 (по запросу для длинных сессий).
+//  V1.0.3 (24.10.2026): Добавлен тумблер (isEnabled), сохранение состояния в localStorage, лимит увеличен до 40000.
 export const logs = [];
-const MAX_LOGS = 20000;
-let isEnabled = true;
+const MAX_LOGS = 40000;
+const STORAGE_KEY = 'mai_logger_enabled';
+
+let isEnabled = localStorage.getItem(STORAGE_KEY) !== 'false';
+
+export function initLogger() {
+    isEnabled = localStorage.getItem(STORAGE_KEY) !== 'false';
+    return isEnabled;
+}
+
+export function toggleLogging(state) {
+    if (typeof state === 'boolean') {
+        isEnabled = state;
+    } else {
+        isEnabled = !isEnabled;
+    }
+    localStorage.setItem(STORAGE_KEY, String(isEnabled));
+    return isEnabled;
+}
+
+export function getLogState() {
+    return isEnabled;
+}
 
 export function logEvent(type, message, data = {}) {
-    if (!isEnabled) return;
+    if (!isEnabled) return; // Ранний выход для экономии CPU
     
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
@@ -47,9 +68,4 @@ export function getLogsString() {
 export function clearLogs() {
     logs.length = 0;
     logEvent('SYS', 'Logs cleared');
-}
-
-export function toggleLogging() {
-    isEnabled = !isEnabled;
-    return isEnabled;
 }

@@ -1,11 +1,11 @@
-// js/app.js — MAi Notes V1.11.21
+// js/app.js — MAi Notes V1.11.24
 // История изменений:
-//  V1.11.21 (23.10.2026): kb-open теперь зависит от innerHeight < 500. mousedown на панели форматирования не сбрасывает фокус.
+//  V1.11.24 (24.10.2026): Добавлен тумблер логгера и кнопка сохранения лога в файл.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
 import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
-import { logEvent, logDeviceInfo, getLogsString, clearLogs } from './logger.js';
+import { logEvent, logDeviceInfo, getLogsString, clearLogs, initLogger, toggleLogging } from './logger.js';
 import {
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder,
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter, resetFilters,
@@ -20,7 +20,7 @@ import {
     initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings,
     showSnackbar, createPrompt, deletePrompt, openPromptSettings, closePromptSettings, savePromptSettings,
     triggerAiFromChip, closeAiPanel, clearAiPanel, handleAiCopy, handleAiInsert, handleAiRegenerate, saveAiSettings,
-    syncVault, handleCopyNoteText
+    syncVault, handleCopyNoteText, exportLogsToFile
 } from './logic.js';
 import { verifyPermission } from './fs.js';
 import { showConfirm } from './dialog.js';
@@ -162,6 +162,7 @@ function attachListeners() {
     if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
     if (els.btnSettingsSaveAi) els.btnSettingsSaveAi.addEventListener('click', saveAiSettings);
 
+    // v1.11.24: Логи
     if (els.btnCopyLogs) {
         els.btnCopyLogs.addEventListener('click', () => {
             const logStr = getLogsString();
@@ -177,6 +178,17 @@ function attachListeners() {
             clearLogs();
             showSnackbar('Лог очищен');
         });
+    }
+    if (els.toggleLogs) {
+        // Инициализация состояния тумблера
+        els.toggleLogs.checked = initLogger();
+        els.toggleLogs.addEventListener('change', (e) => {
+            toggleLogging(e.target.checked);
+            showSnackbar(e.target.checked ? 'Логгер включен' : 'Логгер выключен', 'info');
+        });
+    }
+    if (els.btnSaveLogsFile) {
+        els.btnSaveLogsFile.addEventListener('click', exportLogsToFile);
     }
 
     if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
@@ -351,7 +363,7 @@ function attachListeners() {
 
     if (els.formatToolbar) {
         els.formatToolbar.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // v1.11.21: Не даем клавиатуре закрыться
+            e.preventDefault(); 
         });
         els.formatToolbar.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-format]');
@@ -404,7 +416,7 @@ function attachListeners() {
     els.btnClosePicker.addEventListener('click', closePicker);
     els.pickerSearch.addEventListener('input', handlePickerSearch);
     els.pickerList.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // v1.11.21: Не даем клавиатуре закрыться при выборе тега
+        e.preventDefault(); 
     });
     els.pickerList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-pick-value]');
@@ -498,8 +510,6 @@ function attachListeners() {
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', () => {
             autoResizeTextarea();
-            // На Android WebView клавиатура сжимает innerHeight.
-            // Если innerHeight < 500, значит клавиатура открыта.
             if (window.innerHeight < 500) {
                 document.body.classList.add('kb-open');
             } else {

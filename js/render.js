@@ -1,6 +1,6 @@
-// js/render.js — MAi Notes V1.11.23
+// js/render.js — MAi Notes V1.11.24
 // История изменений:
-//  V1.11.23 (23.10.2026): Оптимизация renderSaveStatus (не трогает DOM, если статус не изменился).
+//  V1.11.24 (24.10.2026): Версия обновлена без изменений в логике.
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
@@ -458,7 +458,6 @@ export function updatePreviewButton() {
 export function renderSaveStatus() {
     if (!els.statusText) return;
     
-    // v1.11.23: Оптимизация. Не трогаем DOM, если статус не изменился (защита от рефлоу)
     if (lastSaveStatus === state.saveStatus && state.saveStatus !== 'saved') return;
     lastSaveStatus = state.saveStatus;
 

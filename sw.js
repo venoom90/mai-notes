@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.23
+// sw.js — MAi Notes V1.11.24
 // История изменений:
-//  V1.11.23 (23.10.2026): Кэш v66. Финальный фикс прыжков текста и потери фокуса.
-const CACHE_NAME = 'mai-cache-v66';
+//  V1.11.24 (24.10.2026): Кэш v67. Добавлен логгер 3.0 (экспорт в файл, тумблер).
+const CACHE_NAME = 'mai-cache-v67';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

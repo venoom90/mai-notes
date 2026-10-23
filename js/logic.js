@@ -1,16 +1,16 @@
-// js/logic.js — MAi Notes V1.11.23
+// js/logic.js — MAi Notes V1.11.24
 // История изменений:
-//  V1.11.23 (23.10.2026): Убрана перерисовка сайдбара в onEdit (воровала фокус). Сайдбар обновляется в scheduleSave.
+//  V1.11.24 (24.10.2026): Добавлена exportLogsToFile для сохранения в FS.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus, renderAiPanel, renderPromptSettings } from './render.js';
-import { logEvent } from './logger.js';
+import { logEvent, getLogsString } from './logger.js';
 import {
     isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, requestPermission,
     readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk,
     _readAllFilesUnlocked, _writeNoteToDiskUnlocked, withVaultLock,
-    moveNoteOnDisk, renameFolderOnDisk, createFolderOnDisk
+    moveNoteOnDisk, renameFolderOnDisk, createFolderOnDisk, saveLogToDisk
 } from './fs.js';
 import { sendAiRequest, typewriter, buildUserContext } from './ai.js';
 import { showAlert, showConfirm, showPrompt } from './dialog.js';
@@ -293,7 +293,6 @@ export function scheduleSave() {
         if (ok) {
             state.saveStatus = 'saved';
             renderSaveStatus();
-            // v1.11.23: Обновляем сайдбар ТОЛЬКО здесь, после сохранения, чтобы не воровать фокус
             renderSidebar();
 
             if (state.vaultHandle && state.vaultStatus === 'connected' && noteIdToSave) {
@@ -316,7 +315,6 @@ export function onEdit() {
     const note = getNoteById(state.activeId); if (!note) return;
     note.title = els.titleInput.value; note.content = els.contentInput.value; note.updatedAt = Date.now();
     syncNoteTags(note); state.saveStatus = 'saving'; renderSaveStatus(); scheduleSave();
-    // v1.11.23: Убрали debouncedRenderSidebar(), чтобы не воровать фокус
 }
 
 export async function createNote() {
@@ -1170,4 +1168,26 @@ export async function handleCopyNoteText() {
         showSnackbar('Не удалось скопировать', 'error');
     }
     closeActionMenu();
+}
+
+// v1.11.24: Экспорт логов
+export async function exportLogsToFile() {
+    const logStr = getLogsString();
+    if (!logStr) {
+        showSnackbar('Лог пуст', 'error');
+        return;
+    }
+
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        try {
+            const fileName = await saveLogToDisk(logStr, state.vaultHandle);
+            showSnackbar(`Лог сохранен в _logs/${fileName}`, 'info');
+        } catch (e) {
+            handleFsError(e, 'exportLogsToFile');
+        }
+    } else {
+        // Фоллбэк: скачивание
+        downloadFile(logStr, `mai_log_${Date.now()}.txt`, 'text/plain');
+        showSnackbar('Лог скачан в папку загрузок', 'info');
+    }
 }

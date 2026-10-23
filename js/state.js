@@ -1,6 +1,6 @@
-// js/state.js — MAi Notes V1.11.21
+// js/state.js — MAi Notes V1.11.24
 // История изменений:
-//  V1.11.21 (23.10.2026): Версия обновлена без изменений в структуре.
+//  V1.11.24 (24.10.2026): Добавлены els.toggleLogs и els.btnSaveLogsFile.
 export const state = {
     notes: [], folders: [], savedFilters: [], activeId: null, activeFolderId: 'inbox',
     activeTag: null, activeContext: null, activeFilterId: null, saveTimeout: null,
@@ -171,6 +171,9 @@ export const els = {
     calendarNotesList: document.getElementById('calendar-notes-list'),
     snackbar: document.getElementById('snackbar'),
     snackbarMessage: document.getElementById('snackbar-message'),
+    // Logger UI
     btnCopyLogs: document.getElementById('btn-copy-logs'),
-    btnClearLogs: document.getElementById('btn-clear-logs')
+    btnClearLogs: document.getElementById('btn-clear-logs'),
+    toggleLogs: document.getElementById('toggle-logs'),
+    btnSaveLogsFile: document.getElementById('btn-save-logs-file')
 };

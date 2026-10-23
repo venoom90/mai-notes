@@ -40,11 +40,7 @@
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
-        /* v1.11.23: Фикс прыжков. scroll-padding-bottom решает проблему с клавиатурой */
-        .main-scroll-container { 
-            overflow-anchor: none; 
-            scroll-padding-bottom: 150px; 
-        }
+        .main-scroll-container { overflow-anchor: none; scroll-padding-bottom: 150px; }
 
         textarea#note-content, .markdown-body {
             width: 100%;
@@ -59,7 +55,6 @@
             textarea#note-content, .markdown-body { max-width: 75ch; margin-left: auto; margin-right: auto; }
         }
 
-        /* v1.11.23: Убран margin-bottom, который ломал скролл */
         textarea#note-content { 
             resize: none; 
             overflow-y: hidden; 
@@ -614,12 +609,22 @@
                 </div>
             </div>
 
+            <!-- v1.11.24: Логгер -->
             <div class="border-t border-[var(--md-outline)]/20 pt-4 mt-2">
-                <div class="font-bold text-sm mb-2 flex items-center gap-2 text-red-500"><i data-lucide="bug" class="w-4 h-4"></i> Для разработчика (Логи)</div>
+                <div class="font-bold text-sm mb-2 flex items-center justify-between text-red-500">
+                    <div class="flex items-center gap-2"><i data-lucide="bug" class="w-4 h-4"></i> Для разработчика</div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggle-logs" class="sr-only peer">
+                        <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
+                    </label>
+                </div>
                 <div class="text-xs text-outline mb-3">Сбор телеметрии для поиска багов. Не отправляет данные в сеть.</div>
                 <div class="flex gap-2">
                     <button id="btn-copy-logs" class="flex-1 bg-[var(--md-surface-variant)] hover:bg-black/10 text-sm font-medium p-2 rounded-xl border border-[var(--md-outline)]/30 flex items-center justify-center gap-2 transition-colors">
-                        <i data-lucide="copy" class="w-4 h-4"></i> Скопировать лог
+                        <i data-lucide="copy" class="w-4 h-4"></i> Скопировать
+                    </button>
+                    <button id="btn-save-logs-file" class="flex-1 bg-[var(--md-surface-variant)] hover:bg-black/10 text-sm font-medium p-2 rounded-xl border border-[var(--md-outline)]/30 flex items-center justify-center gap-2 transition-colors">
+                        <i data-lucide="download" class="w-4 h-4"></i> В файл
                     </button>
                     <button id="btn-clear-logs" class="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -628,7 +633,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.23</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.24</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
