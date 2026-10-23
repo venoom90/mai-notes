@@ -41,6 +41,7 @@
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
         .main-scroll-container { overflow-anchor: none; scroll-padding-bottom: 150px; }
+        body.kb-open .main-scroll-container { scroll-padding-bottom: 250px; } /* v1.11.30 */
 
         textarea#note-content, .markdown-body {
             width: 100%;
@@ -57,14 +58,14 @@
 
         textarea#note-content { 
             resize: none; 
-            overflow-y: hidden; 
-            overflow-x: hidden;
+            overflow-y: hidden !important; 
+            overflow-x: hidden !important;
             word-wrap: break-word; 
             white-space: pre-wrap; 
             line-height: 1.6; 
             font-size: 1rem; 
             padding: 0; 
-            display: block; /* v1.11.29: Убирает невидимые отступы inline-элемента */
+            display: block;
         }
         
         textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; display: block; }
@@ -654,7 +655,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.29</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.30</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

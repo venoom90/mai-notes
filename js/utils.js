@@ -1,6 +1,6 @@
-// js/utils.js — MAi Notes V1.11.29
+// js/utils.js — MAi Notes V1.11.30
 // История изменений:
-//  V1.11.29 (24.10.2026): Фикс "ячейки в ячейке" через Math.ceil + 2px буфер (DPR 3.5) в autoResizeTextarea.
+//  V1.11.30 (24.10.2026): autoResizeTextarea через height: auto + reflow + scrollTop = 0 для убийства внутреннего скролла WebView.
 import { state } from './state.js';
 
 export function genId() {
@@ -58,7 +58,7 @@ export function notesInFolder(folderId) {
     });
 }
 
-// v1.11.29: Жесткий сброс в 0px + Math.ceil + 2px буфер для дробных пикселей (DPR 3.5)
+// v1.11.30: Сброс через height: auto + принудительный reflow + обнуление внутреннего скролла
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     const scroller = document.getElementById('main-scroll-container');
@@ -66,10 +66,11 @@ export function autoResizeTextarea() {
     
     const prevScrollTop = scroller.scrollTop;
     
-    ta.style.height = '0px'; // Сброс
-    // +2px компенсирует дробные пиксели в Android WebView, из-за которых обрезается низ текста
+    ta.style.height = 'auto'; 
+    void ta.offsetHeight; // Форсируем reflow (сброс кэша scrollHeight)
     ta.style.height = (Math.ceil(ta.scrollHeight) + 2) + 'px';
     ta.style.overflowY = 'hidden';
+    ta.scrollTop = 0; // Блокируем внутренний скролл WebView
     
     scroller.scrollTop = prevScrollTop;
 }
@@ -78,6 +79,7 @@ export function autoResizeTitle() {
     const ta = document.getElementById('note-title');
     if (!ta) return;
     ta.style.height = 'auto';
+    void ta.offsetHeight;
     ta.style.height = ta.scrollHeight + 'px';
 }
 

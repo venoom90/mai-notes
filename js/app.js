@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.29
+// js/app.js — MAi Notes V1.11.30
 // История изменений:
-//  V1.11.29 (24.10.2026): Увеличен таймаут и добавлен rAF в visualViewport для стабильного скролла при клавиатуре.
+//  V1.11.30 (24.10.2026): Троттлинг логов скролла контейнера. Блокировка внутреннего скролла textarea. Точный скролл к концу.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -291,9 +291,32 @@ function attachListeners() {
             scrollTop: document.getElementById('main-scroll-container').scrollTop
         });
     });
+
+    // v1.11.30: Блокировка внутреннего скролла WebView
+    els.contentInput.addEventListener('scroll', () => {
+        if (els.contentInput.scrollTop !== 0) {
+            els.contentInput.scrollTop = 0;
+        }
+    });
     
     els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); logEvent('BLUR', 'Content lost focus'); });
     els.titleInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
+
+    // v1.11.30: Троттлинг логирования скролла контейнера
+    let scrollLogTimeout = null;
+    const mainScroller = document.getElementById('main-scroll-container');
+    if (mainScroller) {
+        mainScroller.addEventListener('scroll', () => {
+            if (scrollLogTimeout) clearTimeout(scrollLogTimeout);
+            scrollLogTimeout = setTimeout(() => {
+                logEvent('SCROLL', 'Container scroll settled', {
+                    scrollTop: Math.round(mainScroller.scrollTop),
+                    scrollHeight: mainScroller.scrollHeight,
+                    clientHeight: mainScroller.clientHeight
+                });
+            }, 200);
+        }, { passive: true });
+    }
 
     els.outlineList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-outline-text]');
@@ -517,14 +540,14 @@ function attachListeners() {
             if (window.innerHeight < 500) {
                 document.body.classList.add('kb-open');
                 
-                // v1.11.29: Увеличен таймаут для WebView + двойной пересчет через rAF
                 setTimeout(() => {
                     autoResizeTextarea();
                     requestAnimationFrame(() => {
                         autoResizeTextarea();
                         const scroller = document.getElementById('main-scroll-container');
                         if (scroller && document.activeElement === els.contentInput) {
-                            scroller.scrollTop = scroller.scrollHeight;
+                            // v1.11.30: Точный скролл к низу textarea
+                            scroller.scrollTop = els.contentInput.offsetTop + els.contentInput.offsetHeight + 150;
                         }
                     });
                 }, 200);
