@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.31
+// sw.js — MAi Notes V1.11.32
 // История изменений:
-//  V1.11.31 (24.10.2026): Кэш v74. Обновление для Mirror Div, защиты синхронизации и фикса H1.
-const CACHE_NAME = 'mai-cache-v74';
+//  V1.11.32 (24.10.2026): Кэш v75. Фикс зависания импорта (dialog.js) и показ Snackbar при ошибках Promise.
+const CACHE_NAME = 'mai-cache-v75';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

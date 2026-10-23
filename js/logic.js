@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.31
+// js/logic.js — MAi Notes V1.11.32
 // История изменений:
-//  V1.11.31 (24.10.2026): Защита активной заметки от перезаписи syncVault. onEdit проверяет изменения. Закрытие клавиатуры при preview.
+//  V1.11.32 (24.10.2026): Обновлен handleImportFiles (кастомный текст кнопки, переход к заметкам).
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, autoResizeTextarea, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -168,7 +168,6 @@ export async function syncVault(isNewConnection = false) {
                     if (diskNote) {
                         const diskTime = diskNote.updatedAt || diskNote.fileMtime || 0;
                         
-                        // v1.11.31: Защита активной заметки от перезаписи во время ввода
                         if (state.activeId === id && state.saveStatus === 'saving') {
                             merged.push(localNote);
                             diskMap.delete(id);
@@ -338,7 +337,6 @@ export function onEdit() {
     if (!state.activeId || state.viewMode !== 'editor' || state.editorMode === 'preview') return;
     const note = getNoteById(state.activeId); if (!note) return;
     
-    // v1.11.31: Проверка на реальное изменение
     if (note.title === els.titleInput.value && note.content === els.contentInput.value) return;
 
     note.title = els.titleInput.value; 
@@ -559,7 +557,6 @@ export function insertFormatting(type) {
 export function togglePreviewMode() {
     if (state.editorMode === 'edit') onEdit();
     
-    // v1.11.31: Закрываем клавиатуру при входе в просмотр
     if (state.editorMode === 'preview') {
         state.editorMode = 'edit'; 
         renderAll();
@@ -1227,7 +1224,9 @@ export async function handleImportFiles(files) {
         state.saveStatus = 'saved';
         renderSaveStatus();
         renderAll();
-        await showAlert(`Успешно импортировано файлов: ${importedCount}`, 'Импорт завершен');
+        
+        await showAlert(`Успешно импортировано файлов: ${importedCount}`, 'Импорт завершен', { okText: 'Перейти к заметкам' });
+        goToFolderView();
     } else {
         await showAlert('Не найдено подходящих файлов для импорта.', 'Импорт');
     }

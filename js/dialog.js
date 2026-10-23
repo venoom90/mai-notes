@@ -1,7 +1,7 @@
-// js/dialog.js — MAi Notes V1.11.10
+// js/dialog.js — MAi Notes V1.11.32
 // История изменений:
-//  V1.11.10 (23.10.2026): Полный отказ от <dialog> в пользу кастомных <div> оверлеев из-за багов мобильного Chromium.
-//  V1.11.4 (22.10.2026): Создан M3-модуль диалогов (showAlert, showConfirm, showPrompt).
+//  V1.11.32 (24.10.2026): Защита от null кнопок (фикс зависания импорта). Добавлен options (кастомный текст, автотаймаут).
+import { state } from './state.js';
 
 function setupDialog(overlayId, titleId, msgId, inputId, cancelId, confirmId) {
     const overlay = document.getElementById(overlayId);
@@ -12,25 +12,37 @@ function setupDialog(overlayId, titleId, msgId, inputId, cancelId, confirmId) {
     const confirmBtn = document.getElementById(confirmId);
 
     return {
-        show: (title, msg, defaultValue = '') => {
+        show: (title, msg, defaultValue = '', options = {}) => {
             titleEl.textContent = title;
             msgEl.textContent = msg;
             if (inputEl) inputEl.value = defaultValue;
 
+            if (confirmBtn) {
+                confirmBtn.textContent = options.okText || 'ОК';
+            }
+
             overlay.classList.remove('hidden');
-            // Небольшая задержка для срабатывания CSS-переходов (opacity, transform)
             setTimeout(() => overlay.classList.add('open'), 10);
 
             return new Promise((resolve) => {
+                let timeoutId;
+
                 const onClose = (result) => {
+                    clearTimeout(timeoutId);
                     overlay.classList.remove('open');
-                    // Ждем окончания анимации перед скрытием
                     setTimeout(() => overlay.classList.add('hidden'), 200);
                     resolve(result);
                 };
 
-                cancelBtn.onclick = () => onClose(inputEl ? null : false);
-                confirmBtn.onclick = () => onClose(inputEl ? inputEl.value : true);
+                // Защита от вечного зависания диалога
+                timeoutId = setTimeout(() => {
+                    if (!overlay.classList.contains('hidden')) {
+                        onClose(inputEl ? null : false);
+                    }
+                }, options.timeout || 60000);
+
+                if (cancelBtn) cancelBtn.onclick = () => onClose(inputEl ? null : false);
+                if (confirmBtn) confirmBtn.onclick = () => onClose(inputEl ? inputEl.value : true);
 
                 if (inputEl) {
                     inputEl.onkeydown = (e) => {
@@ -47,17 +59,17 @@ let alertInstance = null;
 let confirmInstance = null;
 let promptInstance = null;
 
-export function showAlert(message, title = 'Уведомление') {
+export function showAlert(message, title = 'Уведомление', options = {}) {
     if (!alertInstance) alertInstance = setupDialog('app-dialog-alert', 'app-dialog-alert-title', 'app-dialog-alert-msg', null, 'app-dialog-alert-close', 'app-dialog-alert-ok');
-    return alertInstance.show(title, message);
+    return alertInstance.show(title, message, '', options);
 }
 
-export function showConfirm(message, title = 'Подтверждение') {
+export function showConfirm(message, title = 'Подтверждение', options = {}) {
     if (!confirmInstance) confirmInstance = setupDialog('app-dialog-confirm', 'app-dialog-confirm-title', 'app-dialog-confirm-msg', null, 'app-dialog-confirm-cancel', 'app-dialog-confirm-ok');
-    return confirmInstance.show(title, message);
+    return confirmInstance.show(title, message, '', options);
 }
 
-export function showPrompt(message, defaultValue = '', title = 'Ввод') {
+export function showPrompt(message, defaultValue = '', title = 'Ввод', options = {}) {
     if (!promptInstance) promptInstance = setupDialog('app-dialog-prompt', 'app-dialog-prompt-title', 'app-dialog-prompt-msg', 'app-dialog-prompt-input', 'app-dialog-prompt-cancel', 'app-dialog-prompt-ok');
-    return promptInstance.show(title, message, defaultValue);
+    return promptInstance.show(title, message, defaultValue, options);
 }

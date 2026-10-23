@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.31
+// js/app.js — MAi Notes V1.11.32
 // История изменений:
-//  V1.11.31 (24.10.2026): Добавлен pagehide для аварийного сохранения. Вызовы autoResizeTextarea синхронизированы.
+//  V1.11.32 (24.10.2026): Добавлен показ Snackbar при unhandledrejection.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -43,6 +43,10 @@ function attachListeners() {
     });
     window.addEventListener('unhandledrejection', (e) => {
         logEvent('PROMISE', 'Unhandled Rejection', { reason: e.reason?.message || String(e.reason) });
+        // v1.11.32: Показываем ошибку пользователю
+        try {
+            showSnackbar('Ошибка: ' + (e.reason?.message || 'Неизвестная ошибка'), 'error');
+        } catch (_) {}
     });
 
     let touchStartX = 0, touchStartY = 0;
@@ -573,7 +577,6 @@ function attachListeners() {
         }, 100);
     });
 
-    // v1.11.31: Принудительное сохранение при уходе
     window.addEventListener('pagehide', () => {
         if (state.activeId && state.editorMode === 'edit') {
             onEdit();
