@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.27
+// sw.js — MAi Notes V1.11.28
 // История изменений:
-//  V1.11.27 (24.10.2026): Кэш v70. Финальный фикс прыжков при вставке промпта.
-const CACHE_NAME = 'mai-cache-v70';
+//  V1.11.28 (24.10.2026): Кэш v71. Фикс ячейки внутри textarea и 122px overlap.
+const CACHE_NAME = 'mai-cache-v71';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
