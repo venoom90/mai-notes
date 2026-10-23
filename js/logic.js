@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.18
+// js/logic.js — MAi Notes V1.11.19
 // История изменений:
-//  V1.11.18 (23.10.2026): Добавлен вызов renderSaveStatus при синхронизации для скрытия облака.
+//  V1.11.19 (23.10.2026): Добавлен вызов renderSaveStatus при синхронизации для скрытия облака.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -183,7 +183,7 @@ export async function syncVault(isNewConnection = false) {
         state.saveStatus = 'saved';
         state.isSyncing = false;
         renderAll();
-        renderSaveStatus(); // Обновляем статус облака
+        renderSaveStatus(); 
     } catch (e) {
         state.saveStatus = 'error';
         state.isSyncing = false;

@@ -1,6 +1,6 @@
-// js/render.js — MAi Notes V1.11.18
+// js/render.js — MAi Notes V1.11.19
 // История изменений:
-//  V1.11.18 (23.10.2026): Добавлено автоскрытие индикатора сохранения через 3 секунды.
+//  V1.11.19 (23.10.2026): Отключен breaks в marked.parse (фикс хаотичных переносов).
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
@@ -465,7 +465,6 @@ export function renderSaveStatus() {
         html = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin text-primary"></i>`;
     } else if (state.saveStatus === 'saved') {
         html = `<i data-lucide="cloud-check" class="w-5 h-5 text-green-500"></i>`;
-        // Автоскрытие через 3 секунды
         saveStatusTimeout = setTimeout(() => {
             els.statusText.style.opacity = '0';
         }, 3000);
@@ -492,7 +491,8 @@ export function renderMarkdownTo(el, text, options = {}) {
     if (!text || !text.trim()) { el.innerHTML = ''; return; }
     if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') return;
     try {
-        const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(text, { gfm: true, breaks: true }));
+        // v1.11.19: breaks: false — убирает хаотичные переносы
+        const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(text, { gfm: true, breaks: false }));
         el.innerHTML = cleanHtml;
         el.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });
         if (options.highlight) renderHighlightsInPreview();

@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.18
+// js/app.js — MAi Notes V1.11.19
 // История изменений:
-//  V1.11.18 (23.10.2026): Добавлены focus/blur обработчики для надежной работы панели форматирования.
+//  V1.11.19 (23.10.2026): visualViewport управляет классом kb-open (скрывает баннер и поднимает панель).
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -450,7 +450,6 @@ function attachListeners() {
         });
     }
 
-    // v1.11.18: Надежное управление панелью форматирования
     els.contentInput.addEventListener('focus', () => {
         document.body.classList.add('kb-open');
     });
