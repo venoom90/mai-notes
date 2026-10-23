@@ -1,9 +1,7 @@
-// js/state.js — MAi Notes V1.11.15
+// js/state.js — MAi Notes V1.11.16
 // История изменений:
+//  V1.11.16 (23.10.2026): Добавлены els.btnMobileMore, els.btnActionFocus, els.btnActionCopy. Удален folderMoveSelect.
 //  V1.11.15 (23.10.2026): Добавлен els.aiTruncationWarning (фикс P1). Удалены orphaned-ключи btnNavBack/btnNavForward (P2-аудит).
-//  V1.11.5 (22.10.2026): Добавлен state.aiTypewriter для контроля анимации печати.
-//  V1.11.4 (22.10.2026): Добавлены els для M3-диалогов (app-dialog-alert, -confirm, -prompt).
-//  V1.11.3 (22.10.2026): Добавлены tombstones, lastVisibilitySync, TOMBS_KEY.
 export const state = {
     notes: [],
     folders: [],
@@ -44,7 +42,7 @@ export const state = {
     aiResponse: '',
     aiErrorMsg: '',
     aiAbortController: null,
-    aiTypewriter: null, // v1.11.5
+    aiTypewriter: null, 
     promptSettingsId: null,
     aiDropdownOpen: false,
     tombstones: [],
@@ -117,8 +115,9 @@ export const els = {
     btnPromptSettings: document.getElementById('btn-prompt-settings'),
     btnNewNote: document.getElementById('btn-new-note'),
     btnNewFolder: document.getElementById('btn-new-folder'),
-    btnDeleteNote: document.getElementById('btn-delete-note'),
+    btnDeleteNote: document.getElementById('btn-delete-note'), // Остается для Desktop
     btnPreview: document.getElementById('btn-preview'),
+    btnMobileMore: document.getElementById('btn-mobile-more'), // Новая кнопка троеточия
     viewEditor: document.getElementById('view-editor'),
     viewFolder: document.getElementById('view-folder'),
     viewCalendar: document.getElementById('view-calendar'),
@@ -135,7 +134,7 @@ export const els = {
     aiLoading: document.getElementById('ai-loading'),
     aiError: document.getElementById('ai-error'),
     aiErrorMsg: document.getElementById('ai-error-msg'),
-    aiTruncationWarning: document.getElementById('ai-truncation-warning'), // v1.11.15
+    aiTruncationWarning: document.getElementById('ai-truncation-warning'), 
     btnAiRetry: document.getElementById('btn-ai-retry'),
     aiOutputWrapper: document.getElementById('ai-output-wrapper'),
     aiOutput: document.getElementById('ai-output'),
@@ -155,8 +154,7 @@ export const els = {
     crumbFolderName: document.getElementById('crumb-folder-name'),
     crumbSeparator: document.getElementById('breadcrumb-separator'),
     crumbTitle: document.getElementById('breadcrumb-title'),
-    moveNoteContainer: document.getElementById('move-note-container'),
-    folderMoveSelect: document.getElementById('folder-move-select'),
+    // moveNoteContainer и folderMoveSelect удалены
     fabNewNote: document.getElementById('fab-new-note'),
     formatToolbar: document.getElementById('format-toolbar'),
     actionSheetBackdrop: document.getElementById('action-sheet-backdrop'),
@@ -167,6 +165,8 @@ export const els = {
     sheetFoldersList: document.getElementById('sheet-folders-list'),
     btnSheetBack: document.getElementById('btn-sheet-back'),
     pinLabel: document.getElementById('pin-label'),
+    btnActionFocus: document.getElementById('btn-action-focus'), // Кнопка фокуса в шторке
+    btnActionCopy: document.getElementById('btn-action-copy'),   // Кнопка копирования в шторке
     searchBackdrop: document.getElementById('search-backdrop'),
     searchModal: document.getElementById('search-modal'),
     searchInput: document.getElementById('search-input'),
@@ -202,8 +202,7 @@ export const els = {
     btnExportAll: document.getElementById('btn-export-all'),
     btnImportData: document.getElementById('btn-import-data'),
     importFileInput: document.getElementById('import-file-input'),
-    // v1.11.15: btnNavBack / btnNavForward удалены (orphaned после V1.11.13)
-    btnFocusMode: document.getElementById('btn-focus-mode'),
+    btnFocusMode: document.getElementById('btn-focus-mode'), // Оставляем в els, но убираем из HTML
     btnCloseFocus: document.getElementById('btn-close-focus'),
     outlineContainer: document.getElementById('outline-container'),
     outlineList: document.getElementById('outline-list'),

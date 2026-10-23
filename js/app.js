@@ -1,7 +1,6 @@
-// js/app.js — MAi Notes V1.11.14
+// js/app.js — MAi Notes V1.11.16
 // История изменений:
-//  V1.11.14 (23.10.2026): Фикс закрытия Action Sheet через кнопку Назад (pushState/popstate).
-//  V1.11.13 (23.10.2026): Удалены кнопки Back/Forward. Swipe/LongPress. Double-tap exit.
+//  V1.11.16 (23.10.2026): Добавлены слушатели btnMobileMore и btnActionCopy. Удален folderMoveSelect.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -20,7 +19,7 @@ import {
     initVault, connectVault, disconnectVault, restoreAccess, openSettings, closeSettings,
     showSnackbar, createPrompt, deletePrompt, openPromptSettings, closePromptSettings, savePromptSettings,
     triggerAiFromChip, closeAiPanel, clearAiPanel, handleAiCopy, handleAiInsert, handleAiRegenerate, saveAiSettings,
-    syncVault
+    syncVault, handleCopyNoteText
 } from './logic.js';
 import { verifyPermission } from './fs.js';
 import { showConfirm } from './dialog.js';
@@ -175,6 +174,13 @@ function attachListeners() {
     els.btnNewPrompt.addEventListener('click', createPrompt);
     els.btnPreview.addEventListener('click', togglePreviewMode);
 
+    // v1.11.16: Обработчик троеточия в хедере
+    if (els.btnMobileMore) {
+        els.btnMobileMore.addEventListener('click', () => {
+            if (state.activeId) openActionMenu(state.activeId);
+        });
+    }
+
     els.btnDeleteNote.addEventListener('click', () => {
         if (state.activeId) {
             const note = getNoteById(state.activeId);
@@ -182,23 +188,6 @@ function attachListeners() {
             else deleteNote(state.activeId);
         }
     });
-
-    if (els.folderMoveSelect) {
-        els.folderMoveSelect.addEventListener('change', async (e) => {
-            const note = getNoteById(state.activeId);
-            if (note) {
-                const oldNote = { ...note };
-                note.folderId = e.target.value; note.updatedAt = Date.now();
-                persistNotes(); renderAll();
-                try {
-                    if (state.vaultHandle && state.vaultStatus === 'connected') {
-                        const { moveNoteOnDisk } = await import('./fs.js');
-                        await moveNoteOnDisk(oldNote, note, state.vaultHandle);
-                    }
-                } catch (err) { console.error(err); }
-            }
-        });
-    }
 
     els.crumbFolderBtn.addEventListener('click', goToFolderView);
 
@@ -315,7 +304,6 @@ function attachListeners() {
         });
     }
 
-    // v1.11.14: Используем history.back() для закрытия шторки, чтобы синхронизировать стек
     els.actionSheetBackdrop.addEventListener('click', () => { if (state.actionMenuNoteId) history.back(); });
     els.actionSheetMain.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action]');
@@ -326,6 +314,8 @@ function attachListeners() {
         else if (action === 'move') setActionMenuMode('move');
         else if (action === 'delete') deleteNoteFromMenu();
         else if (action === 'share') shareNoteFile(state.actionMenuNoteId);
+        else if (action === 'copy') handleCopyNoteText(); // v1.11.16
+        else if (action === 'focus') { closeActionMenu(); toggleFocusMode(); } // v1.11.16
     });
     els.btnSheetBack.addEventListener('click', () => setActionMenuMode('main'));
     els.sheetFoldersList.addEventListener('click', (e) => {

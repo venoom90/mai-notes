@@ -1,7 +1,6 @@
-// js/logic.js — MAi Notes V1.11.14
+// js/logic.js — MAi Notes V1.11.16
 // История изменений:
-//  V1.11.14 (23.10.2026): Оптимизация импорта (запись только измененных файлов).
-//  V1.11.13 (23.10.2026): Новый navStack. Double-tap exit. GC пустых заметок.
+//  V1.11.16 (23.10.2026): toggleFocusMode обновлен для нового CSS. openActionMenu скрывает фокус для промптов.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -217,13 +216,8 @@ export function pushToNavStack(view, id) {
     if (state.navStack.length > 50) state.navStack.shift();
 }
 
-export function goBack() {
-    // Obsolete function, now handled by popstate in app.js
-}
-
-export function goForward() {
-    // Obsolete function
-}
+export function goBack() {}
+export function goForward() {}
 
 export function goToFolderView() {
     state.viewMode = 'folder'; state.activeId = null;
@@ -508,11 +502,19 @@ export function openActionMenu(noteId) {
     state.actionMenuNoteId = noteId; state.actionMenuMode = 'main';
     els.actionSheetTitle.textContent = note.title || 'Без названия';
     els.pinLabel.textContent = note.isPinned ? 'Открепить' : 'Закрепить';
+    
+    // Скрываем опции для промптов
+    if (note.isPrompt) {
+        if (els.btnActionFocus) els.btnActionFocus.style.display = 'none';
+    } else {
+        if (els.btnActionFocus) els.btnActionFocus.style.display = 'flex';
+    }
+
     els.actionSheetMove.classList.add('hidden'); els.actionSheetMove.classList.remove('flex');
     els.actionSheetMain.classList.remove('hidden'); els.actionSheetMain.classList.add('flex');
     els.actionSheetBackdrop.classList.remove('hidden');
     setTimeout(() => els.actionSheet.classList.add('open'), 10);
-    history.pushState({ state: 'actionSheet' }, ''); // v1.11.14
+    history.pushState({ state: 'actionSheet' }, '');
 }
 
 export function closeActionMenu() {
@@ -1039,7 +1041,7 @@ export async function exportAllData() {
 export async function handleImportFiles(files) {
     if (!files || files.length === 0) return;
     let importedCount = 0;
-    const importedIds = new Set(); // v1.11.14
+    const importedIds = new Set(); 
 
     for (const file of files) {
         if (file.name.endsWith('.zip')) {
@@ -1090,7 +1092,7 @@ export async function handleImportFiles(files) {
                         if (existingIdx >= 0) state.notes[existingIdx] = note;
                         else state.notes.push(note);
                         
-                        importedIds.add(note.id); // v1.11.14
+                        importedIds.add(note.id); 
                         importedCount++;
                     }));
                 });
@@ -1108,7 +1110,7 @@ export async function handleImportFiles(files) {
             if (existingIdx >= 0) state.notes[existingIdx] = note;
             else state.notes.push(note);
             
-            importedIds.add(note.id); // v1.11.14
+            importedIds.add(note.id); 
             importedCount++;
         }
     }
@@ -1116,7 +1118,6 @@ export async function handleImportFiles(files) {
     if (importedCount > 0) {
         persistNotes(); persistFolders();
 
-        // v1.11.14: Записываем на диск только импортированные заметки, а не всю базу
         if (state.vaultHandle && state.vaultStatus === 'connected') {
             try {
                 for (const id of importedIds) {
@@ -1144,4 +1145,16 @@ export function showSnackbar(message, type = 'info') {
     state.snackbarTimeout = setTimeout(() => {
         els.snackbar.classList.add('hidden');
     }, 4000);
+}
+
+export async function handleCopyNoteText() {
+    const note = getNoteById(state.actionMenuNoteId);
+    if (!note) return;
+    try {
+        await navigator.clipboard.writeText(note.content);
+        showSnackbar('Текст заметки скопирован');
+    } catch (e) {
+        showSnackbar('Не удалось скопировать', 'error');
+    }
+    closeActionMenu();
 }

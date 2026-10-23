@@ -40,8 +40,12 @@
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
-        textarea#note-content { resize: none; min-height: 200px; overflow-y: hidden; line-height: 1.6; font-size: 1rem; padding-bottom: 200px; }
-        textarea#note-title { resize: none; overflow: hidden; line-height: 1.2; font-weight: bold; font-size: 2rem; margin-bottom: 1rem; }
+        /* UX FIX: Уменьшаем паддинг снизу, так как FAB скрыт в заметке */
+        textarea#note-content { resize: none; min-height: 200px; overflow-y: hidden; line-height: 1.6; font-size: 1rem; padding-bottom: 80px; }
+        
+        /* UX FIX: Ограничиваем высоту и размер заголовка на мобилках */
+        textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
+        @media (min-width: 768px) { textarea#note-title { font-size: 2rem; max-height: none; overflow: hidden; } }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -91,10 +95,17 @@
 
         header { min-height: calc(4rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); height: auto; }
 
+        /* UX FIX: Полноэкранный фокус-режим без скроллбаров и отступов */
         body.focus-mode #left-panel, body.focus-mode header, body.focus-mode #format-toolbar, body.focus-mode #ai-panel, body.focus-mode #breadcrumbs { display: none !important; }
-        body.focus-mode main { padding-top: 1rem !important; }
+        body.focus-mode main { padding-top: 0 !important; }
         body.focus-mode #btn-close-focus { display: flex !important; }
-        #btn-close-focus { display: none; position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 100; background: var(--md-surface-variant); border-radius: 50%; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body.focus-mode::-webkit-scrollbar { display: none; }
+        
+        #btn-close-focus { 
+            display: none; position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 100; 
+            background: rgba(231, 224, 236, 0.8); backdrop-filter: blur(4px); border-radius: 50%; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: opacity 0.3s;
+        }
+        #btn-close-focus:hover { opacity: 1; }
 
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
         .folder-item:hover { background: rgba(0,0,0,0.03); }
@@ -243,7 +254,7 @@
     </div>
 
     <div id="app-layout" class="flex w-full h-full overflow-hidden">
-        <button id="btn-close-focus" type="button" class="text-outline hover:bg-black/5" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
+        <button id="btn-close-focus" type="button" class="text-outline" aria-label="Выйти из фокуса"><i data-lucide="minimize-2" class="w-6 h-6"></i></button>
 
         <div id="snackbar" class="snackbar fixed left-1/2 transform -translate-x-1/2 bg-[var(--md-surface-variant)] text-[var(--md-on-surface)] px-4 py-3 rounded-xl shadow-lg z-[100] hidden flex items-center gap-3 border border-[var(--md-outline)]/20">
             <i data-lucide="info" class="w-5 h-5 text-primary"></i>
@@ -343,32 +354,26 @@
                     <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1 hidden md:flex" aria-label="Статус сохранения">
                         <i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>
                     </div>
-                    
-                    <div class="relative" id="move-note-container" style="display:none;">
-                        <button type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" title="Переместить" aria-label="Переместить заметку">
-                            <i data-lucide="folder-input" class="w-5 h-5 text-outline"></i>
-                        </button>
-                        <select id="folder-move-select" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"></select>
-                    </div>
 
-                    <button id="btn-focus-mode" type="button" class="w-12 h-12 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Режим фокуса"><i data-lucide="maximize" class="w-5 h-5 text-outline"></i></button>
-                    
-                    <button id="btn-preview" type="button" class="hidden md:flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Просмотр / Редактирование"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i></button>
+                    <!-- UX FIX: Кнопка редактирования теперь видна на мобилках. Убраны move и delete (перенесены в шторку) -->
+                    <button id="btn-preview" type="button" class="flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Просмотр / Редактирование"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i></button>
                     <button id="btn-delete-note" type="button" class="hidden md:flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Удалить заметку"><i data-lucide="trash-2" class="w-5 h-5 text-outline"></i></button>
+                    <button id="btn-mobile-more" type="button" class="flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Дополнительно"><i data-lucide="more-vertical" class="w-5 h-5 text-outline"></i></button>
                     
                     <button id="btn-desktop-search" type="button" class="hidden md:flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Поиск"><i data-lucide="search" class="w-5 h-5 text-outline"></i></button>
                 </div>
             </header>
             
             <div class="flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
-                <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-sm text-outline min-h-[32px]">
+                <!-- UX FIX: Breadcrumbs стали мельче и прозрачнее -->
+                <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-xs opacity-75 text-outline min-h-[32px]">
                     <div class="flex items-center gap-2 truncate min-w-0">
                         <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
-                            <i data-lucide="folder" class="w-4 h-4 text-primary"></i>
+                            <i data-lucide="folder" class="w-3.5 h-3.5 text-primary"></i>
                             <span id="crumb-folder-name" class="font-medium text-primary truncate max-w-[150px]">Входящие</span>
                         </button>
                         <span id="breadcrumb-separator" class="mx-1 text-outline/50">›</span>
-                        <span id="breadcrumb-title" class="truncate font-medium text-[var(--md-on-surface)] text-base"></span>
+                        <span id="breadcrumb-title" class="truncate font-medium text-[var(--md-on-surface)] text-sm"></span>
                     </div>
                 </div>
 
@@ -379,7 +384,7 @@
                     </div>
 
                     <div id="chip-palette" class="flex flex-wrap items-center gap-2 mb-4" style="display:none;"></div>
-                    <textarea id="note-title" rows="1" placeholder="Заголовок заметки..." class="text-3xl font-bold mb-6"></textarea>
+                    <textarea id="note-title" rows="1" placeholder="Заголовок заметки..." class="font-bold mb-6"></textarea>
                     <textarea id="note-content" placeholder="Текст заметки..."></textarea>
                     
                     <div id="note-preview" class="markdown-body hidden"></div>
@@ -512,6 +517,10 @@
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="move"><i data-lucide="folder-input" class="w-5 h-5 text-outline"></i> Переместить</button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="share"><i data-lucide="share-2" class="w-5 h-5 text-outline"></i> Поделиться (.md)</button>
             
+            <!-- Новые кнопки из троеточия -->
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="copy" id="btn-action-copy"><i data-lucide="copy" class="w-5 h-5 text-outline"></i> Копировать текст</button>
+            <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="focus" id="btn-action-focus"><i data-lucide="maximize" class="w-5 h-5 text-outline"></i> Режим фокуса</button>
+            
             <div class="h-px bg-[var(--md-outline)]/20 my-1 mx-4"></div>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-red-500/10 text-red-600 rounded-xl" data-action="delete"><i data-lucide="trash-2" class="w-5 h-5"></i> Удалить</button>
         </div>
@@ -619,7 +628,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.14</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.16</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

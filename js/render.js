@@ -1,8 +1,6 @@
-// js/render.js — MAi Notes V1.11.15
+// js/render.js — MAi Notes V1.11.16
 // История изменений:
-//  V1.11.15 (23.10.2026): Defensive check для aiTruncationWarning. aria-label для кнопок папок/фильтров (A11y).
-//  V1.11.14 (23.10.2026): Исправлен баг с inline-стилями для кнопок хедера (btnPreview, btnDeleteNote).
-//  V1.11.13 (23.10.2026): Добавлена кнопка сброса фильтра в renderFolderView.
+//  V1.11.16 (23.10.2026): Скрытие FAB в режиме заметки. Удален folderMoveSelect из breadcrumbs (перенесен в шторку).
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
@@ -123,24 +121,16 @@ export function renderBreadcrumbs() {
         els.crumbTitle.textContent = title;
         if (title) els.crumbSeparator.classList.remove('hidden');
         else els.crumbSeparator.classList.add('hidden');
-        els.moveNoteContainer.style.display = 'none';
+        // v1.11.16: moveNoteContainer удален из HTML
     } else if (state.viewMode === 'editor') {
         const note = getNoteById(state.activeId);
         if (note) {
             els.crumbTitle.textContent = noteTitle(note);
             els.crumbSeparator.classList.remove('hidden');
-            if (note.isPrompt) {
-                els.moveNoteContainer.style.display = 'none';
-            } else {
-                els.moveNoteContainer.style.display = 'block';
-                els.folderMoveSelect.innerHTML = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}" ${f.id === note.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-                els.folderMoveSelect.value = note.folderId;
-            }
         }
     } else if (state.viewMode === 'calendar') {
         els.crumbTitle.textContent = 'Календарь';
         els.crumbSeparator.classList.remove('hidden');
-        els.moveNoteContainer.style.display = 'none';
     }
 }
 
@@ -421,7 +411,6 @@ export function renderAll() {
         els.viewFolder.classList.add('hidden');
         els.viewCalendar.classList.add('hidden');
         
-        // v1.11.14: Remove inline display to let Tailwind's hidden md:flex work properly
         els.btnPreview.style.display = '';
         els.btnDeleteNote.style.display = '';
         
@@ -444,8 +433,9 @@ export function renderAll() {
         renderFolderView();
     }
 
+    // UX FIX: Скрываем FAB-кнопку внутри заметки (в обоих режимах)
     if (els.fabNewNote) {
-        els.fabNewNote.style.display = (state.viewMode === 'editor' && state.editorMode === 'edit') ? 'none' : 'flex';
+        els.fabNewNote.style.display = (state.viewMode === 'editor') ? 'none' : 'flex';
     }
     if (els.formatToolbar) {
         if (state.viewMode === 'editor' && state.editorMode === 'edit') els.formatToolbar.classList.add('active');
@@ -458,7 +448,7 @@ export function updatePreviewButton() {
     const note = getNoteById(state.activeId);
     if (!note) return;
     const isPreview = state.editorMode === 'preview';
-    els.btnPreview.innerHTML = isPreview ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>' : '<i data-lucide="eye" class="w-5 h-5 text-outline"></i>';
+    els.btnPreview.innerHTML = isPreview ? '<i data-lucide="pencil" class="w-5 h-5 text-primary"></i>' : '<i data-lucide="check" class="w-5 h-5 text-primary"></i>';
     updateIcons();
 }
 
@@ -666,7 +656,6 @@ export function renderAiPanel() {
         </button>
     `).join('');
 
-    // v1.11.15: Defensive check — не роняем весь рендер, если элемент отсутствует/переименован
     if (els.aiTruncationWarning) {
         els.aiTruncationWarning.classList.add('hidden');
         if (state.aiTruncated) {
