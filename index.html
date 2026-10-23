@@ -40,10 +40,19 @@
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
-        /* UX FIX: Уменьшаем паддинг снизу, так как FAB скрыт в заметке */
-        textarea#note-content { resize: none; min-height: 200px; overflow-y: hidden; line-height: 1.6; font-size: 1rem; padding-bottom: 80px; }
+        /* Фикс "Экселя": убираем внутренний скролл, переносим слова */
+        textarea#note-content { 
+            resize: none; 
+            min-height: 200px; 
+            overflow-y: hidden; 
+            overflow-x: hidden;
+            word-wrap: break-word; 
+            white-space: pre-wrap;
+            line-height: 1.6; 
+            font-size: 0.95rem; /* Уменьшенный шрифт для мобилок */
+            padding-bottom: 20px; 
+        }
         
-        /* UX FIX: Ограничиваем высоту и размер заголовка на мобилках */
         textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
         @media (min-width: 768px) { textarea#note-title { font-size: 2rem; max-height: none; overflow: hidden; } }
 
@@ -71,11 +80,9 @@
         .markdown-body li:has(input[type="checkbox"]) { list-style: none; margin-left: -1.5em; }
 
         .prompt-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.15em 0.6em; font-size: 0.9em; line-height: 1.4; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.15s; vertical-align: middle; }
-        .prompt-chip:hover { opacity: 0.8; }
         .prompt-chip-broken { text-decoration: line-through; color: var(--md-outline); opacity: 0.7; }
         .tag-highlight { display: inline-flex; align-items: center; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.1em 0.5em; font-size: 0.9em; cursor: pointer; border: none; margin: 0 0.1em; }
         .wiki-link { color: var(--md-primary); text-decoration: underline; text-decoration-style: dotted; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; font-size: inherit; text-align: left; }
-        .wiki-link:hover { text-decoration-style: solid; }
         .wiki-link-broken { color: var(--md-outline); text-decoration: line-through; }
 
         #ai-panel { display: none; flex-direction: column; }
@@ -95,7 +102,6 @@
 
         header { min-height: calc(4rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); height: auto; }
 
-        /* UX FIX: Полноэкранный фокус-режим без скроллбаров и отступов */
         body.focus-mode #left-panel, body.focus-mode header, body.focus-mode #format-toolbar, body.focus-mode #ai-panel, body.focus-mode #breadcrumbs { display: none !important; }
         body.focus-mode main { padding-top: 0 !important; }
         body.focus-mode #btn-close-focus { display: flex !important; }
@@ -105,25 +111,35 @@
             display: none; position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 100; 
             background: rgba(231, 224, 236, 0.8); backdrop-filter: blur(4px); border-radius: 50%; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: opacity 0.3s;
         }
-        #btn-close-focus:hover { opacity: 1; }
 
+        /* Убираем залипание hover на мобильных */
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
-        .folder-item:hover { background: rgba(0,0,0,0.03); }
+        @media (hover: hover) {
+            .folder-item:hover { background: rgba(0,0,0,0.03); }
+            .note-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); border-color: rgba(121, 116, 126, 0.3); }
+            .note-card:hover .note-card-actions { opacity: 1; }
+            .prompt-chip:hover { opacity: 0.8; }
+            .wiki-link:hover { text-decoration-style: solid; }
+            .nav-chip:hover { border-color: var(--md-outline); }
+            .outline-link:hover { color: var(--md-primary); }
+            .full-grid-day:hover { background: rgba(0,0,0,0.03); }
+            .dialog-btn-confirm:hover { opacity: 0.9; }
+            .dialog-btn-cancel:hover { background: rgba(103, 80, 164, 0.08); }
+            #btn-close-focus:hover { opacity: 1; }
+        }
+        
         .folder-item-active { background: rgba(0,0,0,0.05); }
         .folder-item-active .folder-name { font-weight: 600; color: var(--md-primary); }
         
         .nav-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface); color: var(--md-on-surface); border-radius: 999px; padding: 0.35em 0.7em; font-size: 0.8em; min-height: 32px; cursor: pointer; border: 1px solid var(--md-outline)/30; transition: all 0.15s; white-space: nowrap; }
-        .nav-chip:hover { border-color: var(--md-outline); }
         .nav-chip.nav-chip-active { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
 
         .note-card { background: var(--md-surface); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 1px solid rgba(121, 116, 126, 0.15); box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 8px; position: relative; touch-action: pan-y; }
-        .note-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); border-color: rgba(121, 116, 126, 0.3); }
         .note-card-title { font-weight: 700; font-size: 1.1rem; padding-right: 32px; }
         .note-card-preview { font-size: 0.9rem; color: var(--md-outline); opacity: 0.8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .note-card-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: auto; padding-top: 8px; }
         
         .note-card-actions { position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity 0.15s; background: transparent !important; box-shadow: none !important; }
-        .note-card:hover .note-card-actions { opacity: 1; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
         .bottom-sheet { 
@@ -135,22 +151,16 @@
             padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px)); 
             will-change: bottom, opacity; 
         }
-        .bottom-sheet.open { 
-            bottom: calc(var(--kb-height, 0px)); 
-            opacity: 1; 
-            visibility: visible; 
-            pointer-events: auto; 
-        }
+        .bottom-sheet.open { bottom: calc(var(--kb-height, 0px)); opacity: 1; visibility: visible; pointer-events: auto; }
         
+        /* Формат-панель показывается ТОЛЬКО если есть .active и открыта клавиатура (.kb-open) */
         #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
-        #format-toolbar.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        #format-toolbar.active.kb-open { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
         #ai-actions { padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; }
-
         #fab-new-note { bottom: calc(1.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
 
         .outline-link { display: block; text-align: left; width: 100%; font-size: 0.85rem; color: var(--md-outline); padding: 4px 0; cursor: pointer; text-decoration: none; transition: color 0.15s; }
-        .outline-link:hover { color: var(--md-primary); }
         .outline-h2 { padding-left: 0; font-weight: 600; }
         .outline-h3 { padding-left: 12px; font-size: 0.8rem; }
 
@@ -158,23 +168,15 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         .calendar-card { background: var(--md-surface); border-radius: 24px; padding: 20px 16px 8px 16px; border: 1px solid rgba(121, 116, 126, 0.15); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-        
         .week-strip { display: flex; gap: 4px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding-bottom: 8px; }
         .week-day-cell { flex: 0 0 auto; width: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; scroll-snap-align: center; cursor: pointer; padding: 8px 0; border-radius: 12px; transition: background 0.2s; }
-        
         .day-label { font-size: 0.7rem; color: var(--md-outline); font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
-        
         .day-number { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1rem; font-weight: 500; transition: all 0.2s; position: relative; }
-        
         .day-count { position: absolute; top: 0px; right: -2px; font-size: 0.6rem; font-weight: 800; color: var(--md-primary); line-height: 1; }
-        
         .week-day-cell.today .day-number, .full-grid-day.today .day-number { background: rgba(103, 80, 164, 0.15); color: var(--md-primary); }
         .week-day-cell.selected .day-number, .full-grid-day.selected .day-number { background: var(--md-primary); color: var(--md-on-primary); box-shadow: 0 2px 8px rgba(103, 80, 164, 0.3); }
-        
         .week-day-cell.selected .day-count, .full-grid-day.selected .day-count { color: var(--md-on-primary); }
-        
         .full-grid-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; transition: background 0.15s; }
-        .full-grid-day:hover { background: rgba(0,0,0,0.03); }
         .full-grid-day.empty { opacity: 0; pointer-events: none; }
         
         .expand-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -182,31 +184,12 @@
         .expand-wrapper > div { overflow: hidden; }
         
         .snackbar { transition: opacity 0.3s, transform 0.3s; bottom: calc(5rem + env(safe-area-inset-bottom)) !important; }
-        
         .ai-dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 200px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--md-outline); background: var(--md-surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; }
         .icon-grid-btn { transition: all 0.15s; }
 
-        .custom-dialog-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(2px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
+        .custom-dialog-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
         .custom-dialog-overlay.open { opacity: 1; pointer-events: auto; }
-        .custom-dialog {
-            background: var(--md-surface); color: var(--md-on-surface); border-radius: 28px;
-            padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            box-sizing: border-box; max-height: 100%; overflow-y: auto;
-            transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .custom-dialog { background: var(--md-surface); color: var(--md-on-surface); border-radius: 28px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); box-sizing: border-box; max-height: 100%; overflow-y: auto; transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
         .custom-dialog-overlay.open .custom-dialog { transform: scale(1); }
         .dialog-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; }
         .dialog-msg { font-size: 0.95rem; color: var(--md-outline); margin-bottom: 24px; white-space: pre-wrap; }
@@ -214,9 +197,7 @@
         .dialog-actions { display: flex; justify-content: flex-end; gap: 12px; }
         .dialog-btn { padding: 10px 24px; border-radius: 20px; font-weight: 500; cursor: pointer; border: none; font-family: inherit; font-size: 0.95rem; }
         .dialog-btn-cancel { background: transparent; color: var(--md-primary); }
-        .dialog-btn-cancel:hover { background: rgba(103, 80, 164, 0.08); }
         .dialog-btn-confirm { background: var(--md-primary); color: var(--md-on-primary); }
-        .dialog-btn-confirm:hover { opacity: 0.9; }
     </style>
     <link rel="manifest" href="manifest.json">
 </head>
@@ -351,11 +332,10 @@
                 </div>
                 
                 <div class="flex items-center gap-1">
-                    <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1 hidden md:flex" aria-label="Статус сохранения">
+                    <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1" aria-label="Статус сохранения">
                         <i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>
                     </div>
 
-                    <!-- UX FIX: Кнопка редактирования теперь видна на мобилках. Убраны move и delete (перенесены в шторку) -->
                     <button id="btn-preview" type="button" class="flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Просмотр / Редактирование"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i></button>
                     <button id="btn-delete-note" type="button" class="hidden md:flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Удалить заметку"><i data-lucide="trash-2" class="w-5 h-5 text-outline"></i></button>
                     <button id="btn-mobile-more" type="button" class="flex w-12 h-12 items-center justify-center rounded-full hover:bg-black/5" aria-label="Дополнительно"><i data-lucide="more-vertical" class="w-5 h-5 text-outline"></i></button>
@@ -365,7 +345,6 @@
             </header>
             
             <div class="flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
-                <!-- UX FIX: Breadcrumbs стали мельче и прозрачнее -->
                 <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-xs opacity-75 text-outline min-h-[32px]">
                     <div class="flex items-center gap-2 truncate min-w-0">
                         <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
@@ -377,7 +356,7 @@
                     </div>
                 </div>
 
-                <div id="view-editor" class="pb-32 hidden">
+                <div id="view-editor" class="hidden"> <!-- Убран pb-32 -->
                     <div class="flex items-center gap-3 mb-4">
                         <span id="prompt-badge" class="hidden bg-[var(--md-primary)] text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">PROMPT</span>
                         <button id="btn-prompt-settings" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-[var(--md-surface-variant)] hover:bg-black/10 text-outline" aria-label="Настройки промпта"><i data-lucide="settings" class="w-4 h-4"></i></button>
@@ -511,13 +490,13 @@
     <div id="action-sheet" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh]">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div id="action-sheet-main" class="flex flex-col p-2 pb-6">
-            <div class="px-4 py-2 font-bold text-lg truncate border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
+            <!-- Изменен truncate на line-clamp-2 -->
+            <div class="px-4 py-2 font-bold text-lg line-clamp-2 break-words border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="pin"><i data-lucide="pin" class="w-5 h-5 text-outline"></i><span id="pin-label">Закрепить</span></button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="rename"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i> Переименовать</button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="move"><i data-lucide="folder-input" class="w-5 h-5 text-outline"></i> Переместить</button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="share"><i data-lucide="share-2" class="w-5 h-5 text-outline"></i> Поделиться (.md)</button>
             
-            <!-- Новые кнопки из троеточия -->
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="copy" id="btn-action-copy"><i data-lucide="copy" class="w-5 h-5 text-outline"></i> Копировать текст</button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="focus" id="btn-action-focus"><i data-lucide="maximize" class="w-5 h-5 text-outline"></i> Режим фокуса</button>
             
@@ -628,7 +607,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.16</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.17</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

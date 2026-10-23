@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.16
+// sw.js — MAi Notes V1.11.17
 // История изменений:
-//  V1.11.16 (23.10.2026): Кэш v59. Bump после UX-рефакторинга хедера и экрана заметки.
-const CACHE_NAME = 'mai-cache-v59';
+//  V1.11.17 (23.10.2026): Кэш v60. Обновление из-за фикса "Экселя", панели форматирования и пустот.
+const CACHE_NAME = 'mai-cache-v60';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

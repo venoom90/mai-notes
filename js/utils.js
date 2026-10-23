@@ -1,7 +1,6 @@
-// js/utils.js — MAi Notes V1.11.12
+// js/utils.js — MAi Notes V1.11.17
 // История изменений:
-//  V1.11.12 (23.10.2026): Исправлен YAML-парсер (поддержка двоеточий в значениях).
-//  V1.11.3 (22.10.2026): generateMarkdown writes ISO dates.
+//  V1.11.17 (23.10.2026): autoResizeTextarea больше не ограничивает высоту (фикс "Экселя").
 import { state } from './state.js';
 
 export function genId() {
@@ -59,13 +58,13 @@ export function notesInFolder(folderId) {
     });
 }
 
+// v1.11.17: Растягиваем textarea на всю высоту контента, убирая внутренний скролл
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     if (!ta || ta.classList.contains('hidden')) return;
-    const vv = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    
     ta.style.height = 'auto';
-    const max = Math.max(200, vv - 250);
-    ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
+    ta.style.height = ta.scrollHeight + 'px';
 }
 
 export function autoResizeTitle() {
@@ -233,7 +232,6 @@ export function generateMarkdown(note, folderName) {
     return `${yamlLines.join('\n')}\n\n# ${noteTitle(note)}\n\n${safeContent}`;
 }
 
-// v1.11.12: Regex-based YAML parser (fixes issues with colons in values)
 export function parseMarkdown(text, defaultFolderId, fileName = '') {
     const yamlRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
     const match = text.match(yamlRegex);

@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.16
+// js/app.js — MAi Notes V1.11.17
 // История изменений:
-//  V1.11.16 (23.10.2026): Добавлены слушатели btnMobileMore и btnActionCopy. Удален folderMoveSelect.
+//  V1.11.17 (23.10.2026): visualViewport теперь добавляет класс .kb-open для управления панелью форматирования.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -174,7 +174,6 @@ function attachListeners() {
     els.btnNewPrompt.addEventListener('click', createPrompt);
     els.btnPreview.addEventListener('click', togglePreviewMode);
 
-    // v1.11.16: Обработчик троеточия в хедере
     if (els.btnMobileMore) {
         els.btnMobileMore.addEventListener('click', () => {
             if (state.activeId) openActionMenu(state.activeId);
@@ -314,8 +313,8 @@ function attachListeners() {
         else if (action === 'move') setActionMenuMode('move');
         else if (action === 'delete') deleteNoteFromMenu();
         else if (action === 'share') shareNoteFile(state.actionMenuNoteId);
-        else if (action === 'copy') handleCopyNoteText(); // v1.11.16
-        else if (action === 'focus') { closeActionMenu(); toggleFocusMode(); } // v1.11.16
+        else if (action === 'copy') handleCopyNoteText(); 
+        else if (action === 'focus') { closeActionMenu(); toggleFocusMode(); } 
     });
     els.btnSheetBack.addEventListener('click', () => setActionMenuMode('main'));
     els.sheetFoldersList.addEventListener('click', (e) => {
@@ -442,6 +441,13 @@ function attachListeners() {
             autoResizeTextarea();
             const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
             document.documentElement.style.setProperty('--kb-height', `${kbHeight}px`);
+            
+            // v1.11.17: Управление видимостью панели форматирования
+            if (kbHeight > 100) {
+                document.body.classList.add('kb-open');
+            } else {
+                document.body.classList.remove('kb-open');
+            }
         });
     }
 

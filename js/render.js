@@ -1,6 +1,6 @@
-// js/render.js — MAi Notes V1.11.16
+// js/render.js — MAi Notes V1.11.17
 // История изменений:
-//  V1.11.16 (23.10.2026): Скрытие FAB в режиме заметки. Удален folderMoveSelect из breadcrumbs (перенесен в шторку).
+//  V1.11.17 (23.10.2026): Убрано ручное вычисление высоты в renderEditor (делегировано в autoResizeTextarea).
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
@@ -121,7 +121,6 @@ export function renderBreadcrumbs() {
         els.crumbTitle.textContent = title;
         if (title) els.crumbSeparator.classList.remove('hidden');
         else els.crumbSeparator.classList.add('hidden');
-        // v1.11.16: moveNoteContainer удален из HTML
     } else if (state.viewMode === 'editor') {
         const note = getNoteById(state.activeId);
         if (note) {
@@ -360,7 +359,11 @@ export function renderEditor() {
         els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
         els.titleInput.readOnly = false;
         els.contentInput.style.height = 'auto';
-        els.contentInput.style.height = Math.min(els.contentInput.scrollHeight, window.innerHeight * 0.6) + 'px';
+        // v1.11.17: Делегируем изменение высоты в autoResizeTextarea (вызывается в app.js)
+        // Убрали Math.min, так как это создавало "эффект Экселя"
+        setTimeout(() => {
+             import('./utils.js').then(m => m.autoResizeTextarea());
+        }, 0);
         els.backlinksContainer.classList.add('hidden');
     }
 
@@ -433,11 +436,11 @@ export function renderAll() {
         renderFolderView();
     }
 
-    // UX FIX: Скрываем FAB-кнопку внутри заметки (в обоих режимах)
     if (els.fabNewNote) {
         els.fabNewNote.style.display = (state.viewMode === 'editor') ? 'none' : 'flex';
     }
     if (els.formatToolbar) {
+        // Базовый класс active. Показ зависит от CSS (.kb-open)
         if (state.viewMode === 'editor' && state.editorMode === 'edit') els.formatToolbar.classList.add('active');
         else els.formatToolbar.classList.remove('active');
     }
