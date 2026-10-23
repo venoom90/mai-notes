@@ -1,3 +1,7 @@
+// js/ai.js — MAi Notes V1.11.5
+// История изменений:
+//  V1.11.5 (22.10.2026): typewriter теперь возвращает { cancel } с защитой от повторного вызова.
+//  V1.11.3 (22.10.2026): Исправлена нарезка Unicode-символов в typewriter.
 import { state } from './state.js';
 
 export function truncateForAi(text, maxLen = 20000) {
@@ -52,15 +56,16 @@ export async function sendAiRequest({ system, user, signal }) {
     return data.text;
 }
 
-// ИСПРАВЛЕНИЕ: Правильная нарезка Unicode-символов (кириллица, эмодзи)
+// v1.11.5: Возвращает объект с методом cancel(), защищенным от повторных вызовов.
 export function typewriter(el, fullText, onDone) {
-    const chars = Array.from(fullText); // Разбиваем на символы корректно
+    const chars = Array.from(fullText);
     let i = 0;
-    const chunkSize = Math.max(1, Math.floor(chars.length / 150)); // Динамическая скорость
+    const chunkSize = Math.max(1, Math.floor(chars.length / 150));
     let isCancelled = false;
+    let isFinished = false;
     
     function type() {
-        if (isCancelled) return;
+        if (isCancelled || isFinished) return;
         if (i < chars.length) {
             i += chunkSize;
             el.textContent = chars.slice(0, i).join('');
@@ -69,6 +74,7 @@ export function typewriter(el, fullText, onDone) {
             }
             requestAnimationFrame(type);
         } else {
+            isFinished = true;
             el.textContent = fullText;
             if (onDone) onDone();
         }
@@ -78,6 +84,8 @@ export function typewriter(el, fullText, onDone) {
     requestAnimationFrame(type);
     
     return {
-        cancel: () => { isCancelled = true; }
+        cancel: () => { 
+            if (!isFinished) isCancelled = true; 
+        }
     };
 }

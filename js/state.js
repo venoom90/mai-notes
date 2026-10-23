@@ -1,5 +1,6 @@
-// js/state.js — MAi Notes V1.11.4
+// js/state.js — MAi Notes V1.11.5
 // История изменений:
+//  V1.11.5 (22.10.2026): Добавлен state.aiTypewriter для контроля анимации печати.
 //  V1.11.4 (22.10.2026): Добавлены els для M3-диалогов (app-dialog-alert, -confirm, -prompt).
 //  V1.11.3 (22.10.2026): Добавлены tombstones, lastVisibilitySync, TOMBS_KEY.
 export const state = {
@@ -42,6 +43,7 @@ export const state = {
     aiResponse: '',
     aiErrorMsg: '',
     aiAbortController: null,
+    aiTypewriter: null, // v1.11.5
     promptSettingsId: null,
     aiDropdownOpen: false,
     tombstones: [],

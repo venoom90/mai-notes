@@ -1,8 +1,7 @@
-// js/render.js — MAi Notes V1.11.3
-// Changes (v1.11.3): XSS-экранирование data-* и <option> значений, где раньше вставлялись ID/имена без escapeHtml.
-// Затронуто: renderSidebar (filters, prompts), renderFolderView (action-menu),
-//            renderBacklinks, renderActionSheetFolders, renderSearchResults,
-//            renderFilterRuleRow (<option>), renderAiPanel (dropdown prompts).
+// js/render.js — MAi Notes V1.11.14
+// История изменений:
+//  V1.11.14 (23.10.2026): Исправлен баг с inline-стилями для кнопок хедера (btnPreview, btnDeleteNote).
+//  V1.11.13 (23.10.2026): Добавлена кнопка сброса фильтра в renderFolderView.
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
@@ -41,7 +40,6 @@ export function renderSidebar() {
         els.filtersList.innerHTML = state.savedFilters.map(f => {
             const isActive = f.id === state.activeFilterId;
             const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
-            // v1.11.3: escapeHtml для f.id
             return `<div class="${cls} flex items-center gap-1">
                 <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-filter-select="${escapeHtml(f.id)}">
                     <i data-lucide="filter" class="w-4 h-4 text-outline"></i>
@@ -56,7 +54,6 @@ export function renderSidebar() {
     els.promptsList.innerHTML = prompts.map(p => {
         const isActive = state.activeId === p.id;
         const cls = 'folder-item ' + (isActive ? 'folder-item-active' : '');
-        // v1.11.3: escapeHtml для p.id
         return `<div class="${cls} flex items-center gap-1">
             <button class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-prompt-select="${escapeHtml(p.id)}">
                 <i data-lucide="${escapeHtml(p.icon || 'sparkles')}" class="w-4 h-4 text-primary"></i>
@@ -144,9 +141,6 @@ export function renderBreadcrumbs() {
         els.crumbSeparator.classList.remove('hidden');
         els.moveNoteContainer.style.display = 'none';
     }
-
-    els.btnNavBack.disabled = state.historyIndex <= 0 && state.viewMode === 'folder';
-    els.btnNavForward.disabled = state.historyIndex >= state.history.length - 1;
 }
 
 export function renderFolderView() {
@@ -193,7 +187,10 @@ export function renderFolderView() {
         if (state.activeTag || state.activeContext || state.activeFilterId) {
             els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
                 <i data-lucide="search-x" class="w-16 h-16 opacity-20 mb-4"></i>
-                <div class="italic">Ничего не найдено по этому запросу.</div>
+                <div class="italic mb-4">Ничего не найдено по этому запросу.</div>
+                <button id="reset-filter-btn" class="bg-[var(--md-surface-variant)] text-[var(--md-on-surface)] px-6 py-3 rounded-xl font-medium border border-[var(--md-outline)] hover:bg-black/5 transition-colors flex items-center gap-2">
+                    <i data-lucide="x-circle" class="w-4 h-4"></i> Сбросить фильтр
+                </button>
             </div>`;
         } else {
             els.viewFolder.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-20 text-outline">
@@ -215,7 +212,6 @@ export function renderFolderView() {
         const contextHtml = contexts.map(c => `<span class="text-[10px] bg-[var(--md-surface-variant)] text-outline px-2 py-0.5 rounded-full">${escapeHtml(c)}</span>`).join('');
         const pinHtml = note.isPinned ? `<i data-lucide="pin" class="w-3.5 h-3.5 text-primary fill-primary absolute top-4 right-12"></i>` : '';
 
-        // v1.11.3: escapeHtml для note.id
         return `
             <div class="note-card" data-note-id="${escapeHtml(note.id)}">
                 ${pinHtml}
@@ -348,6 +344,9 @@ export function renderEditor() {
     const note = getNoteById(state.activeId);
     if (!note) return;
 
+    els.viewEditor.classList.add('editor-animate');
+    setTimeout(() => els.viewEditor.classList.remove('editor-animate'), 250);
+
     els.titleInput.value = note.title;
     els.contentInput.value = note.content;
     els.titleInput.style.height = 'auto';
@@ -404,7 +403,6 @@ export function renderBacklinks(note) {
         return;
     }
     els.backlinksContainer.classList.remove('hidden');
-    // v1.11.3: escapeHtml для bl.id
     els.backlinksList.innerHTML = backlinks.map(bl => `
         <button type="button" class="text-left w-full p-2 rounded-xl bg-[var(--md-surface-variant)] hover:bg-black/5 transition-colors flex flex-col gap-1" data-backlink-id="${escapeHtml(bl.id)}">
             <div class="font-bold text-sm text-[var(--md-primary)] truncate">${escapeHtml(noteTitle(bl))}</div>
@@ -421,8 +419,11 @@ export function renderAll() {
         els.viewEditor.classList.remove('hidden');
         els.viewFolder.classList.add('hidden');
         els.viewCalendar.classList.add('hidden');
-        els.btnPreview.style.display = 'flex';
-        els.btnDeleteNote.style.display = 'flex';
+        
+        // v1.11.14: Remove inline display to let Tailwind's hidden md:flex work properly
+        els.btnPreview.style.display = '';
+        els.btnDeleteNote.style.display = '';
+        
         renderEditor();
     } else if (state.viewMode === 'calendar') {
         els.viewEditor.classList.add('hidden');
@@ -539,7 +540,6 @@ export function renderHighlightsInPreview() {
 }
 
 export function renderActionSheetFolders() {
-    // v1.11.3: escapeHtml для f.id
     els.sheetFoldersList.innerHTML = sortedFolders().map(f => `
         <button class="flex items-center gap-3 p-3 hover:bg-black/5 rounded-xl text-left w-full" data-sheet-move-to="${escapeHtml(f.id)}">
             <i data-lucide="${f.id === 'inbox' ? 'inbox' : 'folder'}" class="w-5 h-5 text-primary"></i>
@@ -559,7 +559,6 @@ export function renderSearchResults(query) {
 
     if (results.length > 0) {
         html += `<div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 mt-2 px-1">Заметки</div>`;
-        // v1.11.3: escapeHtml для n.id
         html += results.map(n => `
             <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${escapeHtml(n.id)}">
                 <div class="font-bold text-base">${escapeHtml(noteTitle(n))}</div>
@@ -570,7 +569,6 @@ export function renderSearchResults(query) {
 
     if (prompts.length > 0) {
         html += `<div class="text-xs font-bold text-outline uppercase tracking-wider mb-2 mt-6 px-1">Промпты</div>`;
-        // v1.11.3: escapeHtml для n.id
         html += prompts.map(n => `
             <button class="flex flex-col text-left p-3 rounded-xl hover:bg-black/5 border border-transparent hover:border-[var(--md-outline)] transition-colors" data-search-id="${escapeHtml(n.id)}">
                 <div class="font-bold text-base flex items-center gap-2"><i data-lucide="${escapeHtml(n.icon || 'sparkles')}" class="w-4 h-4 text-primary"></i> ${escapeHtml(noteTitle(n))}</div>
@@ -589,7 +587,6 @@ export function renderSearchResults(query) {
 }
 
 export function renderFilterRuleRow(index, rule) {
-    // v1.11.3: escapeHtml для option value/name
     const folders = sortedFolders().map(f => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join('');
     const tags = collectAllTags().map(t => `<option value="${escapeHtml(t.tag)}">#${escapeHtml(t.tag)}</option>`).join('');
     const contexts = collectAllContexts().map(c => `<option value="${escapeHtml(c.context)}">${escapeHtml(c.context)}</option>`).join('');
@@ -654,7 +651,6 @@ export function renderPickerList(query) {
     updateIcons();
 }
 
-// --- AI PANEL ---
 export function renderAiPanel() {
     if (!els.aiPanel) return;
 
@@ -662,13 +658,17 @@ export function renderAiPanel() {
     els.aiHeaderTitle.textContent = promptName;
 
     const prompts = getAllPrompts();
-    // v1.11.3: escapeHtml для p.id
     els.aiDropdownMenu.innerHTML = prompts.map(p => `
         <button class="w-full text-left px-4 py-2 hover:bg-black/5 text-sm flex items-center gap-2 ${state.aiActivePrompt && state.aiActivePrompt.id === p.id ? 'bg-black/5 font-bold' : ''}" data-ai-select-prompt="${escapeHtml(p.id)}">
             <i data-lucide="${escapeHtml(p.icon || 'sparkles')}" class="w-4 h-4"></i>
             ${escapeHtml(p.title)}
         </button>
     `).join('');
+
+    els.aiTruncationWarning.classList.add('hidden');
+    if (state.aiTruncated) {
+        els.aiTruncationWarning.classList.remove('hidden');
+    }
 
     els.aiEmpty.classList.add('hidden');
     els.aiLoading.classList.add('hidden');

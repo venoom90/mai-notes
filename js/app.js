@@ -1,14 +1,14 @@
-// js/app.js — MAi Notes V1.11.12
+// js/app.js — MAi Notes V1.11.14
 // История изменений:
-//  V1.11.12 (23.10.2026): Добавлен троттлинг создания заметки. Внедрен --kb-height для поднятия шторок.
-//  V1.11.4 (22.10.2026): Добавлен visualViewport.resize для Android.
+//  V1.11.14 (23.10.2026): Фикс закрытия Action Sheet через кнопку Назад (pushState/popstate).
+//  V1.11.13 (23.10.2026): Удалены кнопки Back/Forward. Swipe/LongPress. Double-tap exit.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
 import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
 import {
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder,
-    filterByTag, filterByContext, applySavedFilter, deleteSavedFilter,
+    filterByTag, filterByContext, applySavedFilter, deleteSavedFilter, resetFilters,
     insertFormatting, onEdit, scheduleSave,
     openActionMenu, closeActionMenu, setActionMenuMode, togglePinFromMenu, renameNoteFromMenu, deleteNoteFromMenu, moveNoteFromMenu,
     openSearch, closeSearch, handleSearchInput,
@@ -27,9 +27,73 @@ import { showConfirm } from './dialog.js';
 
 function attachListeners() {
     let touchStartX = 0, touchStartY = 0;
-    let isCreating = false; // v1.11.12
+    let isCreating = false;
 
-    // v1.11.12: Throttling
+    let cardTouchStartX = 0;
+    let cardTouchStartY = 0;
+    let cardTouchStartTime = 0;
+    let longPressTimer = null;
+    let currentSwipeCard = null;
+
+    els.viewFolder.addEventListener('touchstart', (e) => {
+        const card = e.target.closest('.note-card');
+        if (!card) return;
+        cardTouchStartX = e.changedTouches[0].screenX;
+        cardTouchStartY = e.changedTouches[0].screenY;
+        cardTouchStartTime = Date.now();
+        currentSwipeCard = card;
+
+        longPressTimer = setTimeout(() => {
+            if (currentSwipeCard) {
+                openActionMenu(card.getAttribute('data-note-id'));
+                currentSwipeCard = null;
+            }
+        }, 500);
+    }, { passive: true });
+
+    els.viewFolder.addEventListener('touchmove', (e) => {
+        if (!currentSwipeCard) return;
+        const deltaX = Math.abs(e.changedTouches[0].screenX - cardTouchStartX);
+        const deltaY = Math.abs(e.changedTouches[0].screenY - cardTouchStartY);
+        if (deltaY > 10 || deltaX > 10) clearTimeout(longPressTimer);
+    }, { passive: true });
+
+    els.viewFolder.addEventListener('touchend', (e) => {
+        clearTimeout(longPressTimer);
+        if (!currentSwipeCard) return;
+        
+        const deltaX = e.changedTouches[0].screenX - cardTouchStartX;
+        const deltaY = Math.abs(e.changedTouches[0].screenY - cardTouchStartY);
+        const timeElapsed = Date.now() - cardTouchStartTime;
+
+        if (timeElapsed < 300 && deltaX < -50 && deltaY < 40) {
+            openActionMenu(currentSwipeCard.getAttribute('data-note-id'));
+        }
+        currentSwipeCard = null;
+    }, { passive: true });
+
+    els.viewFolder.addEventListener('click', (e) => {
+        const actionBtn = e.target.closest('[data-action-menu]');
+        if (actionBtn) { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            openActionMenu(actionBtn.getAttribute('data-action-menu')); 
+            return; 
+        }
+        
+        const resetBtn = e.target.closest('#reset-filter-btn');
+        if (resetBtn) {
+            e.preventDefault();
+            resetFilters();
+            return;
+        }
+
+        const emptyBtn = e.target.closest('#empty-create-note-btn');
+        if (emptyBtn) { e.preventDefault(); safeCreateNote(); return; }
+        const card = e.target.closest('.note-card');
+        if (card) selectNote(card.getAttribute('data-note-id'));
+    });
+
     const safeCreateNote = () => {
         if (isCreating) return;
         isCreating = true;
@@ -77,8 +141,6 @@ function attachListeners() {
     if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
     if (els.btnSettingsSaveAi) els.btnSettingsSaveAi.addEventListener('click', saveAiSettings);
 
-    if (els.btnNavBack) els.btnNavBack.addEventListener('click', goBack);
-    if (els.btnNavForward) els.btnNavForward.addEventListener('click', goForward);
     if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
     if (els.btnCloseFocus) els.btnCloseFocus.addEventListener('click', toggleFocusMode);
 
@@ -179,15 +241,6 @@ function attachListeners() {
         if (selBtn) applySavedFilter(selBtn.getAttribute('data-filter-select'));
     });
 
-    els.viewFolder.addEventListener('click', (e) => {
-        const actionBtn = e.target.closest('[data-action-menu]');
-        if (actionBtn) { e.preventDefault(); e.stopPropagation(); openActionMenu(actionBtn.getAttribute('data-action-menu')); return; }
-        const emptyBtn = e.target.closest('#empty-create-note-btn');
-        if (emptyBtn) { e.preventDefault(); safeCreateNote(); return; }
-        const card = e.target.closest('.note-card');
-        if (card) selectNote(card.getAttribute('data-note-id'));
-    });
-
     els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
     els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
     els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
@@ -262,7 +315,8 @@ function attachListeners() {
         });
     }
 
-    els.actionSheetBackdrop.addEventListener('click', closeActionMenu);
+    // v1.11.14: Используем history.back() для закрытия шторки, чтобы синхронизировать стек
+    els.actionSheetBackdrop.addEventListener('click', () => { if (state.actionMenuNoteId) history.back(); });
     els.actionSheetMain.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -412,15 +466,56 @@ function attachListeners() {
         if (state.searchOpen) { closeSearch(); history.pushState({ state: 'search' }, ''); return; }
         if (state.leftPanelOpen) { closeLeftPanel(); history.pushState({ state: 'leftPanel' }, ''); return; }
 
-        if (state.viewMode === 'editor') {
-            if (state.historyIndex > 0) { goBack(); history.pushState({ state: 'editor' }, ''); }
-            else { goToFolderView(); history.pushState({ state: 'folder' }, ''); }
-            return;
-        }
-        if (state.viewMode === 'calendar') {
-            goToFolderView();
-            history.pushState({ state: 'folder' }, '');
-            return;
+        if (state.navStack.length > 1) {
+            state.navStack.pop();
+            const prev = state.navStack[state.navStack.length - 1];
+            
+            if (prev.view === 'folder') {
+                state.viewMode = 'folder';
+                state.activeFolderId = prev.id;
+                state.activeId = null;
+                state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
+                clearAiPanel();
+                renderAll();
+            } else if (prev.view === 'editor') {
+                const note = getNoteById(prev.id);
+                if (note) {
+                    state.viewMode = 'editor';
+                    state.activeId = prev.id;
+                    state.activeFolderId = note.folderId;
+                    state.editorMode = (note.content.trim() || note.isPrompt) ? 'preview' : 'edit';
+                    clearAiPanel();
+                    renderAll();
+                } else {
+                    goToFolderView();
+                }
+            } else if (prev.view === 'calendar') {
+                state.viewMode = 'calendar';
+                state.activeId = null;
+                clearAiPanel();
+                renderAll();
+            }
+            history.pushState({ state: 'navigated' }, '');
+        } else {
+            if (state.viewMode !== 'folder' || state.activeTag || state.activeContext || state.activeFilterId || state.leftPanelOpen) {
+                state.viewMode = 'folder';
+                state.activeFolderId = 'inbox';
+                state.activeId = null;
+                state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
+                closeLeftPanel();
+                renderAll();
+                history.pushState({ state: 'root' }, '');
+            } else {
+                const now = Date.now();
+                if (now - state.lastBackPress < 2000) {
+                    if (navigator.app) navigator.app.exitApp();
+                    else window.close();
+                } else {
+                    state.lastBackPress = now;
+                    showSnackbar('Нажмите "Назад" еще раз для выхода');
+                    history.pushState({ state: 'root' }, '');
+                }
+            }
         }
     });
 
@@ -463,13 +558,26 @@ async function init() {
     state.savedFilters = loadFilters();
     try { persistNotes(); } catch (_) {}
 
+    const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
+    const initialLen = state.notes.length;
+    state.notes = state.notes.filter(n => {
+        if (n.isPrompt) return true;
+        if (!n.title.trim() && !n.content.trim() && !n.tags.length && n.createdAt < fiveMinsAgo) {
+            console.log(`[GC] Удалена пустая заметка ${n.id}`);
+            return false;
+        }
+        return true;
+    });
+    if (state.notes.length !== initialLen) {
+        persistNotes();
+    }
+
     state.activeFolderId = 'inbox';
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.activeId = null; state.viewMode = 'folder';
     state.editorMode = 'preview';
     state.pickerType = null;
-    state.history = [];
-    state.historyIndex = -1;
+    state.navStack = [{ view: 'folder', id: 'inbox' }];
     state.isFocusMode = false;
     state.calendarDate = new Date();
     state.selectedDate = null;

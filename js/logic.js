@@ -1,7 +1,7 @@
-// js/logic.js — MAi Notes V1.11.12
+// js/logic.js — MAi Notes V1.11.14
 // История изменений:
-//  V1.11.12 (23.10.2026): Фикс импорта (не воскрешаем Tombstones). Синхронизация по updatedAt. Откат при ошибке перемещения.
-//  V1.11.11 (23.10.2026): Дедупликация diskNotes и localNotes. Наследование fileName.
+//  V1.11.14 (23.10.2026): Оптимизация импорта (запись только измененных файлов).
+//  V1.11.13 (23.10.2026): Новый navStack. Double-tap exit. GC пустых заметок.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -211,47 +211,23 @@ export function saveAiSettings() {
     showSnackbar('Настройки ИИ сохранены', 'info');
 }
 
-export function pushToHistory(id) {
-    if (!id) return;
-    if (state.historyIndex < state.history.length - 1) {
-        state.history = state.history.slice(0, state.historyIndex + 1);
-    }
-    state.history.push(id);
-    state.historyIndex = state.history.length - 1;
+export function pushToNavStack(view, id) {
+    if (!view) return;
+    state.navStack.push({ view, id });
+    if (state.navStack.length > 50) state.navStack.shift();
 }
 
 export function goBack() {
-    if (state.historyIndex > 0) {
-        state.historyIndex--;
-        const id = state.history[state.historyIndex];
-        const note = getNoteById(id);
-        if (note) {
-            state.activeId = id; state.activeFolderId = note.folderId;
-            state.viewMode = 'editor'; state.editorMode = 'preview';
-            clearAiPanel();
-            renderAll();
-        }
-    } else {
-        goToFolderView();
-    }
+    // Obsolete function, now handled by popstate in app.js
 }
 
 export function goForward() {
-    if (state.historyIndex < state.history.length - 1) {
-        state.historyIndex++;
-        const id = state.history[state.historyIndex];
-        const note = getNoteById(id);
-        if (note) {
-            state.activeId = id; state.activeFolderId = note.folderId;
-            state.viewMode = 'editor'; state.editorMode = 'preview';
-            clearAiPanel();
-            renderAll();
-        }
-    }
+    // Obsolete function
 }
 
 export function goToFolderView() {
     state.viewMode = 'folder'; state.activeId = null;
+    state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     clearAiPanel();
     renderAll();
 }
@@ -266,10 +242,12 @@ export function openCalendar() {
     const today = new Date();
     state.viewMode = 'calendar';
     state.activeId = null;
+    state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
     state.calendarDate = today;
     state.selectedDate = formatDateYYYYMMDD(today);
     state.isCalendarExpanded = false;
     clearAiPanel();
+    pushToNavStack('calendar', null);
     renderAll();
     closeLeftPanel();
 }
@@ -339,6 +317,13 @@ export function onEdit() {
 }
 
 export async function createNote() {
+    const currentNote = getNoteById(state.activeId);
+    if (currentNote && !currentNote.isPrompt && !currentNote.title.trim() && !currentNote.content.trim() && currentNote.folderId === (state.activeFolderId || 'inbox')) {
+        if (state.editorMode === 'preview') togglePreviewMode();
+        setTimeout(() => els.titleInput.focus(), 50);
+        return;
+    }
+
     const now = Date.now();
     let targetFolder = state.activeFolderId || 'inbox';
     if (targetFolder === SYSTEM_PROMPTS_FOLDER_ID) targetFolder = 'inbox';
@@ -349,7 +334,7 @@ export async function createNote() {
     state.viewMode = 'editor'; state.editorMode = 'edit';
     clearAiPanel();
     persistNotes(); state.saveStatus = 'idle';
-    pushToHistory(note.id);
+    pushToNavStack('editor', note.id);
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await writeNoteToDisk(note, state.vaultHandle); }
@@ -371,7 +356,7 @@ export function selectNote(id, pushHist = true) {
     state.viewMode = 'editor';
     state.editorMode = defaultMode;
     state.saveStatus = 'idle';
-    if (pushHist) pushToHistory(id);
+    if (pushHist) pushToNavStack('editor', id);
 
     renderAll(); closeLeftPanel();
 }
@@ -401,21 +386,28 @@ export function filterByTag(tag) {
     if (!tag) return;
     if (state.activeTag === tag) state.activeTag = null;
     else { state.activeTag = tag; state.activeContext = null; state.activeFilterId = null; }
-    state.viewMode = 'folder'; renderAll(); closeLeftPanel();
+    state.viewMode = 'folder'; pushToNavStack('folder', state.activeFolderId); renderAll(); closeLeftPanel();
 }
 
 export function filterByContext(ctx) {
     if (!ctx) return;
     if (state.activeContext === ctx) state.activeContext = null;
     else { state.activeContext = ctx; state.activeTag = null; state.activeFilterId = null; }
-    state.viewMode = 'folder'; renderAll(); closeLeftPanel();
+    state.viewMode = 'folder'; pushToNavStack('folder', state.activeFolderId); renderAll(); closeLeftPanel();
 }
 
 export function applySavedFilter(id) {
     if (!id) return;
     if (state.activeFilterId === id) state.activeFilterId = null;
     else { state.activeFilterId = id; state.activeTag = null; state.activeContext = null; }
-    state.viewMode = 'folder'; renderAll(); closeLeftPanel();
+    state.viewMode = 'folder'; pushToNavStack('folder', state.activeFolderId); renderAll(); closeLeftPanel();
+}
+
+export function resetFilters() {
+    state.activeTag = null;
+    state.activeContext = null;
+    state.activeFilterId = null;
+    renderAll();
 }
 
 export async function deleteSavedFilter(id) {
@@ -483,7 +475,7 @@ export async function deleteFolder(id) {
 export function selectFolder(id) {
     if (!getFolderById(id)) return;
     state.activeFolderId = id; state.activeTag = null; state.activeContext = null; state.activeFilterId = null; state.activeId = null;
-    state.viewMode = 'folder'; renderAll(); closeLeftPanel();
+    state.viewMode = 'folder'; pushToNavStack('folder', id); renderAll(); closeLeftPanel();
 }
 
 export function insertFormatting(type) {
@@ -520,6 +512,7 @@ export function openActionMenu(noteId) {
     els.actionSheetMain.classList.remove('hidden'); els.actionSheetMain.classList.add('flex');
     els.actionSheetBackdrop.classList.remove('hidden');
     setTimeout(() => els.actionSheet.classList.add('open'), 10);
+    history.pushState({ state: 'actionSheet' }, ''); // v1.11.14
 }
 
 export function closeActionMenu() {
@@ -718,7 +711,7 @@ export async function createPrompt() {
     state.viewMode = 'editor'; state.editorMode = 'edit';
     clearAiPanel();
     persistNotes(); state.saveStatus = 'idle';
-    pushToHistory(note.id);
+    pushToNavStack('editor', note.id);
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         writeNoteToDisk(note, state.vaultHandle).catch(e => handleFsError(e, 'createPrompt'));
@@ -821,6 +814,7 @@ export function openAiPanel(prompt, note) {
     state.aiState = 'loading';
     state.aiResponse = '';
     state.aiErrorMsg = '';
+    state.aiTruncated = false;
     els.aiPanel.classList.add('mobile-active');
     renderAiPanel();
     executeAiRequest(prompt, note);
@@ -844,6 +838,7 @@ export function clearAiPanel() {
     state.aiActivePrompt = null;
     state.aiResponse = '';
     state.aiErrorMsg = '';
+    state.aiTruncated = false;
     renderAiPanel();
 }
 
@@ -881,10 +876,12 @@ export async function executeAiRequest(prompt, note) {
     }, 90000);
 
     try {
-        const user = buildUserContext(note);
+        const userContext = buildUserContext(note);
+        state.aiTruncated = userContext.isTruncated;
+        
         const text = await sendAiRequest({
             system: prompt.content,
-            user: user,
+            user: userContext.text,
             signal: localController.signal
         });
 
@@ -1042,6 +1039,7 @@ export async function exportAllData() {
 export async function handleImportFiles(files) {
     if (!files || files.length === 0) return;
     let importedCount = 0;
+    const importedIds = new Set(); // v1.11.14
 
     for (const file of files) {
         if (file.name.endsWith('.zip')) {
@@ -1091,6 +1089,8 @@ export async function handleImportFiles(files) {
                         const existingIdx = state.notes.findIndex(n => n.id === note.id);
                         if (existingIdx >= 0) state.notes[existingIdx] = note;
                         else state.notes.push(note);
+                        
+                        importedIds.add(note.id); // v1.11.14
                         importedCount++;
                     }));
                 });
@@ -1107,6 +1107,8 @@ export async function handleImportFiles(files) {
             const existingIdx = state.notes.findIndex(n => n.id === note.id);
             if (existingIdx >= 0) state.notes[existingIdx] = note;
             else state.notes.push(note);
+            
+            importedIds.add(note.id); // v1.11.14
             importedCount++;
         }
     }
@@ -1114,10 +1116,12 @@ export async function handleImportFiles(files) {
     if (importedCount > 0) {
         persistNotes(); persistFolders();
 
+        // v1.11.14: Записываем на диск только импортированные заметки, а не всю базу
         if (state.vaultHandle && state.vaultStatus === 'connected') {
             try {
-                for (const note of state.notes) {
-                    await writeNoteToDisk(note, state.vaultHandle);
+                for (const id of importedIds) {
+                    const note = getNoteById(id);
+                    if (note) await writeNoteToDisk(note, state.vaultHandle);
                 }
             } catch (e) { handleFsError(e, 'importWrite'); }
         }

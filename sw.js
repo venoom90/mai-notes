@@ -1,9 +1,7 @@
-// sw.js — MAi Notes V1.11.6
+// sw.js — MAi Notes V1.11.14
 // История изменений:
-//  V1.11.6 (22.10.2026): Кэш v54. Обновление из-за правок в index.html (Hotfix UI Safe Areas).
-//  V1.11.5 (22.10.2026): Кэш v53. Обновление из-за правок в ai.js, logic.js, state.js.
-//  V1.11.4 (22.10.2026): Кэш v52. Добавлены vendor/ и js/dialog.js.
-const CACHE_NAME = 'mai-cache-v54';
+//  V1.11.14 (23.10.2026): Кэш v57. Обновление из-за правок в логике навигации.
+const CACHE_NAME = 'mai-cache-v57';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
@@ -18,7 +16,17 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(
+        ASSETS.map(url => 
+          cache.add(url).catch(err => {
+            console.warn(`[SW] Ошибка кэширования файла: ${url}. Проверьте, существует ли он.`, err);
+          })
+        )
+      );
+    })
+  );
 });
 
 self.addEventListener('activate', (event) => {
