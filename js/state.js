@@ -1,6 +1,6 @@
-// js/state.js — MAi Notes V1.11.24
+// js/state.js — MAi Notes V1.11.26
 // История изменений:
-//  V1.11.24 (24.10.2026): Добавлены els.toggleLogs и els.btnSaveLogsFile.
+//  V1.11.26 (24.10.2026): Добавлены элементы оверлея синхронизации.
 export const state = {
     notes: [], folders: [], savedFilters: [], activeId: null, activeFolderId: 'inbox',
     activeTag: null, activeContext: null, activeFilterId: null, saveTimeout: null,
@@ -171,9 +171,12 @@ export const els = {
     calendarNotesList: document.getElementById('calendar-notes-list'),
     snackbar: document.getElementById('snackbar'),
     snackbarMessage: document.getElementById('snackbar-message'),
-    // Logger UI
     btnCopyLogs: document.getElementById('btn-copy-logs'),
     btnClearLogs: document.getElementById('btn-clear-logs'),
     toggleLogs: document.getElementById('toggle-logs'),
-    btnSaveLogsFile: document.getElementById('btn-save-logs-file')
+    btnSaveLogsFile: document.getElementById('btn-save-logs-file'),
+    // v1.11.26: Оверлей синхронизации
+    syncOverlay: document.getElementById('sync-overlay'),
+    syncProgressBar: document.getElementById('sync-progress-bar'),
+    syncProgressText: document.getElementById('sync-progress-text')
 };

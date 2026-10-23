@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.25
+// js/logic.js — MAi Notes V1.11.26
 // История изменений:
-//  V1.11.25 (24.10.2026): Защита от спама пустых заметок. Асинхронное сохранение промптов. Логирование saveLogToDisk.
+//  V1.11.26 (24.10.2026): Прогресс-бар синхронизации. Фикс прыжка при вставке промпта. Фикс логов шторок.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -114,11 +114,21 @@ export async function syncVault(isNewConnection = false) {
     renderSidebar();
 
     const syncToastTimer = setTimeout(() => {
-        if (state.isSyncing) showSnackbar('Идет чтение файлов, пожалуйста, подождите...', 'info');
-    }, 1500);
+        if (state.isSyncing) {
+            els.syncProgressBar.style.width = '0%';
+            els.syncProgressText.textContent = 'Подсчет файлов...';
+            els.syncOverlay.classList.remove('hidden');
+        }
+    }, 500);
 
     try {
-        const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
+        const diskNotes = await readAllFilesFromDisk(state.vaultHandle, (current, total) => {
+            if (total > 0) {
+                const percent = Math.round((current / total) * 100);
+                els.syncProgressBar.style.width = `${percent}%`;
+                els.syncProgressText.textContent = `${current} / ${total} файлов`;
+            }
+        });
 
         await withVaultLock(async () => {
             if (isNewConnection) {
@@ -180,6 +190,7 @@ export async function syncVault(isNewConnection = false) {
         });
 
         clearTimeout(syncToastTimer);
+        els.syncOverlay.classList.add('hidden');
         persistNotes();
         persistFolders();
         state.saveStatus = 'saved';
@@ -189,6 +200,7 @@ export async function syncVault(isNewConnection = false) {
         renderSaveStatus(); 
     } catch (e) {
         clearTimeout(syncToastTimer);
+        els.syncOverlay.classList.add('hidden');
         state.saveStatus = 'error';
         state.isSyncing = false;
         logEvent('FS', 'syncVault failed', { error: e.message });
@@ -204,7 +216,7 @@ export function openSettings() {
     els.settingsBackdrop.classList.remove('hidden');
     setTimeout(() => els.settingsModal.classList.add('open'), 10);
     renderVaultStatus();
-    logLayoutState('open_settings');
+    setTimeout(() => logLayoutState('open_settings'), 100);
 }
 export function closeSettings() {
     els.settingsModal.classList.remove('open');
@@ -326,7 +338,6 @@ export async function createNote() {
         return;
     }
 
-    // v1.11.25: Защита от спама пустыми заметками
     let targetFolder = state.activeFolderId || 'inbox';
     if (targetFolder === SYSTEM_PROMPTS_FOLDER_ID) targetFolder = 'inbox';
     
@@ -379,6 +390,9 @@ export function selectNote(id, pushHist = true) {
     logEvent('NAV', 'selectNote', { id });
 
     renderAll(); closeLeftPanel();
+    if (defaultMode === 'edit') {
+        setTimeout(() => els.contentInput.scrollIntoView({ block: 'end' }), 100);
+    }
 }
 
 export async function deleteNote(id) {
@@ -453,7 +467,6 @@ export async function createFolder() {
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await createFolderOnDisk(name, state.vaultHandle); }
         catch (e) { 
-            // v1.11.25: Откат стейта при ошибке
             state.folders = state.folders.filter(f => f.id !== newFolder.id);
             handleFsError(e, 'createFolder'); 
             return;
@@ -524,7 +537,10 @@ export function togglePreviewMode() {
     if (state.editorMode === 'edit') onEdit();
     if (state.editorMode === 'preview') {
         state.editorMode = 'edit'; renderEditor(); renderAll();
-        setTimeout(() => els.contentInput.focus(), 50);
+        setTimeout(() => { 
+            els.contentInput.focus(); 
+            els.contentInput.scrollIntoView({ block: 'end' }); 
+        }, 100);
     } else {
         state.editorMode = 'preview'; renderEditor(); renderAll();
     }
@@ -545,9 +561,11 @@ export function openActionMenu(noteId) {
     els.actionSheetMove.classList.add('hidden'); els.actionSheetMove.classList.remove('flex');
     els.actionSheetMain.classList.remove('hidden'); els.actionSheetMain.classList.add('flex');
     els.actionSheetBackdrop.classList.remove('hidden');
-    setTimeout(() => els.actionSheet.classList.add('open'), 10);
+    setTimeout(() => {
+        els.actionSheet.classList.add('open');
+        logLayoutState('open_action_sheet');
+    }, 10);
     history.pushState({ state: 'actionSheet' }, '');
-    logLayoutState('open_action_sheet');
 }
 
 export function closeActionMenu() {
@@ -633,9 +651,11 @@ export function openFilterModal() {
     els.filterNameInput.value = '';
     els.filterRulesContainer.innerHTML = '';
     els.filterBackdrop.classList.remove('hidden');
-    setTimeout(() => els.filterModal.classList.add('open'), 10);
+    setTimeout(() => {
+        els.filterModal.classList.add('open');
+        logLayoutState('open_filter');
+    }, 10);
     addFilterRule();
-    logLayoutState('open_filter');
 }
 export function closeFilterModal() {
     els.filterModal.classList.remove('open');
@@ -698,9 +718,11 @@ export function openPicker(type) {
     els.pickerSearch.value = '';
     renderPickerList('');
     els.pickerBackdrop.classList.remove('hidden');
-    setTimeout(() => els.pickerModal.classList.add('open'), 10);
+    setTimeout(() => {
+        els.pickerModal.classList.add('open');
+        logLayoutState('open_picker');
+    }, 10);
     setTimeout(() => els.pickerSearch.focus(), 300);
-    logLayoutState('open_picker');
 }
 
 export function closePicker() {
@@ -713,6 +735,10 @@ export function handlePickerSearch(e) { renderPickerList(e.target.value); }
 
 export function insertPickedItem(value) {
     if (!state.activeId || state.editorMode === 'preview') return;
+    
+    const scroller = document.getElementById('main-scroll-container');
+    const prevScrollTop = scroller ? scroller.scrollTop : 0;
+    
     const ta = els.contentInput;
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
@@ -720,11 +746,19 @@ export function insertPickedItem(value) {
     if (state.pickerType === 'tag') insert = `#${value} `;
     else if (state.pickerType === 'prompt') insert = `[!prompt:${value}] `;
     else insert = `[[${value}]] `;
+    
     const val = ta.value;
     ta.value = val.slice(0, start) + insert + val.slice(end);
-    ta.focus();
-    const newCursor = start + insert.length;
-    ta.setSelectionRange(newCursor, newCursor);
+    
+    import('./utils.js').then(m => m.autoResizeTextarea());
+    
+    requestAnimationFrame(() => {
+        ta.focus();
+        const newCursor = start + insert.length;
+        ta.setSelectionRange(newCursor, newCursor);
+        if (scroller) scroller.scrollTop = prevScrollTop;
+    });
+    
     onEdit();
     closePicker();
 }
@@ -793,8 +827,10 @@ export function openPromptSettings(id) {
     state.promptSettingsId = id;
     renderPromptSettings();
     els.promptSettingsBackdrop.classList.remove('hidden');
-    setTimeout(() => els.promptSettingsModal.classList.add('open'), 10);
-    logLayoutState('open_prompt_settings');
+    setTimeout(() => {
+        els.promptSettingsModal.classList.add('open');
+        logLayoutState('open_prompt_settings');
+    }, 10);
 }
 
 export function closePromptSettings() {
@@ -818,7 +854,6 @@ export async function savePromptSettings() {
     renderAll();
     showSnackbar('Настройки промпта сохранены');
 
-    // v1.11.25: Асинхронная запись без блокировки UI
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         writeNoteToDisk(note, state.vaultHandle).catch(e => handleFsError(e, 'savePromptSettings'));
     }

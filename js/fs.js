@@ -1,6 +1,6 @@
-// js/fs.js — MAi Notes V1.11.25
+// js/fs.js — MAi Notes V1.11.26
 // История изменений:
-//  V1.11.25 (24.10.2026): Добавлено логирование в saveLogToDisk.
+//  V1.11.26 (24.10.2026): Добавлен countTotalMdFiles и onProgress для синхронизации.
 import { state } from './state.js';
 import { generateMarkdown, parseMarkdown, sanitizeFileName, genId } from './utils.js';
 import { isTombstoned } from './storage.js';
@@ -92,7 +92,22 @@ export function generateFileName(note) {
     return `${safeTitle}_${shortId}_${datePart}.md`;
 }
 
-export async function _readAllFilesUnlocked(dirHandle, rootHandle = null) {
+// v1.11.26: Быстрый подсчет файлов для прогресс-бара
+export async function countTotalMdFiles(dirHandle) {
+    let count = 0;
+    for await (const entry of dirHandle.values()) {
+        if (entry.name.startsWith('.')) continue;
+        if (entry.kind === 'file' && entry.name.endsWith('.md')) {
+            count++;
+        } else if (entry.kind === 'directory') {
+            if (entry.name === '_logs') continue;
+            count += await countTotalMdFiles(entry);
+        }
+    }
+    return count;
+}
+
+export async function _readAllFilesUnlocked(dirHandle, rootHandle = null, onProgress = null, progressState = { current: 0, total: 0 }) {
     const notes = [];
     const isRoot = rootHandle === null;
     const currentFolderName = isRoot ? 'inbox' : dirHandle.name;
@@ -127,11 +142,14 @@ export async function _readAllFilesUnlocked(dirHandle, rootHandle = null) {
         } else if (entry.kind === 'directory') {
             if (entry.name.startsWith('.')) continue;
             if (entry.name === '_logs') continue; // Игнорируем папку с логами
-            const subNotes = await _readAllFilesUnlocked(entry, dirHandle);
+            const subNotes = await _readAllFilesUnlocked(entry, dirHandle, onProgress, progressState);
             notes.push(...subNotes);
         }
 
         fileCount++;
+        progressState.current++;
+        if (onProgress) onProgress(progressState.current, progressState.total);
+        
         if (fileCount % 5 === 0) await new Promise(r => setTimeout(r, 0));
     }
     return notes;
@@ -183,8 +201,15 @@ export async function _deleteNoteFromDiskUnlocked(note, dirHandle) {
     }
 }
 
-export function readAllFilesFromDisk(dirHandle) {
-    return withVaultLock(() => _readAllFilesUnlocked(dirHandle, null));
+export function readAllFilesFromDisk(dirHandle, onProgress) {
+    return withVaultLock(() => {
+        const progressState = { current: 0, total: 0 };
+        return countTotalMdFiles(dirHandle).then(total => {
+            progressState.total = total;
+            if (onProgress) onProgress(0, total); // init UI
+            return _readAllFilesUnlocked(dirHandle, null, onProgress, progressState);
+        });
+    });
 }
 
 export function writeNoteToDisk(note, dirHandle) {
@@ -251,6 +276,7 @@ export function saveLogToDisk(logText, dirHandle) {
         
         logEvent('FS', 'Creating _logs directory');
         const logsDir = await dirHandle.getDirectoryHandle('_logs', { create: true });
+        await new Promise(r => setTimeout(r, 0)); // Разблокировка UI
         
         const now = new Date();
         const dateStr = now.toISOString().slice(0,10);
@@ -259,9 +285,12 @@ export function saveLogToDisk(logText, dirHandle) {
         
         logEvent('FS', 'Writing log file', { fileName });
         const fileHandle = await logsDir.getFileHandle(fileName, { create: true });
+        await new Promise(r => setTimeout(r, 0));
+        
         const writable = await fileHandle.createWritable();
         await writable.write(logText);
         await writable.close();
+        logEvent('FS', 'Log file written successfully', { fileName });
         
         return fileName;
     });
