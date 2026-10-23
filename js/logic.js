@@ -1,11 +1,11 @@
-// js/logic.js — MAi Notes V1.11.24
+// js/logic.js — MAi Notes V1.11.25
 // История изменений:
-//  V1.11.24 (24.10.2026): Добавлена exportLogsToFile для сохранения в FS.
+//  V1.11.25 (24.10.2026): Защита от спама пустых заметок. Асинхронное сохранение промптов. Логирование saveLogToDisk.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus, renderAiPanel, renderPromptSettings } from './render.js';
-import { logEvent, getLogsString } from './logger.js';
+import { logEvent, getLogsString, logLayoutState } from './logger.js';
 import {
     isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, requestPermission,
     readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk,
@@ -204,6 +204,7 @@ export function openSettings() {
     els.settingsBackdrop.classList.remove('hidden');
     setTimeout(() => els.settingsModal.classList.add('open'), 10);
     renderVaultStatus();
+    logLayoutState('open_settings');
 }
 export function closeSettings() {
     els.settingsModal.classList.remove('open');
@@ -325,10 +326,24 @@ export async function createNote() {
         return;
     }
 
-    const now = Date.now();
+    // v1.11.25: Защита от спама пустыми заметками
     let targetFolder = state.activeFolderId || 'inbox';
     if (targetFolder === SYSTEM_PROMPTS_FOLDER_ID) targetFolder = 'inbox';
+    
+    const existingEmpty = state.notes.find(n => 
+        n.folderId === targetFolder && 
+        !n.isPrompt && 
+        !n.title.trim() && 
+        !n.content.trim() && 
+        n.createdAt > Date.now() - 5 * 60 * 1000
+    );
+    
+    if (existingEmpty) {
+        selectNote(existingEmpty.id);
+        return;
+    }
 
+    const now = Date.now();
     const note = { id: genId(), title: '', content: '', updatedAt: now, createdAt: now, tags: [], folderId: targetFolder, isPinned: false };
     state.notes.unshift(note); state.activeId = note.id;
     state.activeTag = null; state.activeContext = null; state.activeFilterId = null;
@@ -432,11 +447,17 @@ export async function createFolder() {
         return; 
     }
 
-    state.folders.push({ id: genId(), name: name, updatedAt: Date.now(), isSystem: false });
+    const newFolder = { id: genId(), name: name, updatedAt: Date.now(), isSystem: false };
+    state.folders.push(newFolder);
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await createFolderOnDisk(name, state.vaultHandle); }
-        catch (e) { handleFsError(e, 'createFolder'); }
+        catch (e) { 
+            // v1.11.25: Откат стейта при ошибке
+            state.folders = state.folders.filter(f => f.id !== newFolder.id);
+            handleFsError(e, 'createFolder'); 
+            return;
+        }
     }
 
     persistFolders(); renderAll();
@@ -526,6 +547,7 @@ export function openActionMenu(noteId) {
     els.actionSheetBackdrop.classList.remove('hidden');
     setTimeout(() => els.actionSheet.classList.add('open'), 10);
     history.pushState({ state: 'actionSheet' }, '');
+    logLayoutState('open_action_sheet');
 }
 
 export function closeActionMenu() {
@@ -613,6 +635,7 @@ export function openFilterModal() {
     els.filterBackdrop.classList.remove('hidden');
     setTimeout(() => els.filterModal.classList.add('open'), 10);
     addFilterRule();
+    logLayoutState('open_filter');
 }
 export function closeFilterModal() {
     els.filterModal.classList.remove('open');
@@ -677,6 +700,7 @@ export function openPicker(type) {
     els.pickerBackdrop.classList.remove('hidden');
     setTimeout(() => els.pickerModal.classList.add('open'), 10);
     setTimeout(() => els.pickerSearch.focus(), 300);
+    logLayoutState('open_picker');
 }
 
 export function closePicker() {
@@ -770,6 +794,7 @@ export function openPromptSettings(id) {
     renderPromptSettings();
     els.promptSettingsBackdrop.classList.remove('hidden');
     setTimeout(() => els.promptSettingsModal.classList.add('open'), 10);
+    logLayoutState('open_prompt_settings');
 }
 
 export function closePromptSettings() {
@@ -789,15 +814,14 @@ export async function savePromptSettings() {
     note.updatedAt = Date.now();
 
     persistNotes();
-    try {
-        if (state.vaultHandle && state.vaultStatus === 'connected') {
-            await writeNoteToDisk(note, state.vaultHandle);
-        }
-    } catch (e) { handleFsError(e, 'savePromptSettings'); }
-
     closePromptSettings();
     renderAll();
     showSnackbar('Настройки промпта сохранены');
+
+    // v1.11.25: Асинхронная запись без блокировки UI
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        writeNoteToDisk(note, state.vaultHandle).catch(e => handleFsError(e, 'savePromptSettings'));
+    }
 }
 
 export async function triggerAiFromChip(name) {
@@ -951,13 +975,11 @@ export async function handleAiInsert() {
     note.content += block;
     note.updatedAt = Date.now();
     persistNotes();
-    try {
-        if (state.vaultHandle && state.vaultStatus === 'connected') {
-            await writeNoteToDisk(note, state.vaultHandle);
-        }
-    } catch (e) { handleFsError(e, 'aiInsert'); }
     renderAll();
     showSnackbar('Ответ вставлен в заметку');
+    if (state.vaultHandle && state.vaultStatus === 'connected') {
+        writeNoteToDisk(note, state.vaultHandle).catch(e => handleFsError(e, 'aiInsert'));
+    }
 }
 
 export function handleAiRegenerate() {
@@ -1170,7 +1192,6 @@ export async function handleCopyNoteText() {
     closeActionMenu();
 }
 
-// v1.11.24: Экспорт логов
 export async function exportLogsToFile() {
     const logStr = getLogsString();
     if (!logStr) {
@@ -1180,13 +1201,15 @@ export async function exportLogsToFile() {
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try {
+            logEvent('FS', 'Saving log to disk started');
             const fileName = await saveLogToDisk(logStr, state.vaultHandle);
+            logEvent('FS', 'Saving log to disk finished', { fileName });
             showSnackbar(`Лог сохранен в _logs/${fileName}`, 'info');
         } catch (e) {
+            logEvent('FS', 'Saving log to disk FAILED', { error: e.message });
             handleFsError(e, 'exportLogsToFile');
         }
     } else {
-        // Фоллбэк: скачивание
         downloadFile(logStr, `mai_log_${Date.now()}.txt`, 'text/plain');
         showSnackbar('Лог скачан в папку загрузок', 'info');
     }

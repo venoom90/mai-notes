@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.24
+// sw.js — MAi Notes V1.11.25
 // История изменений:
-//  V1.11.24 (24.10.2026): Кэш v67. Добавлен логгер 3.0 (экспорт в файл, тумблер).
-const CACHE_NAME = 'mai-cache-v67';
+//  V1.11.25 (24.10.2026): Кэш v68. Интеграция X-Ray логгера и фиксы верстки.
+const CACHE_NAME = 'mai-cache-v68';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

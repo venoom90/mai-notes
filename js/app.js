@@ -1,11 +1,11 @@
-// js/app.js — MAi Notes V1.11.24
+// js/app.js — MAi Notes V1.11.25
 // История изменений:
-//  V1.11.24 (24.10.2026): Добавлен тумблер логгера и кнопка сохранения лога в файл.
+//  V1.11.25 (24.10.2026): Интеграция logLayoutState в visualViewport.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
 import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
-import { logEvent, logDeviceInfo, getLogsString, clearLogs, initLogger, toggleLogging } from './logger.js';
+import { logEvent, logDeviceInfo, logLayoutState, getLogsString, clearLogs, initLogger, toggleLogging } from './logger.js';
 import {
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder,
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter, resetFilters,
@@ -26,7 +26,6 @@ import { verifyPermission } from './fs.js';
 import { showConfirm } from './dialog.js';
 
 function attachListeners() {
-    // Глобальный перехват кликов
     document.addEventListener('click', (e) => {
         const t = e.target;
         logEvent('CLICK', 'User clicked', {
@@ -39,7 +38,6 @@ function attachListeners() {
         });
     }, true);
 
-    // Перехват ошибок
     window.addEventListener('error', (e) => {
         logEvent('ERROR', e.message, { source: e.filename, line: e.lineno });
     });
@@ -162,7 +160,6 @@ function attachListeners() {
     if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
     if (els.btnSettingsSaveAi) els.btnSettingsSaveAi.addEventListener('click', saveAiSettings);
 
-    // v1.11.24: Логи
     if (els.btnCopyLogs) {
         els.btnCopyLogs.addEventListener('click', () => {
             const logStr = getLogsString();
@@ -180,7 +177,6 @@ function attachListeners() {
         });
     }
     if (els.toggleLogs) {
-        // Инициализация состояния тумблера
         els.toggleLogs.checked = initLogger();
         els.toggleLogs.addEventListener('change', (e) => {
             toggleLogging(e.target.checked);
@@ -478,7 +474,11 @@ function attachListeners() {
     els.btnClearSearch.addEventListener('click', () => { els.searchInput.value = ''; handleSearchInput({ target: { value: '' } }); els.searchInput.focus(); });
     els.searchResults.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-search-id]');
-        if (btn) { closeSearch(); selectNote(btn.getAttribute('data-search-id')); }
+        if (btn) { 
+            els.searchInput.value = ''; // v1.11.25: Очищаем при выборе
+            closeSearch(); 
+            selectNote(btn.getAttribute('data-search-id')); 
+        }
     });
 
     els.btnExportAll.addEventListener('click', exportAllData);
@@ -521,6 +521,9 @@ function attachListeners() {
                 vvHeight: window.visualViewport.height,
                 bodyClass: document.body.className
             });
+            
+            // v1.11.25: Рентген-логгер
+            logLayoutState('after_resize');
         });
     }
 

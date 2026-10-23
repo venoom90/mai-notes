@@ -1,9 +1,10 @@
-// js/fs.js — MAi Notes V1.11.24
+// js/fs.js — MAi Notes V1.11.25
 // История изменений:
-//  V1.11.24 (24.10.2026): Добавлена функция saveLogToDisk для сохранения логов в _logs.
+//  V1.11.25 (24.10.2026): Добавлено логирование в saveLogToDisk.
 import { state } from './state.js';
 import { generateMarkdown, parseMarkdown, sanitizeFileName, genId } from './utils.js';
 import { isTombstoned } from './storage.js';
+import { logEvent } from './logger.js';
 
 const DB_NAME = 'mai_fs_db';
 const STORE_NAME = 'handles';
@@ -125,8 +126,7 @@ export async function _readAllFilesUnlocked(dirHandle, rootHandle = null) {
             }
         } else if (entry.kind === 'directory') {
             if (entry.name.startsWith('.')) continue;
-            // v1.11.24: Игнорируем папку с логами
-            if (entry.name === '_logs') continue; 
+            if (entry.name === '_logs') continue; // Игнорируем папку с логами
             const subNotes = await _readAllFilesUnlocked(entry, dirHandle);
             notes.push(...subNotes);
         }
@@ -245,11 +245,11 @@ export function moveNoteOnDisk(oldNote, newNote, dirHandle) {
     });
 }
 
-// v1.11.24: Сохранение логов в папку _logs
 export function saveLogToDisk(logText, dirHandle) {
     return withVaultLock(async () => {
         if (!dirHandle) throw new Error('Нет доступа к папке');
         
+        logEvent('FS', 'Creating _logs directory');
         const logsDir = await dirHandle.getDirectoryHandle('_logs', { create: true });
         
         const now = new Date();
@@ -257,6 +257,7 @@ export function saveLogToDisk(logText, dirHandle) {
         const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-');
         const fileName = `mai_log_${dateStr}_${timeStr}.txt`;
         
+        logEvent('FS', 'Writing log file', { fileName });
         const fileHandle = await logsDir.getFileHandle(fileName, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(logText);

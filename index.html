@@ -153,8 +153,18 @@
         .note-card-actions { position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity 0.15s; background: transparent !important; box-shadow: none !important; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        .bottom-sheet { transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; bottom: -100%; opacity: 0; visibility: hidden; pointer-events: none; padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px)); will-change: bottom, opacity; }
-        .bottom-sheet.open { bottom: calc(var(--kb-height, 0px)); opacity: 1; visibility: visible; pointer-events: auto; }
+        /* v1.11.25: Фикс шторок. bottom: 0, так как WebView уже сжимает экран */
+        .bottom-sheet { 
+            transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
+            bottom: -100%; 
+            opacity: 0; 
+            visibility: hidden; 
+            pointer-events: none; 
+            padding-bottom: env(safe-area-inset-bottom); 
+            max-height: 85dvh;
+            will-change: bottom, opacity; 
+        }
+        .bottom-sheet.open { bottom: 0; opacity: 1; visibility: visible; pointer-events: auto; }
         
         #format-toolbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; background: var(--md-surface-variant); border-top: 1px solid var(--md-outline); padding: 8px; display: flex; align-items: center; overflow-x: auto; flex-wrap: nowrap; transition: transform 0.3s, opacity 0.3s; transform: translateY(100%); opacity: 0; pointer-events: none; }
         body.kb-open #format-toolbar.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
@@ -162,7 +172,7 @@
 
         body.kb-open #vault-restore-banner { display: none !important; }
         #ai-actions { padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; }
-        #fab-new-note { bottom: calc(1.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
+        #fab-new-note { bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
 
         .outline-link { display: block; text-align: left; width: 100%; font-size: 0.85rem; color: var(--md-outline); padding: 4px 0; cursor: pointer; text-decoration: none; transition: color 0.15s; }
         .outline-h2 { padding-left: 0; font-weight: 600; }
@@ -491,7 +501,7 @@
         </aside>
     </div> <!-- END app-layout -->
 
-    <div id="action-sheet" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh]">
+    <div id="action-sheet" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div id="action-sheet-main" class="flex flex-col p-2 pb-6">
             <div class="px-4 py-2 font-bold text-lg line-clamp-2 break-words border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
@@ -515,7 +525,7 @@
         </div>
     </div>
 
-    <div id="filter-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90dvh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
+    <div id="filter-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center">
             <div class="font-bold text-lg">Создать Смарт-фильтр</div>
             <button id="btn-close-filter" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -535,7 +545,7 @@
         </div>
     </div>
 
-    <div id="picker-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[70dvh]">
+    <div id="picker-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center">
             <div class="font-bold text-lg" id="picker-title">Выбрать тег</div>
@@ -548,7 +558,7 @@
         </div>
     </div>
 
-    <div id="prompt-settings-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[80dvh] w-full md:max-w-md md:mx-auto md:bottom-10 md:rounded-3xl">
+    <div id="prompt-settings-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col w-full md:max-w-md md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
             <div class="font-bold text-lg flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-primary"></i> Настройки промпта</div>
             <button id="btn-close-prompt-settings" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -569,7 +579,7 @@
         </div>
     </div>
 
-    <div id="settings-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[90dvh] w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
+    <div id="settings-modal" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col w-full md:max-w-lg md:mx-auto md:bottom-10 md:rounded-3xl">
         <div class="p-4 border-b border-[var(--md-outline)] flex justify-between items-center shrink-0">
             <div class="font-bold text-lg flex items-center gap-2"><i data-lucide="settings" class="w-5 h-5"></i> Настройки</div>
             <button id="btn-close-settings" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5" aria-label="Закрыть"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -609,7 +619,6 @@
                 </div>
             </div>
 
-            <!-- v1.11.24: Логгер -->
             <div class="border-t border-[var(--md-outline)]/20 pt-4 mt-2">
                 <div class="font-bold text-sm mb-2 flex items-center justify-between text-red-500">
                     <div class="flex items-center gap-2"><i data-lucide="bug" class="w-4 h-4"></i> Для разработчика</div>
@@ -633,7 +642,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.24</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.25</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>
