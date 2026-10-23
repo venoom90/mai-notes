@@ -1,6 +1,6 @@
-// js/utils.js — MAi Notes V1.11.22
+// js/utils.js — MAi Notes V1.11.23
 // История изменений:
-//  V1.11.22 (23.10.2026): Проверка autoResizeTextarea. Строгое выставление высоты без ограничений.
+//  V1.11.23 (23.10.2026): autoResizeTextarea сохраняет scrollTop родителя, чтобы избежать прыжков.
 import { state } from './state.js';
 
 export function genId() {
@@ -58,11 +58,18 @@ export function notesInFolder(folderId) {
     });
 }
 
+// v1.11.23: Сохраняем скролл, чтобы браузер не прыгал при изменении высоты
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
-    if (!ta || ta.classList.contains('hidden')) return;
+    const scroller = document.getElementById('main-scroll-container');
+    if (!ta || ta.classList.contains('hidden') || !scroller) return;
+    
+    const prevScrollTop = scroller.scrollTop;
+    
     ta.style.height = 'auto';
     ta.style.height = ta.scrollHeight + 'px';
+    
+    scroller.scrollTop = prevScrollTop;
 }
 
 export function autoResizeTitle() {

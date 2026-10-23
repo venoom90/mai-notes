@@ -1,10 +1,11 @@
-// js/render.js — MAi Notes V1.11.19
+// js/render.js — MAi Notes V1.11.23
 // История изменений:
-//  V1.11.19 (23.10.2026): Отключен breaks в marked.parse (фикс хаотичных переносов).
+//  V1.11.23 (23.10.2026): Оптимизация renderSaveStatus (не трогает DOM, если статус не изменился).
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
 
 let saveStatusTimeout = null;
+let lastSaveStatus = 'idle';
 
 export function renderSidebar() {
     els.foldersList.innerHTML = sortedFolders().map(folder => {
@@ -457,6 +458,10 @@ export function updatePreviewButton() {
 export function renderSaveStatus() {
     if (!els.statusText) return;
     
+    // v1.11.23: Оптимизация. Не трогаем DOM, если статус не изменился (защита от рефлоу)
+    if (lastSaveStatus === state.saveStatus && state.saveStatus !== 'saved') return;
+    lastSaveStatus = state.saveStatus;
+
     if (saveStatusTimeout) clearTimeout(saveStatusTimeout);
     els.statusText.style.opacity = '1';
     
@@ -491,7 +496,6 @@ export function renderMarkdownTo(el, text, options = {}) {
     if (!text || !text.trim()) { el.innerHTML = ''; return; }
     if (typeof window.marked === 'undefined' || typeof window.DOMPurify === 'undefined') return;
     try {
-        // v1.11.19: breaks: false — убирает хаотичные переносы
         const cleanHtml = window.DOMPurify.sanitize(window.marked.parse(text, { gfm: true, breaks: false }));
         el.innerHTML = cleanHtml;
         el.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); });

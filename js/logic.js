@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.21
+// js/logic.js — MAi Notes V1.11.23
 // История изменений:
-//  V1.11.21 (23.10.2026): Добавлен снекбар "Идет синхронизация" при долгом syncVault.
+//  V1.11.23 (23.10.2026): Убрана перерисовка сайдбара в onEdit (воровала фокус). Сайдбар обновляется в scheduleSave.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -26,15 +26,6 @@ function handleFsError(e, ctx = 'FS') {
     } else {
         showAlert('Ошибка файловой системы: ' + (e.message || 'неизвестно'), 'Ошибка');
     }
-}
-
-let sidebarDebounceTimer = null;
-function debouncedRenderSidebar() {
-    if (sidebarDebounceTimer) clearTimeout(sidebarDebounceTimer);
-    sidebarDebounceTimer = setTimeout(() => {
-        sidebarDebounceTimer = null;
-        try { renderSidebar(); } catch (e) { console.error(e); }
-    }, 250);
 }
 
 export function openLeftPanel() { if (state.leftPanelOpen || window.innerWidth >= 768) return; state.leftPanelOpen = true; els.leftPanel.classList.add('mobile-active'); els.leftPanelBackdrop.classList.add('mobile-active'); }
@@ -122,7 +113,6 @@ export async function syncVault(isNewConnection = false) {
     renderSaveStatus();
     renderSidebar();
 
-    // v1.11.21: Показываем снекбар, если синхронизация длится дольше 1.5 секунд
     const syncToastTimer = setTimeout(() => {
         if (state.isSyncing) showSnackbar('Идет чтение файлов, пожалуйста, подождите...', 'info');
     }, 1500);
@@ -303,6 +293,8 @@ export function scheduleSave() {
         if (ok) {
             state.saveStatus = 'saved';
             renderSaveStatus();
+            // v1.11.23: Обновляем сайдбар ТОЛЬКО здесь, после сохранения, чтобы не воровать фокус
+            renderSidebar();
 
             if (state.vaultHandle && state.vaultStatus === 'connected' && noteIdToSave) {
                 const note = getNoteById(noteIdToSave);
@@ -324,7 +316,7 @@ export function onEdit() {
     const note = getNoteById(state.activeId); if (!note) return;
     note.title = els.titleInput.value; note.content = els.contentInput.value; note.updatedAt = Date.now();
     syncNoteTags(note); state.saveStatus = 'saving'; renderSaveStatus(); scheduleSave();
-    debouncedRenderSidebar();
+    // v1.11.23: Убрали debouncedRenderSidebar(), чтобы не воровать фокус
 }
 
 export async function createNote() {

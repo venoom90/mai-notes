@@ -40,7 +40,11 @@
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
-        .main-scroll-container { overflow-anchor: none; }
+        /* v1.11.23: Фикс прыжков. scroll-padding-bottom решает проблему с клавиатурой */
+        .main-scroll-container { 
+            overflow-anchor: none; 
+            scroll-padding-bottom: 150px; 
+        }
 
         textarea#note-content, .markdown-body {
             width: 100%;
@@ -55,7 +59,7 @@
             textarea#note-content, .markdown-body { max-width: 75ch; margin-left: auto; margin-right: auto; }
         }
 
-        /* v1.11.22: Фикс эффекта "Экселя". Убираем padding изнутри, переносим наружу */
+        /* v1.11.23: Убран margin-bottom, который ломал скролл */
         textarea#note-content { 
             resize: none; 
             overflow-y: hidden; 
@@ -65,7 +69,6 @@
             line-height: 1.6; 
             font-size: 1rem; 
             padding: 0; 
-            margin-bottom: 60vh; 
         }
         
         textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
@@ -625,7 +628,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.22</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.23</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

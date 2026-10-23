@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.22
+// sw.js — MAi Notes V1.11.23
 // История изменений:
-//  V1.11.22 (23.10.2026): Кэш v65. Фикс "эффекта Экселя" (padding/margin) и увеличение лимита логов.
-const CACHE_NAME = 'mai-cache-v65';
+//  V1.11.23 (23.10.2026): Кэш v66. Финальный фикс прыжков текста и потери фокуса.
+const CACHE_NAME = 'mai-cache-v66';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
