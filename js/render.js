@@ -1,6 +1,6 @@
-// js/render.js — MAi Notes V1.11.29
+// js/render.js — MAi Notes V1.11.31
 // История изменений:
-//  V1.11.29 (24.10.2026): Принудительный вызов autoResizeTextarea в renderEditor.
+//  V1.11.31 (24.10.2026): Отрисовка статуса 'pending' (желтая иконка).
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
 import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName, autoResizeTextarea } from './utils.js';
 
@@ -362,7 +362,6 @@ export function renderEditor() {
         els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
         els.titleInput.readOnly = false;
         
-        // v1.11.29: Синхронный и rAF вызов для точного расчета высоты
         autoResizeTextarea();
         requestAnimationFrame(() => {
             autoResizeTextarea();
@@ -470,6 +469,8 @@ export function renderSaveStatus() {
     let html = '';
     if (state.saveStatus === 'saving') {
         html = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin text-primary"></i>`;
+    } else if (state.saveStatus === 'pending') {
+        html = `<i data-lucide="clock" class="w-5 h-5 text-yellow-500"></i>`;
     } else if (state.saveStatus === 'saved') {
         html = `<i data-lucide="cloud-check" class="w-5 h-5 text-green-500"></i>`;
         saveStatusTimeout = setTimeout(() => {

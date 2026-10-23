@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.30
+// sw.js — MAi Notes V1.11.31
 // История изменений:
-//  V1.11.30 (24.10.2026): Кэш v73. Блокировка внутреннего скролла textarea.
-const CACHE_NAME = 'mai-cache-v73';
+//  V1.11.31 (24.10.2026): Кэш v74. Обновление для Mirror Div, защиты синхронизации и фикса H1.
+const CACHE_NAME = 'mai-cache-v74';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

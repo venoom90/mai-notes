@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.30
+// js/app.js — MAi Notes V1.11.31
 // История изменений:
-//  V1.11.30 (24.10.2026): Троттлинг логов скролла контейнера. Блокировка внутреннего скролла textarea. Точный скролл к концу.
+//  V1.11.31 (24.10.2026): Добавлен pagehide для аварийного сохранения. Вызовы autoResizeTextarea синхронизированы.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -292,7 +292,6 @@ function attachListeners() {
         });
     });
 
-    // v1.11.30: Блокировка внутреннего скролла WebView
     els.contentInput.addEventListener('scroll', () => {
         if (els.contentInput.scrollTop !== 0) {
             els.contentInput.scrollTop = 0;
@@ -302,7 +301,6 @@ function attachListeners() {
     els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); logEvent('BLUR', 'Content lost focus'); });
     els.titleInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
 
-    // v1.11.30: Троттлинг логирования скролла контейнера
     let scrollLogTimeout = null;
     const mainScroller = document.getElementById('main-scroll-container');
     if (mainScroller) {
@@ -546,8 +544,7 @@ function attachListeners() {
                         autoResizeTextarea();
                         const scroller = document.getElementById('main-scroll-container');
                         if (scroller && document.activeElement === els.contentInput) {
-                            // v1.11.30: Точный скролл к низу textarea
-                            scroller.scrollTop = els.contentInput.offsetTop + els.contentInput.offsetHeight + 150;
+                            scroller.scrollTop = scroller.scrollHeight;
                         }
                     });
                 }, 200);
@@ -574,6 +571,14 @@ function attachListeners() {
         setTimeout(() => {
             if (window.innerHeight >= 500) document.body.classList.remove('kb-open');
         }, 100);
+    });
+
+    // v1.11.31: Принудительное сохранение при уходе
+    window.addEventListener('pagehide', () => {
+        if (state.activeId && state.editorMode === 'edit') {
+            onEdit();
+            persistNotes();
+        }
     });
 
     window.addEventListener('popstate', (e) => {

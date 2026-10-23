@@ -1,6 +1,6 @@
-// js/utils.js — MAi Notes V1.11.30
+// js/utils.js — MAi Notes V1.11.31
 // История изменений:
-//  V1.11.30 (24.10.2026): autoResizeTextarea через height: auto + reflow + scrollTop = 0 для убийства внутреннего скролла WebView.
+//  V1.11.31 (24.10.2026): Внедрен Mirror Div для autoResizeTextarea (обход лимита WebView). Цикл while для очистки H1 в Markdown.
 import { state } from './state.js';
 
 export function genId() {
@@ -58,28 +58,45 @@ export function notesInFolder(folderId) {
     });
 }
 
-// v1.11.30: Сброс через height: auto + принудительный reflow + обнуление внутреннего скролла
+// v1.11.31: Mirror Div для точного расчета высоты в обход бага Android WebView
+let mirrorDiv = null;
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
-    const scroller = document.getElementById('main-scroll-container');
-    if (!ta || ta.classList.contains('hidden') || !scroller) return;
-    
-    const prevScrollTop = scroller.scrollTop;
-    
-    ta.style.height = 'auto'; 
-    void ta.offsetHeight; // Форсируем reflow (сброс кэша scrollHeight)
-    ta.style.height = (Math.ceil(ta.scrollHeight) + 2) + 'px';
+    if (!ta || ta.classList.contains('hidden')) return;
+
+    if (!mirrorDiv) {
+        mirrorDiv = document.createElement('div');
+        mirrorDiv.style.position = 'absolute';
+        mirrorDiv.style.visibility = 'hidden';
+        mirrorDiv.style.zIndex = '-1000';
+        mirrorDiv.style.top = '0';
+        mirrorDiv.style.left = '0';
+        mirrorDiv.style.pointerEvents = 'none';
+        mirrorDiv.style.whiteSpace = 'pre-wrap';
+        mirrorDiv.style.wordWrap = 'break-word';
+        document.body.appendChild(mirrorDiv);
+    }
+
+    const style = window.getComputedStyle(ta);
+    mirrorDiv.style.width = style.width;
+    mirrorDiv.style.fontFamily = style.fontFamily;
+    mirrorDiv.style.fontSize = style.fontSize;
+    mirrorDiv.style.lineHeight = style.lineHeight;
+    mirrorDiv.style.padding = style.padding;
+    mirrorDiv.style.border = style.border;
+    mirrorDiv.style.boxSizing = style.boxSizing;
+    mirrorDiv.textContent = ta.value || ' ';
+
+    const newHeight = mirrorDiv.offsetHeight;
+    ta.style.height = newHeight + 'px';
     ta.style.overflowY = 'hidden';
-    ta.scrollTop = 0; // Блокируем внутренний скролл WebView
-    
-    scroller.scrollTop = prevScrollTop;
+    ta.scrollTop = 0;
 }
 
 export function autoResizeTitle() {
     const ta = document.getElementById('note-title');
     if (!ta) return;
     ta.style.height = 'auto';
-    void ta.offsetHeight;
     ta.style.height = ta.scrollHeight + 'px';
 }
 
@@ -216,7 +233,15 @@ export function getNoteCountForDate(dateStr) {
 export function generateMarkdown(note, folderName) {
     const safeTitle = String(note.title || 'Без названия').replace(/"/g, '\\"');
     const safeFolder = String(folderName || 'Входящие').replace(/"/g, '\\"');
-    const safeContent = String(note.content || '');
+    
+    // v1.11.31: Очистка от ведущих H1 для предотвращения дублирования
+    let cleanContent = String(note.content || '');
+    let lines = cleanContent.split('\n');
+    while (lines.length > 0 && lines[0].trim().match(/^#\s+/)) {
+        lines.shift();
+    }
+    cleanContent = lines.join('\n').trim();
+
     const ts = Number(note.updatedAt) || Date.now();
     const created = Number(note.createdAt) || ts;
 
@@ -238,7 +263,7 @@ export function generateMarkdown(note, folderName) {
 
     yamlLines.push('---');
 
-    return `${yamlLines.join('\n')}\n\n# ${noteTitle(note)}\n\n${safeContent}`;
+    return `${yamlLines.join('\n')}\n\n# ${noteTitle(note)}\n\n${cleanContent}`;
 }
 
 export function parseMarkdown(text, defaultFolderId, fileName = '') {
@@ -264,13 +289,16 @@ export function parseMarkdown(text, defaultFolderId, fileName = '') {
         });
     }
 
-    const lines = content.split('\n');
+    // v1.11.31: Удаление всех ведущих H1
+    let lines = content.split('\n');
     let extractedTitle = '';
-    if (lines[0] && lines[0].startsWith('# ')) {
-        extractedTitle = lines[0].replace(/^#\s+/, '').trim();
+    while (lines.length > 0 && lines[0].trim().match(/^#\s+/)) {
+        if (!extractedTitle) {
+            extractedTitle = lines[0].replace(/^#\s+/, '').trim();
+        }
         lines.shift();
-        content = lines.join('\n').trim();
     }
+    content = lines.join('\n').trim();
 
     const isPrompt = meta.type === 'prompt';
 

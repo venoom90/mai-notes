@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.27
+// js/logic.js — MAi Notes V1.11.31
 // История изменений:
-//  V1.11.27 (24.10.2026): Фикс прыжков при вставке промпта (синхронный autoResize + preventScroll). Фикс X-Ray таймеров. Фикс скролла при входе в редактор.
+//  V1.11.31 (24.10.2026): Защита активной заметки от перезаписи syncVault. onEdit проверяет изменения. Закрытие клавиатуры при preview.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, autoResizeTextarea, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -133,6 +133,7 @@ export async function syncVault(isNewConnection = false) {
         await withVaultLock(async () => {
             if (isNewConnection) {
                 for (const note of state.notes) {
+                    if (!note.id) continue;
                     await _writeNoteToDiskUnlocked(note, state.vaultHandle);
                 }
                 const refreshed = await _readAllFilesUnlocked(state.vaultHandle, null);
@@ -140,6 +141,7 @@ export async function syncVault(isNewConnection = false) {
             } else {
                 const diskMap = new Map();
                 for (const dn of diskNotes) {
+                    if (!dn.id) continue;
                     const existing = diskMap.get(dn.id);
                     if (!existing) {
                         diskMap.set(dn.id, dn);
@@ -152,6 +154,7 @@ export async function syncVault(isNewConnection = false) {
 
                 const localMap = new Map();
                 for (const ln of state.notes) {
+                    if (!ln.id) continue;
                     const existing = localMap.get(ln.id);
                     if (!existing || ln.updatedAt > existing.updatedAt) {
                         localMap.set(ln.id, ln);
@@ -164,6 +167,14 @@ export async function syncVault(isNewConnection = false) {
                     const diskNote = diskMap.get(id);
                     if (diskNote) {
                         const diskTime = diskNote.updatedAt || diskNote.fileMtime || 0;
+                        
+                        // v1.11.31: Защита активной заметки от перезаписи во время ввода
+                        if (state.activeId === id && state.saveStatus === 'saving') {
+                            merged.push(localNote);
+                            diskMap.delete(id);
+                            continue;
+                        }
+
                         if (diskTime > localNote.updatedAt) {
                             merged.push(diskNote);
                         } else {
@@ -216,7 +227,7 @@ export function openSettings() {
     els.settingsBackdrop.classList.remove('hidden');
     setTimeout(() => els.settingsModal.classList.add('open'), 10);
     renderVaultStatus();
-    setTimeout(() => logLayoutState('open_settings'), 350); // v1.11.27: Ждем окончания анимации
+    setTimeout(() => logLayoutState('open_settings'), 350);
 }
 export function closeSettings() {
     els.settingsModal.classList.remove('open');
@@ -326,8 +337,17 @@ export function scheduleSave() {
 export function onEdit() {
     if (!state.activeId || state.viewMode !== 'editor' || state.editorMode === 'preview') return;
     const note = getNoteById(state.activeId); if (!note) return;
-    note.title = els.titleInput.value; note.content = els.contentInput.value; note.updatedAt = Date.now();
-    syncNoteTags(note); state.saveStatus = 'saving'; renderSaveStatus(); scheduleSave();
+    
+    // v1.11.31: Проверка на реальное изменение
+    if (note.title === els.titleInput.value && note.content === els.contentInput.value) return;
+
+    note.title = els.titleInput.value; 
+    note.content = els.contentInput.value; 
+    note.updatedAt = Date.now();
+    syncNoteTags(note); 
+    state.saveStatus = 'saving'; 
+    renderSaveStatus(); 
+    scheduleSave();
 }
 
 export async function createNote() {
@@ -538,15 +558,20 @@ export function insertFormatting(type) {
 
 export function togglePreviewMode() {
     if (state.editorMode === 'edit') onEdit();
+    
+    // v1.11.31: Закрываем клавиатуру при входе в просмотр
     if (state.editorMode === 'preview') {
-        state.editorMode = 'edit'; renderEditor(); renderAll();
+        state.editorMode = 'edit'; 
+        renderAll();
         setTimeout(() => { 
             els.contentInput.focus({ preventScroll: true }); 
             const scroller = document.getElementById('main-scroll-container');
             if (scroller) scroller.scrollTop = scroller.scrollHeight;
         }, 50);
     } else {
-        state.editorMode = 'preview'; renderEditor(); renderAll();
+        els.contentInput.blur();
+        state.editorMode = 'preview'; 
+        renderAll();
     }
 }
 
@@ -568,7 +593,7 @@ export function openActionMenu(noteId) {
     setTimeout(() => {
         els.actionSheet.classList.add('open');
         logLayoutState('open_action_sheet');
-    }, 350); // v1.11.27: Ждем окончания анимации
+    }, 350);
     history.pushState({ state: 'actionSheet' }, '');
 }
 
@@ -658,7 +683,7 @@ export function openFilterModal() {
     setTimeout(() => {
         els.filterModal.classList.add('open');
         logLayoutState('open_filter');
-    }, 350); // v1.11.27
+    }, 350);
     addFilterRule();
 }
 export function closeFilterModal() {
@@ -725,7 +750,7 @@ export function openPicker(type) {
     setTimeout(() => {
         els.pickerModal.classList.add('open');
         logLayoutState('open_picker');
-    }, 350); // v1.11.27
+    }, 350);
     setTimeout(() => els.pickerSearch.focus(), 300);
 }
 
@@ -754,10 +779,10 @@ export function insertPickedItem(value) {
     const val = ta.value;
     ta.value = val.slice(0, start) + insert + val.slice(end);
     
-    autoResizeTextarea(); // v1.11.27: Вызываем синхронно
+    autoResizeTextarea();
     
     requestAnimationFrame(() => {
-        ta.focus({ preventScroll: true }); // v1.11.27: Не даем браузеру скроллить
+        ta.focus({ preventScroll: true });
         const newCursor = start + insert.length;
         ta.setSelectionRange(newCursor, newCursor);
         if (scroller) scroller.scrollTop = prevScrollTop;
@@ -834,7 +859,7 @@ export function openPromptSettings(id) {
     setTimeout(() => {
         els.promptSettingsModal.classList.add('open');
         logLayoutState('open_prompt_settings');
-    }, 350); // v1.11.27
+    }, 350);
 }
 
 export function closePromptSettings() {
