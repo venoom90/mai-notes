@@ -37,7 +37,7 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 10px; }
 
-        input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
+        input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; display: block; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
         .main-scroll-container { overflow-anchor: none; scroll-padding-bottom: 150px; }
@@ -64,9 +64,10 @@
             line-height: 1.6; 
             font-size: 1rem; 
             padding: 0; 
+            display: block; /* v1.11.29: Убирает невидимые отступы inline-элемента */
         }
         
-        textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
+        textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; display: block; }
         @media (min-width: 768px) { textarea#note-title { font-size: 2rem; max-height: none; overflow: hidden; } }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -653,7 +654,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.26</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.29</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

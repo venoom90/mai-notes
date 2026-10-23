@@ -1,8 +1,8 @@
-// js/render.js — MAi Notes V1.11.24
+// js/render.js — MAi Notes V1.11.29
 // История изменений:
-//  V1.11.24 (24.10.2026): Версия обновлена без изменений в логике.
+//  V1.11.29 (24.10.2026): Принудительный вызов autoResizeTextarea в renderEditor.
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
-import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName } from './utils.js';
+import { escapeHtml, relativeTime, noteTitle, notePreview, getNoteById, notesInFolder, sortedFolders, getFolderById, folderNotesCount, collectAllTags, collectAllContexts, getAllPrompts, findNoteByTitle, updateIcons, getBacklinks, getOutline, formatDateYYYYMMDD, getNoteCreatedAt, getWeekDates, getNoteCountForDate, getPromptByName, autoResizeTextarea } from './utils.js';
 
 let saveStatusTimeout = null;
 let lastSaveStatus = 'idle';
@@ -361,10 +361,13 @@ export function renderEditor() {
     } else {
         els.contentInput.classList.remove('hidden'); els.preview.classList.add('hidden'); els.preview.innerHTML = '';
         els.titleInput.readOnly = false;
-        els.contentInput.style.height = 'auto';
-        setTimeout(() => {
-             import('./utils.js').then(m => m.autoResizeTextarea());
-        }, 0);
+        
+        // v1.11.29: Синхронный и rAF вызов для точного расчета высоты
+        autoResizeTextarea();
+        requestAnimationFrame(() => {
+            autoResizeTextarea();
+        });
+        
         els.backlinksContainer.classList.add('hidden');
     }
 

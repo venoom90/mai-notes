@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.28
+// js/app.js — MAi Notes V1.11.29
 // История изменений:
-//  V1.11.28 (24.10.2026): Фикс 122px overlap через setTimeout и scrollToBottom.
+//  V1.11.29 (24.10.2026): Увеличен таймаут и добавлен rAF в visualViewport для стабильного скролла при клавиатуре.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -517,14 +517,17 @@ function attachListeners() {
             if (window.innerHeight < 500) {
                 document.body.classList.add('kb-open');
                 
-                // v1.11.28: Фикс 122px overlap. Ждем, пока клавиатура выедет полностью, и скроллим в самый низ.
+                // v1.11.29: Увеличен таймаут для WebView + двойной пересчет через rAF
                 setTimeout(() => {
                     autoResizeTextarea();
-                    const scroller = document.getElementById('main-scroll-container');
-                    if (scroller && document.activeElement === els.contentInput) {
-                        scroller.scrollTop = scroller.scrollHeight;
-                    }
-                }, 150);
+                    requestAnimationFrame(() => {
+                        autoResizeTextarea();
+                        const scroller = document.getElementById('main-scroll-container');
+                        if (scroller && document.activeElement === els.contentInput) {
+                            scroller.scrollTop = scroller.scrollHeight;
+                        }
+                    });
+                }, 200);
             } else {
                 document.body.classList.remove('kb-open');
             }

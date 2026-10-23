@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.28
+// sw.js — MAi Notes V1.11.29
 // История изменений:
-//  V1.11.28 (24.10.2026): Кэш v71. Фикс ячейки внутри textarea и 122px overlap.
-const CACHE_NAME = 'mai-cache-v71';
+//  V1.11.29 (24.10.2026): Кэш v72. Фикс ячейки внутри textarea и 122px overlap.
+const CACHE_NAME = 'mai-cache-v72';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
