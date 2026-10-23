@@ -1,5 +1,6 @@
-// js/logger.js — MAi Notes V1.0.0
-// Временный модуль телеметрии для отлова багов UI/UX.
+// js/logger.js — MAi Notes V1.0.1
+// История изменений:
+//  V1.0.1 (23.10.2026): Добавлено логирование innerText для кнопок без ID.
 export const logs = [];
 const MAX_LOGS = 1000;
 let isEnabled = true;
@@ -46,9 +47,4 @@ export function getLogsString() {
 export function clearLogs() {
     logs.length = 0;
     logEvent('SYS', 'Logs cleared');
-}
-
-export function toggleLogging() {
-    isEnabled = !isEnabled;
-    return isEnabled;
 }

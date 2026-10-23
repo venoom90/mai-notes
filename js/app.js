@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.20
+// js/app.js — MAi Notes V1.11.21
 // История изменений:
-//  V1.11.20 (23.10.2026): Внедрен js/logger.js. Добавлены глобальные перехватчики кликов, ввода, вьюпорта и ошибок.
+//  V1.11.21 (23.10.2026): kb-open теперь зависит от innerHeight < 500. mousedown на панели форматирования не сбрасывает фокус.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -32,6 +32,7 @@ function attachListeners() {
         logEvent('CLICK', 'User clicked', {
             tag: t.tagName,
             id: t.id || undefined,
+            text: t.innerText ? t.innerText.substring(0, 30) : undefined,
             class: typeof t.className === 'string' ? t.className.substring(0, 50) : 'SVG',
             x: e.clientX,
             y: e.clientY
@@ -349,6 +350,9 @@ function attachListeners() {
     });
 
     if (els.formatToolbar) {
+        els.formatToolbar.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // v1.11.21: Не даем клавиатуре закрыться
+        });
         els.formatToolbar.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-format]');
             if (btn) insertFormatting(btn.getAttribute('data-format'));
@@ -399,6 +403,9 @@ function attachListeners() {
     els.pickerBackdrop.addEventListener('click', closePicker);
     els.btnClosePicker.addEventListener('click', closePicker);
     els.pickerSearch.addEventListener('input', handlePickerSearch);
+    els.pickerList.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // v1.11.21: Не даем клавиатуре закрыться при выборе тега
+    });
     els.pickerList.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-pick-value]');
         if (btn) insertPickedItem(btn.getAttribute('data-pick-value'));
@@ -491,34 +498,30 @@ function attachListeners() {
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', () => {
             autoResizeTextarea();
-            const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
-            document.documentElement.style.setProperty('--kb-height', `${kbHeight}px`);
-            
-            if (kbHeight > 100) {
+            // На Android WebView клавиатура сжимает innerHeight.
+            // Если innerHeight < 500, значит клавиатура открыта.
+            if (window.innerHeight < 500) {
                 document.body.classList.add('kb-open');
             } else {
                 document.body.classList.remove('kb-open');
             }
-
+            
             logEvent('VIEWPORT', 'visualViewport resize', {
                 innerHeight: window.innerHeight,
                 vvHeight: window.visualViewport.height,
-                vvOffsetTop: window.visualViewport.offsetTop,
-                kbHeight: kbHeight,
                 bodyClass: document.body.className
             });
         });
     }
 
     els.contentInput.addEventListener('focus', () => {
-        document.body.classList.add('kb-open');
+        if (window.innerHeight < 500) document.body.classList.add('kb-open');
         logEvent('FOCUS', 'Content focus');
     });
+    
     els.contentInput.addEventListener('blur', () => {
         setTimeout(() => {
-            if (window.visualViewport && (window.innerHeight - window.visualViewport.height) < 100) {
-                document.body.classList.remove('kb-open');
-            }
+            if (window.innerHeight >= 500) document.body.classList.remove('kb-open');
         }, 100);
     });
 

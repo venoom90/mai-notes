@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.20
+// js/logic.js — MAi Notes V1.11.21
 // История изменений:
-//  V1.11.20 (23.10.2026): Внедрено логирование ключевых действий с данными (create, update, delete).
+//  V1.11.21 (23.10.2026): Добавлен снекбар "Идет синхронизация" при долгом syncVault.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -122,6 +122,11 @@ export async function syncVault(isNewConnection = false) {
     renderSaveStatus();
     renderSidebar();
 
+    // v1.11.21: Показываем снекбар, если синхронизация длится дольше 1.5 секунд
+    const syncToastTimer = setTimeout(() => {
+        if (state.isSyncing) showSnackbar('Идет чтение файлов, пожалуйста, подождите...', 'info');
+    }, 1500);
+
     try {
         const diskNotes = await readAllFilesFromDisk(state.vaultHandle);
 
@@ -184,6 +189,7 @@ export async function syncVault(isNewConnection = false) {
             }
         });
 
+        clearTimeout(syncToastTimer);
         persistNotes();
         persistFolders();
         state.saveStatus = 'saved';
@@ -192,6 +198,7 @@ export async function syncVault(isNewConnection = false) {
         renderAll();
         renderSaveStatus(); 
     } catch (e) {
+        clearTimeout(syncToastTimer);
         state.saveStatus = 'error';
         state.isSyncing = false;
         logEvent('FS', 'syncVault failed', { error: e.message });

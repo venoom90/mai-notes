@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.20
+// sw.js — MAi Notes V1.11.21
 // История изменений:
-//  V1.11.20 (23.10.2026): Кэш v63. Добавлен js/logger.js для сбора телеметрии.
-const CACHE_NAME = 'mai-cache-v63';
+//  V1.11.21 (23.10.2026): Кэш v64. Обновление из-за фикса клавиатуры Android WebView.
+const CACHE_NAME = 'mai-cache-v64';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
