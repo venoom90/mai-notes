@@ -1,8 +1,8 @@
-// js/logic.js — MAi Notes V1.11.26
+// js/logic.js — MAi Notes V1.11.27
 // История изменений:
-//  V1.11.26 (24.10.2026): Прогресс-бар синхронизации. Фикс прыжка при вставке промпта. Фикс логов шторок.
+//  V1.11.27 (24.10.2026): Фикс прыжков при вставке промпта (синхронный autoResize + preventScroll). Фикс X-Ray таймеров. Фикс скролла при входе в редактор.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
-import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
+import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, autoResizeTextarea, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus, renderAiPanel, renderPromptSettings } from './render.js';
 import { logEvent, getLogsString, logLayoutState } from './logger.js';
@@ -216,7 +216,7 @@ export function openSettings() {
     els.settingsBackdrop.classList.remove('hidden');
     setTimeout(() => els.settingsModal.classList.add('open'), 10);
     renderVaultStatus();
-    setTimeout(() => logLayoutState('open_settings'), 100);
+    setTimeout(() => logLayoutState('open_settings'), 350); // v1.11.27: Ждем окончания анимации
 }
 export function closeSettings() {
     els.settingsModal.classList.remove('open');
@@ -391,7 +391,10 @@ export function selectNote(id, pushHist = true) {
 
     renderAll(); closeLeftPanel();
     if (defaultMode === 'edit') {
-        setTimeout(() => els.contentInput.scrollIntoView({ block: 'end' }), 100);
+        setTimeout(() => {
+            const scroller = document.getElementById('main-scroll-container');
+            if (scroller) scroller.scrollTop = scroller.scrollHeight;
+        }, 50);
     }
 }
 
@@ -538,9 +541,10 @@ export function togglePreviewMode() {
     if (state.editorMode === 'preview') {
         state.editorMode = 'edit'; renderEditor(); renderAll();
         setTimeout(() => { 
-            els.contentInput.focus(); 
-            els.contentInput.scrollIntoView({ block: 'end' }); 
-        }, 100);
+            els.contentInput.focus({ preventScroll: true }); 
+            const scroller = document.getElementById('main-scroll-container');
+            if (scroller) scroller.scrollTop = scroller.scrollHeight;
+        }, 50);
     } else {
         state.editorMode = 'preview'; renderEditor(); renderAll();
     }
@@ -564,7 +568,7 @@ export function openActionMenu(noteId) {
     setTimeout(() => {
         els.actionSheet.classList.add('open');
         logLayoutState('open_action_sheet');
-    }, 10);
+    }, 350); // v1.11.27: Ждем окончания анимации
     history.pushState({ state: 'actionSheet' }, '');
 }
 
@@ -654,7 +658,7 @@ export function openFilterModal() {
     setTimeout(() => {
         els.filterModal.classList.add('open');
         logLayoutState('open_filter');
-    }, 10);
+    }, 350); // v1.11.27
     addFilterRule();
 }
 export function closeFilterModal() {
@@ -721,7 +725,7 @@ export function openPicker(type) {
     setTimeout(() => {
         els.pickerModal.classList.add('open');
         logLayoutState('open_picker');
-    }, 10);
+    }, 350); // v1.11.27
     setTimeout(() => els.pickerSearch.focus(), 300);
 }
 
@@ -750,10 +754,10 @@ export function insertPickedItem(value) {
     const val = ta.value;
     ta.value = val.slice(0, start) + insert + val.slice(end);
     
-    import('./utils.js').then(m => m.autoResizeTextarea());
+    autoResizeTextarea(); // v1.11.27: Вызываем синхронно
     
     requestAnimationFrame(() => {
-        ta.focus();
+        ta.focus({ preventScroll: true }); // v1.11.27: Не даем браузеру скроллить
         const newCursor = start + insert.length;
         ta.setSelectionRange(newCursor, newCursor);
         if (scroller) scroller.scrollTop = prevScrollTop;
@@ -830,7 +834,7 @@ export function openPromptSettings(id) {
     setTimeout(() => {
         els.promptSettingsModal.classList.add('open');
         logLayoutState('open_prompt_settings');
-    }, 10);
+    }, 350); // v1.11.27
 }
 
 export function closePromptSettings() {

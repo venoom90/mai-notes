@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.26
+// sw.js — MAi Notes V1.11.27
 // История изменений:
-//  V1.11.26 (24.10.2026): Кэш v69. Фикс прыжков при вставке, прогресс-бар, X-Ray логи.
-const CACHE_NAME = 'mai-cache-v69';
+//  V1.11.27 (24.10.2026): Кэш v70. Финальный фикс прыжков при вставке промпта.
+const CACHE_NAME = 'mai-cache-v70';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
