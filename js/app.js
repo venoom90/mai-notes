@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.25
+// js/app.js — MAi Notes V1.11.28
 // История изменений:
-//  V1.11.25 (24.10.2026): Интеграция logLayoutState в visualViewport.
+//  V1.11.28 (24.10.2026): Фикс 122px overlap через setTimeout и scrollToBottom.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -475,7 +475,7 @@ function attachListeners() {
     els.searchResults.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-search-id]');
         if (btn) { 
-            els.searchInput.value = ''; // v1.11.25: Очищаем при выборе
+            els.searchInput.value = ''; 
             closeSearch(); 
             selectNote(btn.getAttribute('data-search-id')); 
         }
@@ -510,8 +510,21 @@ function attachListeners() {
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', () => {
             autoResizeTextarea();
+            
+            const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+            document.documentElement.style.setProperty('--kb-height', `${kbHeight}px`);
+            
             if (window.innerHeight < 500) {
                 document.body.classList.add('kb-open');
+                
+                // v1.11.28: Фикс 122px overlap. Ждем, пока клавиатура выедет полностью, и скроллим в самый низ.
+                setTimeout(() => {
+                    autoResizeTextarea();
+                    const scroller = document.getElementById('main-scroll-container');
+                    if (scroller && document.activeElement === els.contentInput) {
+                        scroller.scrollTop = scroller.scrollHeight;
+                    }
+                }, 150);
             } else {
                 document.body.classList.remove('kb-open');
             }
@@ -522,7 +535,6 @@ function attachListeners() {
                 bodyClass: document.body.className
             });
             
-            // v1.11.25: Рентген-логгер
             logLayoutState('after_resize');
         });
     }

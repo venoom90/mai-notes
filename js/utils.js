@@ -1,6 +1,6 @@
-// js/utils.js — MAi Notes V1.11.23
+// js/utils.js — MAi Notes V1.11.28
 // История изменений:
-//  V1.11.23 (23.10.2026): autoResizeTextarea сохраняет scrollTop родителя, чтобы избежать прыжков.
+//  V1.11.28 (24.10.2026): autoResizeTextarea сбрасывает высоту в 0px для пересчета WebView.
 import { state } from './state.js';
 
 export function genId() {
@@ -58,7 +58,7 @@ export function notesInFolder(folderId) {
     });
 }
 
-// v1.11.23: Сохраняем скролл, чтобы браузер не прыгал при изменении высоты
+// v1.11.28: Жесткий сброс в 0px заставляет WebView пересчитать высоту
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     const scroller = document.getElementById('main-scroll-container');
@@ -66,8 +66,9 @@ export function autoResizeTextarea() {
     
     const prevScrollTop = scroller.scrollTop;
     
-    ta.style.height = 'auto';
+    ta.style.height = '0px'; // Сброс
     ta.style.height = ta.scrollHeight + 'px';
+    ta.style.overflowY = 'hidden';
     
     scroller.scrollTop = prevScrollTop;
 }
