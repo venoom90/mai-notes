@@ -1,12 +1,12 @@
-// sw.js — MAi Notes V1.11.18
+// sw.js — MAi Notes V1.11.20
 // История изменений:
-//  V1.11.18 (23.10.2026): Кэш v61. Обновление из-за типографики Markdown и фиксов клавиатуры.
-const CACHE_NAME = 'mai-cache-v61';
+//  V1.11.20 (23.10.2026): Кэш v63. Добавлен js/logger.js для сбора телеметрии.
+const CACHE_NAME = 'mai-cache-v63';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',
   './js/render.js', './js/logic.js', './js/app.js', './js/fs.js', './js/ai.js',
-  './js/dialog.js',
+  './js/dialog.js', './js/logger.js',
   './vendor/tailwind.js',
   './vendor/lucide.js',
   './vendor/marked.min.js',

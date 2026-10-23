@@ -1,10 +1,11 @@
-// js/logic.js — MAi Notes V1.11.19
+// js/logic.js — MAi Notes V1.11.20
 // История изменений:
-//  V1.11.19 (23.10.2026): Добавлен вызов renderSaveStatus при синхронизации для скрытия облака.
+//  V1.11.20 (23.10.2026): Внедрено логирование ключевых действий с данными (create, update, delete).
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
 import { renderAll, renderSaveStatus, renderActionSheetFolders, renderSearchResults, renderSidebar, renderFilterRuleRow, renderEditor, renderPickerList, renderVaultStatus, renderAiPanel, renderPromptSettings } from './render.js';
+import { logEvent } from './logger.js';
 import {
     isFileSystemSupported, saveHandleToDB, getHandleFromDB, clearHandleFromDB, verifyPermission, requestPermission,
     readAllFilesFromDisk, writeNoteToDisk, deleteNoteFromDisk, deleteFolderFromDisk,
@@ -16,6 +17,7 @@ import { showAlert, showConfirm, showPrompt } from './dialog.js';
 
 function handleFsError(e, ctx = 'FS') {
     if (!e) return;
+    logEvent('ERROR', `FS Error in ${ctx}`, { name: e.name, message: e.message });
     console.error(`[FS:${ctx}]`, e);
     if (e.name === 'NotAllowedError') {
         state.vaultStatus = 'prompt';
@@ -65,6 +67,7 @@ export async function initVault() {
 }
 
 export async function connectVault() {
+    logEvent('FS', 'connectVault requested');
     if (!isFileSystemSupported()) {
         await showAlert('Ваш браузер не поддерживает локальную файловую систему. Используется кэш браузера.', 'Неподдерживаемый браузер');
         return;
@@ -72,6 +75,7 @@ export async function connectVault() {
     try {
         const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
         if (handle) {
+            logEvent('FS', 'Folder selected', { name: handle.name });
             state.vaultHandle = handle;
             state.vaultName = handle.name;
             state.vaultStatus = 'connected';
@@ -111,6 +115,8 @@ export async function disconnectVault() {
 export async function syncVault(isNewConnection = false) {
     if (!state.vaultHandle || state.vaultStatus !== 'connected') return;
     if (state.isSyncing) return;
+    
+    logEvent('FS', 'syncVault started', { isNewConnection });
     state.isSyncing = true;
     state.saveStatus = 'saving';
     renderSaveStatus();
@@ -182,11 +188,13 @@ export async function syncVault(isNewConnection = false) {
         persistFolders();
         state.saveStatus = 'saved';
         state.isSyncing = false;
+        logEvent('FS', 'syncVault finished successfully');
         renderAll();
         renderSaveStatus(); 
     } catch (e) {
         state.saveStatus = 'error';
         state.isSyncing = false;
+        logEvent('FS', 'syncVault failed', { error: e.message });
         handleFsError(e, 'syncVault');
         renderSaveStatus();
         renderAll();
@@ -331,6 +339,8 @@ export async function createNote() {
     clearAiPanel();
     persistNotes(); state.saveStatus = 'idle';
     pushToNavStack('editor', note.id);
+    
+    logEvent('DATA', 'createNote', { id: note.id, folderId: targetFolder });
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await writeNoteToDisk(note, state.vaultHandle); }
@@ -353,6 +363,8 @@ export function selectNote(id, pushHist = true) {
     state.editorMode = defaultMode;
     state.saveStatus = 'idle';
     if (pushHist) pushToNavStack('editor', id);
+    
+    logEvent('NAV', 'selectNote', { id });
 
     renderAll(); closeLeftPanel();
 }
@@ -362,6 +374,7 @@ export async function deleteNote(id) {
     if (!await showConfirm(`Удалить заметку «${note.title || 'Без названия'}»?`, 'Удаление заметки')) return;
 
     addTombstone(id);
+    logEvent('DATA', 'deleteNote', { id });
 
     if (state.vaultHandle && state.vaultStatus === 'connected') {
         try { await deleteNoteFromDisk(note, state.vaultHandle); }

@@ -1,76 +1,24 @@
-// js/state.js — MAi Notes V1.11.16
+// js/state.js — MAi Notes V1.11.20
 // История изменений:
-//  V1.11.16 (23.10.2026): Добавлены els.btnMobileMore, els.btnActionFocus, els.btnActionCopy. Удален folderMoveSelect.
-//  V1.11.15 (23.10.2026): Добавлен els.aiTruncationWarning (фикс P1). Удалены orphaned-ключи btnNavBack/btnNavForward (P2-аудит).
+//  V1.11.20 (23.10.2026): Добавлены els для кнопок логгера (btnCopyLogs, btnClearLogs).
 export const state = {
-    notes: [],
-    folders: [],
-    savedFilters: [],
-    activeId: null,
-    activeFolderId: 'inbox',
-    activeTag: null,
-    activeContext: null,
-    activeFilterId: null,
-    saveTimeout: null,
-    saveStatus: 'idle',
-    viewMode: 'folder',
-    editorMode: 'preview',
-    activePrompt: null,
-    activePromptRawName: null,
-    aiPanelOpen: false,
-    leftPanelOpen: false,
-    actionMenuNoteId: null,
-    actionMenuMode: 'main',
-    searchOpen: false,
-    draftFilter: [],
-    pickerType: null,
-    history: [],
-    historyIndex: -1,
-    isFocusMode: false,
-    calendarDate: new Date(),
-    selectedDate: null,
-    isCalendarExpanded: false,
-    vaultHandle: null,
-    vaultName: 'Браузер (Кэш)',
-    vaultStatus: 'local',
-    isSyncing: false,
-    snackbarTimeout: null,
-    fsError: null,
-    settings: { aiProxyUrl: '' },
-    aiState: 'empty',
-    aiActivePrompt: null,
-    aiResponse: '',
-    aiErrorMsg: '',
-    aiAbortController: null,
-    aiTypewriter: null, 
-    promptSettingsId: null,
-    aiDropdownOpen: false,
-    tombstones: [],
-    lastVisibilitySync: 0
+    notes: [], folders: [], savedFilters: [], activeId: null, activeFolderId: 'inbox',
+    activeTag: null, activeContext: null, activeFilterId: null, saveTimeout: null,
+    saveStatus: 'idle', viewMode: 'folder', editorMode: 'preview',
+    activePrompt: null, activePromptRawName: null, aiPanelOpen: false, leftPanelOpen: false,
+    actionMenuNoteId: null, actionMenuMode: 'main', searchOpen: false, draftFilter: [],
+    pickerType: null, history: [], historyIndex: -1, isFocusMode: false,
+    calendarDate: new Date(), selectedDate: null, isCalendarExpanded: false,
+    vaultHandle: null, vaultName: 'Браузер (Кэш)', vaultStatus: 'local', isSyncing: false,
+    snackbarTimeout: null, fsError: null, settings: { aiProxyUrl: '' },
+    aiState: 'empty', aiActivePrompt: null, aiResponse: '', aiErrorMsg: '', aiAbortController: null,
+    aiTypewriter: null, promptSettingsId: null, aiDropdownOpen: false, tombstones: [], lastVisibilitySync: 0
 };
 
 export const DEFAULT_PROMPTS = [
-    {
-        id: 'seed-coach',
-        title: 'Тренер',
-        content: 'Ты — профессиональный коуч. Используй модель GROW.\nПо заметке пользователя задай 3 глубоких открытых вопроса, которые помогут продвинуться от текущего состояния к цели. Не давай советов — только вопросы. Будь краток, говори на «ты».',
-        icon: 'compass',
-        description: 'Задаёт вопросы и помогает развить мысль'
-    },
-    {
-        id: 'seed-analyst',
-        title: 'Аналитик',
-        content: 'Ты — аналитик. Прочитай заметку пользователя и:\n1) Выдели 3 ключевые идеи (список);\n2) Найди скрытые паттерны и связи;\n3) Укажи противоречия или пробелы;\n4) Предложи следующий шаг.\nОтвечай структурно, без воды.',
-        icon: 'bar-chart-3',
-        description: 'Структурирует, находит паттерны'
-    },
-    {
-        id: 'seed-motivator',
-        title: 'Мотиватор',
-        content: 'Ты — мотиватор. Из заметки пользователя вычлени ближайший конкретный шаг (одно действие, которое можно сделать за 15 минут) и коротко вдохнови на него. Максимум 5 строк. Глагол в начале, без «нужно» и «стоит».',
-        icon: 'zap',
-        description: 'Фокусирует на действии'
-    }
+    { id: 'seed-coach', title: 'Тренер', content: 'Ты — профессиональный коуч. Используй модель GROW.\nПо заметке пользователя задай 3 глубоких открытых вопроса, которые помогут продвинуться от текущего состояния к цели. Не давай советов — только вопросы. Будь краток, говори на «ты».', icon: 'compass', description: 'Задаёт вопросы и помогает развить мысль' },
+    { id: 'seed-analyst', title: 'Аналитик', content: 'Ты — аналитик. Прочитай заметку пользователя и:\n1) Выдели 3 ключевые идеи (список);\n2) Найди скрытые паттерны и связи;\n3) Укажи противоречия или пробелы;\n4) Предложи следующий шаг.\nОтвечай структурно, без воды.', icon: 'bar-chart-3', description: 'Структурирует, находит паттерны' },
+    { id: 'seed-motivator', title: 'Мотиватор', content: 'Ты — мотиватор. Из заметки пользователя вычлени ближайший конкретный шаг (одно действие, которое можно сделать за 15 минут) и коротко вдохнови на него. Максимум 5 строк. Глагол в начале, без «нужно» и «стоит».', icon: 'zap', description: 'Фокусирует на действии' }
 ];
 
 export const PROMPT_ICON_CHOICES = [
@@ -115,9 +63,9 @@ export const els = {
     btnPromptSettings: document.getElementById('btn-prompt-settings'),
     btnNewNote: document.getElementById('btn-new-note'),
     btnNewFolder: document.getElementById('btn-new-folder'),
-    btnDeleteNote: document.getElementById('btn-delete-note'), // Остается для Desktop
+    btnDeleteNote: document.getElementById('btn-delete-note'),
     btnPreview: document.getElementById('btn-preview'),
-    btnMobileMore: document.getElementById('btn-mobile-more'), // Новая кнопка троеточия
+    btnMobileMore: document.getElementById('btn-mobile-more'),
     viewEditor: document.getElementById('view-editor'),
     viewFolder: document.getElementById('view-folder'),
     viewCalendar: document.getElementById('view-calendar'),
@@ -154,7 +102,6 @@ export const els = {
     crumbFolderName: document.getElementById('crumb-folder-name'),
     crumbSeparator: document.getElementById('breadcrumb-separator'),
     crumbTitle: document.getElementById('breadcrumb-title'),
-    // moveNoteContainer и folderMoveSelect удалены
     fabNewNote: document.getElementById('fab-new-note'),
     formatToolbar: document.getElementById('format-toolbar'),
     actionSheetBackdrop: document.getElementById('action-sheet-backdrop'),
@@ -165,8 +112,8 @@ export const els = {
     sheetFoldersList: document.getElementById('sheet-folders-list'),
     btnSheetBack: document.getElementById('btn-sheet-back'),
     pinLabel: document.getElementById('pin-label'),
-    btnActionFocus: document.getElementById('btn-action-focus'), // Кнопка фокуса в шторке
-    btnActionCopy: document.getElementById('btn-action-copy'),   // Кнопка копирования в шторке
+    btnActionFocus: document.getElementById('btn-action-focus'),
+    btnActionCopy: document.getElementById('btn-action-copy'),
     searchBackdrop: document.getElementById('search-backdrop'),
     searchModal: document.getElementById('search-modal'),
     searchInput: document.getElementById('search-input'),
@@ -202,7 +149,7 @@ export const els = {
     btnExportAll: document.getElementById('btn-export-all'),
     btnImportData: document.getElementById('btn-import-data'),
     importFileInput: document.getElementById('import-file-input'),
-    btnFocusMode: document.getElementById('btn-focus-mode'), // Оставляем в els, но убираем из HTML
+    btnFocusMode: document.getElementById('btn-focus-mode'),
     btnCloseFocus: document.getElementById('btn-close-focus'),
     outlineContainer: document.getElementById('outline-container'),
     outlineList: document.getElementById('outline-list'),
@@ -223,5 +170,8 @@ export const els = {
     calendarSelectedBadge: document.getElementById('calendar-selected-badge'),
     calendarNotesList: document.getElementById('calendar-notes-list'),
     snackbar: document.getElementById('snackbar'),
-    snackbarMessage: document.getElementById('snackbar-message')
+    snackbarMessage: document.getElementById('snackbar-message'),
+    // v1.11.20 Logger UI
+    btnCopyLogs: document.getElementById('btn-copy-logs'),
+    btnClearLogs: document.getElementById('btn-clear-logs')
 };

@@ -40,40 +40,29 @@
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
-        /* Фикс "Экселя" и улетания текста */
-        .main-scroll-container {
-            overflow-anchor: none; /* Запрещает браузеру авто-скролл при удалении текста */
+        .main-scroll-container { overflow-anchor: none; scroll-padding-bottom: 50vh; }
+
+        textarea#note-content, .markdown-body {
+            max-width: 75ch;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: left;
+            width: 100%;
         }
 
         textarea#note-content { 
-            resize: none; 
-            min-height: 200px; 
-            overflow-y: hidden; 
-            overflow-x: hidden;
-            word-wrap: break-word; 
-            white-space: pre-wrap;
-            line-height: 1.6; 
-            font-size: 1rem; 
-            padding-bottom: 100px; /* Запас под клавиатуру */
+            resize: none; min-height: 200px; overflow-y: hidden; overflow-x: hidden;
+            word-wrap: break-word; white-space: pre-wrap; line-height: 1.6; font-size: 1rem; padding-bottom: 50vh; 
         }
         
         textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
         @media (min-width: 768px) { textarea#note-title { font-size: 2rem; max-height: none; overflow: hidden; } }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .editor-animate { animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-        /* Улучшенная типографика для чтения */
         .markdown-body { 
-            line-height: 1.75; 
-            font-size: 1.05rem; 
-            cursor: default; 
-            min-height: 200px; 
-            padding: 0 16px;
-            color: var(--md-on-surface);
+            line-height: 1.75; font-size: 1.05rem; cursor: default; min-height: 200px; padding: 0 16px; color: var(--md-on-surface);
         }
         .markdown-body h1 { font-size: 1.8rem; font-weight: 700; margin: 1.5em 0 0.8em; letter-spacing: -0.02em; }
         .markdown-body h2 { font-size: 1.45rem; font-weight: 700; margin: 1.5em 0 0.6em; letter-spacing: -0.01em; }
@@ -90,16 +79,7 @@
         .markdown-body pre { background: var(--md-surface-variant); padding: 1.2em; border-radius: 12px; overflow-x: auto; margin: 0 0 1.2em; }
         .markdown-body pre code { background: transparent; padding: 0; font-size: 0.85em; white-space: pre; word-break: normal; }
         
-        .markdown-body blockquote { 
-            border-left: 4px solid var(--md-primary); 
-            padding: 1em 1.2em; 
-            margin: 0 0 1.2em; 
-            color: var(--md-outline); 
-            font-style: italic; 
-            background: rgba(103, 80, 164, 0.05); 
-            border-radius: 0 12px 12px 0;
-        }
-        
+        .markdown-body blockquote { border-left: 4px solid var(--md-primary); padding: 1em 1.2em; margin: 0 0 1.2em; color: var(--md-outline); font-style: italic; background: rgba(103, 80, 164, 0.05); border-radius: 0 12px 12px 0; }
         .markdown-body a { color: var(--md-primary); text-decoration: underline; text-underline-offset: 3px; word-break: break-all; }
         .markdown-body hr { border: none; border-top: 2px solid var(--md-outline); opacity: 0.2; margin: 2em 0; }
         .markdown-body input[type="checkbox"] { transform: scale(1.2); margin-right: 0.6em; cursor: pointer; vertical-align: middle; }
@@ -113,9 +93,7 @@
 
         #ai-panel { display: none; flex-direction: column; }
         @media (min-width: 1024px) { #ai-panel { display: flex; } }
-        @media (max-width: 1023px) { 
-            #ai-panel.mobile-active { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; max-width: 100%; border-left: none; background: var(--md-surface); } 
-        }
+        @media (max-width: 1023px) { #ai-panel.mobile-active { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; max-width: 100%; border-left: none; background: var(--md-surface); } }
         
         #left-panel { transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1); }
         @media (max-width: 767px) { 
@@ -133,10 +111,7 @@
         body.focus-mode #btn-close-focus { display: flex !important; }
         body.focus-mode::-webkit-scrollbar { display: none; }
         
-        #btn-close-focus { 
-            display: none; position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 100; 
-            background: rgba(231, 224, 236, 0.8); backdrop-filter: blur(4px); border-radius: 50%; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: opacity 0.3s;
-        }
+        #btn-close-focus { display: none; position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 100; background: rgba(231, 224, 236, 0.8); backdrop-filter: blur(4px); border-radius: 50%; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: opacity 0.3s; }
 
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
         @media (hover: hover) {
@@ -167,20 +142,14 @@
         .note-card-actions { position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity 0.15s; background: transparent !important; box-shadow: none !important; }
         @media (max-width: 768px) { .note-card-actions { opacity: 1; } }
 
-        .bottom-sheet { 
-            transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; 
-            bottom: -100%; 
-            opacity: 0; 
-            visibility: hidden; 
-            pointer-events: none; 
-            padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px)); 
-            will-change: bottom, opacity; 
-        }
+        .bottom-sheet { transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; bottom: -100%; opacity: 0; visibility: hidden; pointer-events: none; padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px)); will-change: bottom, opacity; }
         .bottom-sheet.open { bottom: calc(var(--kb-height, 0px)); opacity: 1; visibility: visible; pointer-events: auto; }
         
-        #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
-        #format-toolbar.active.kb-open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        #format-toolbar { position: fixed; bottom: var(--kb-height, 0px); left: 0; right: 0; z-index: 30; background: var(--md-surface-variant); border-top: 1px solid var(--md-outline); padding: 8px; display: flex; align-items: center; overflow-x: auto; flex-wrap: nowrap; transition: transform 0.3s, opacity 0.3s; transform: translateY(100%); opacity: 0; pointer-events: none; }
+        #format-toolbar.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        #format-toolbar::-webkit-scrollbar { display: none; }
 
+        body.kb-open #vault-restore-banner { display: none !important; }
         #ai-actions { padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important; }
         #fab-new-note { bottom: calc(1.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
 
@@ -368,8 +337,8 @@
                 </div>
             </header>
             
-            <div id="main-scroll-container" class="main-scroll-container flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
-                <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-xs opacity-75 text-outline min-h-[32px]">
+            <div id="main-scroll-container" class="main-scroll-container flex-1 overflow-y-auto p-4 md:p-10 w-full relative pb-32">
+                <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-xs opacity-75 text-outline min-h-[32px] max-w-4xl mx-auto">
                     <div class="flex items-center gap-2 truncate min-w-0">
                         <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
                             <i data-lucide="folder" class="w-3.5 h-3.5 text-primary"></i>
@@ -380,7 +349,7 @@
                     </div>
                 </div>
 
-                <div id="view-editor" class="hidden">
+                <div id="view-editor" class="hidden max-w-4xl mx-auto">
                     <div class="flex items-center gap-3 mb-4">
                         <span id="prompt-badge" class="hidden bg-[var(--md-primary)] text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">PROMPT</span>
                         <button id="btn-prompt-settings" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-[var(--md-surface-variant)] hover:bg-black/10 text-outline" aria-label="Настройки промпта"><i data-lucide="settings" class="w-4 h-4"></i></button>
@@ -400,9 +369,9 @@
                     </div>
                 </div>
 
-                <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-[120px]"></div>
+                <div id="view-folder" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pb-[120px] max-w-4xl mx-auto"></div>
 
-                <div id="view-calendar" class="hidden pb-32 flex flex-col items-center">
+                <div id="view-calendar" class="hidden pb-32 flex flex-col items-center max-w-4xl mx-auto">
                     
                     <div class="w-full max-w-md md:max-w-2xl calendar-card mb-6">
                         
@@ -448,17 +417,17 @@
                 <i data-lucide="plus" class="w-6 h-6"></i>
             </button>
 
-            <div id="format-toolbar" class="fixed bottom-0 inset-x-0 md:hidden z-30 bg-[var(--md-surface-variant)] border-t border-[var(--md-outline)] p-2 flex items-center justify-around shadow-lg">
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold" data-format="bold" aria-label="Жирный">B</button>
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif" data-format="italic" aria-label="Курсив">I</button>
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="h2" aria-label="Заголовок 2"><i data-lucide="heading-2" class="w-5 h-5"></i></button>
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center" data-format="check" aria-label="Чеклист"><i data-lucide="check-square" class="w-5 h-5"></i></button>
+            <div id="format-toolbar" class="md:hidden">
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 font-bold shrink-0" data-format="bold" aria-label="Жирный">B</button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 italic font-serif shrink-0" data-format="italic" aria-label="Курсив">I</button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center shrink-0" data-format="h2" aria-label="Заголовок 2"><i data-lucide="heading-2" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center shrink-0" data-format="check" aria-label="Чеклист"><i data-lucide="check-square" class="w-5 h-5"></i></button>
                 
-                <div class="w-px h-6 bg-[var(--md-outline)] opacity-30 mx-1"></div>
+                <div class="w-px h-6 bg-[var(--md-outline)] opacity-30 mx-1 shrink-0"></div>
                 
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="tag" aria-label="Тег"><i data-lucide="hash" class="w-5 h-5"></i></button>
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="context" aria-label="Контекст"><i data-lucide="link" class="w-5 h-5"></i></button>
-                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary" data-format="prompt" aria-label="Промпт"><i data-lucide="sparkles" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary shrink-0" data-format="tag" aria-label="Тег"><i data-lucide="hash" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary shrink-0" data-format="context" aria-label="Контекст"><i data-lucide="link" class="w-5 h-5"></i></button>
+                <button class="format-btn p-3 rounded-lg hover:bg-black/5 flex items-center text-primary shrink-0" data-format="prompt" aria-label="Промпт"><i data-lucide="sparkles" class="w-5 h-5"></i></button>
             </div>
         </main>
 
@@ -629,8 +598,22 @@
                 </div>
             </div>
 
+            <!-- v1.11.20: Блок для разработчика -->
+            <div class="border-t border-[var(--md-outline)]/20 pt-4 mt-2">
+                <div class="font-bold text-sm mb-2 flex items-center gap-2 text-red-500"><i data-lucide="bug" class="w-4 h-4"></i> Для разработчика (Логи)</div>
+                <div class="text-xs text-outline mb-3">Сбор телеметрии для поиска багов. Не отправляет данные в сеть.</div>
+                <div class="flex gap-2">
+                    <button id="btn-copy-logs" class="flex-1 bg-[var(--md-surface-variant)] hover:bg-black/10 text-sm font-medium p-2 rounded-xl border border-[var(--md-outline)]/30 flex items-center justify-center gap-2 transition-colors">
+                        <i data-lucide="copy" class="w-4 h-4"></i> Скопировать лог
+                    </button>
+                    <button id="btn-clear-logs" class="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.18</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.20</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

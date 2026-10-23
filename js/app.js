@@ -1,10 +1,11 @@
-// js/app.js — MAi Notes V1.11.19
+// js/app.js — MAi Notes V1.11.20
 // История изменений:
-//  V1.11.19 (23.10.2026): visualViewport управляет классом kb-open (скрывает баннер и поднимает панель).
+//  V1.11.20 (23.10.2026): Внедрен js/logger.js. Добавлены глобальные перехватчики кликов, ввода, вьюпорта и ошибок.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
 import { renderAll, renderSidebar, renderSaveStatus, renderSearchResults, renderEditor } from './render.js';
+import { logEvent, logDeviceInfo, getLogsString, clearLogs } from './logger.js';
 import {
     createNote, selectNote, deleteNote, togglePreviewMode, selectFolder, renameFolder, deleteFolder,
     filterByTag, filterByContext, applySavedFilter, deleteSavedFilter, resetFilters,
@@ -25,6 +26,26 @@ import { verifyPermission } from './fs.js';
 import { showConfirm } from './dialog.js';
 
 function attachListeners() {
+    // Глобальный перехват кликов
+    document.addEventListener('click', (e) => {
+        const t = e.target;
+        logEvent('CLICK', 'User clicked', {
+            tag: t.tagName,
+            id: t.id || undefined,
+            class: typeof t.className === 'string' ? t.className.substring(0, 50) : 'SVG',
+            x: e.clientX,
+            y: e.clientY
+        });
+    }, true);
+
+    // Перехват ошибок
+    window.addEventListener('error', (e) => {
+        logEvent('ERROR', e.message, { source: e.filename, line: e.lineno });
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+        logEvent('PROMISE', 'Unhandled Rejection', { reason: e.reason?.message || String(e.reason) });
+    });
+
     let touchStartX = 0, touchStartY = 0;
     let isCreating = false;
 
@@ -140,6 +161,23 @@ function attachListeners() {
     if (els.btnSettingsImport) els.btnSettingsImport.addEventListener('click', () => els.importFileInput.click());
     if (els.btnSettingsSaveAi) els.btnSettingsSaveAi.addEventListener('click', saveAiSettings);
 
+    if (els.btnCopyLogs) {
+        els.btnCopyLogs.addEventListener('click', () => {
+            const logStr = getLogsString();
+            navigator.clipboard.writeText(logStr).then(() => {
+                showSnackbar('Лог скопирован в буфер обмена');
+            }).catch(err => {
+                showSnackbar('Ошибка копирования: ' + err.message, 'error');
+            });
+        });
+    }
+    if (els.btnClearLogs) {
+        els.btnClearLogs.addEventListener('click', () => {
+            clearLogs();
+            showSnackbar('Лог очищен');
+        });
+    }
+
     if (els.btnFocusMode) els.btnFocusMode.addEventListener('click', toggleFocusMode);
     if (els.btnCloseFocus) els.btnCloseFocus.addEventListener('click', toggleFocusMode);
 
@@ -229,9 +267,23 @@ function attachListeners() {
         if (selBtn) applySavedFilter(selBtn.getAttribute('data-filter-select'));
     });
 
-    els.titleInput.addEventListener('input', () => { autoResizeTitle(); onEdit(); });
-    els.contentInput.addEventListener('input', () => { autoResizeTextarea(); onEdit(); });
-    els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
+    els.titleInput.addEventListener('input', () => { 
+        autoResizeTitle(); onEdit(); 
+        logEvent('INPUT', 'Title input', { valLen: els.titleInput.value.length });
+    });
+    
+    els.contentInput.addEventListener('input', (e) => { 
+        autoResizeTextarea(); onEdit(); 
+        logEvent('INPUT', 'Content input', { 
+            inputType: e.inputType, 
+            valLen: els.contentInput.value.length,
+            scrollHeight: els.contentInput.scrollHeight,
+            offsetHeight: els.contentInput.offsetHeight,
+            scrollTop: document.getElementById('main-scroll-container').scrollTop
+        });
+    });
+    
+    els.contentInput.addEventListener('blur', () => { onEdit(); scheduleSave(); logEvent('BLUR', 'Content lost focus'); });
     els.titleInput.addEventListener('blur', () => { onEdit(); scheduleSave(); });
 
     els.outlineList.addEventListener('click', (e) => {
@@ -447,11 +499,20 @@ function attachListeners() {
             } else {
                 document.body.classList.remove('kb-open');
             }
+
+            logEvent('VIEWPORT', 'visualViewport resize', {
+                innerHeight: window.innerHeight,
+                vvHeight: window.visualViewport.height,
+                vvOffsetTop: window.visualViewport.offsetTop,
+                kbHeight: kbHeight,
+                bodyClass: document.body.className
+            });
         });
     }
 
     els.contentInput.addEventListener('focus', () => {
         document.body.classList.add('kb-open');
+        logEvent('FOCUS', 'Content focus');
     });
     els.contentInput.addEventListener('blur', () => {
         setTimeout(() => {
@@ -556,6 +617,8 @@ function attachListeners() {
 }
 
 async function init() {
+    logDeviceInfo();
+    
     loadSettings();
     state.tombstones = loadTombstones();
     state.folders = loadFolders(); persistFolders();
