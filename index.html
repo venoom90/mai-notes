@@ -40,7 +40,11 @@
         input, textarea { background: transparent; border: none; outline: none; color: var(--md-on-surface); width: 100%; font-family: inherit; }
         input::placeholder, textarea::placeholder { color: var(--md-outline); opacity: 0.5; }
         
-        /* Фикс "Экселя": убираем внутренний скролл, переносим слова */
+        /* Фикс "Экселя" и улетания текста */
+        .main-scroll-container {
+            overflow-anchor: none; /* Запрещает браузеру авто-скролл при удалении текста */
+        }
+
         textarea#note-content { 
             resize: none; 
             min-height: 200px; 
@@ -49,8 +53,8 @@
             word-wrap: break-word; 
             white-space: pre-wrap;
             line-height: 1.6; 
-            font-size: 0.95rem; /* Уменьшенный шрифт для мобилок */
-            padding-bottom: 20px; 
+            font-size: 1rem; 
+            padding-bottom: 100px; /* Запас под клавиатуру */
         }
         
         textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
@@ -62,22 +66,44 @@
         }
         .editor-animate { animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-        .markdown-body { line-height: 1.7; font-size: 1rem; cursor: default; min-height: 200px; }
-        .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5em 0 0.5em; }
-        .markdown-body h2 { font-size: 1.4rem; font-weight: 700; margin: 1.3em 0 0.5em; }
-        .markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1.1em 0 0.4em; }
-        .markdown-body p { margin: 0.75em 0; }
-        .markdown-body ul, .markdown-body ol { padding-left: 1.5em; margin: 0.75em 0; }
-        .markdown-body ul { list-style: disc; } .markdown-body ol { list-style: decimal; }
-        .markdown-body li { margin: 0.25em 0; }
-        .markdown-body code { background: var(--md-surface-variant); padding: 0.15em 0.4em; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.9em; }
-        .markdown-body pre { background: var(--md-surface-variant); padding: 1em; border-radius: 8px; overflow-x: auto; margin: 0.75em 0; }
-        .markdown-body pre code { background: transparent; padding: 0; font-size: 0.85em; white-space: pre; }
-        .markdown-body blockquote { border-left: 3px solid var(--md-primary); padding-left: 1em; margin: 0.75em 0; color: var(--md-outline); font-style: italic; }
-        .markdown-body a { color: var(--md-primary); text-decoration: underline; }
-        .markdown-body hr { border: none; border-top: 1px solid var(--md-outline); opacity: 0.5; margin: 1.5em 0; }
-        .markdown-body input[type="checkbox"] { transform: scale(1.15); margin-right: 0.5em; cursor: pointer; vertical-align: middle; }
-        .markdown-body li:has(input[type="checkbox"]) { list-style: none; margin-left: -1.5em; }
+        /* Улучшенная типографика для чтения */
+        .markdown-body { 
+            line-height: 1.75; 
+            font-size: 1.05rem; 
+            cursor: default; 
+            min-height: 200px; 
+            padding: 0 16px;
+            color: var(--md-on-surface);
+        }
+        .markdown-body h1 { font-size: 1.8rem; font-weight: 700; margin: 1.5em 0 0.8em; letter-spacing: -0.02em; }
+        .markdown-body h2 { font-size: 1.45rem; font-weight: 700; margin: 1.5em 0 0.6em; letter-spacing: -0.01em; }
+        .markdown-body h3 { font-size: 1.2rem; font-weight: 600; margin: 1.3em 0 0.5em; }
+        .markdown-body p { margin: 0 0 1.2em; }
+        
+        .markdown-body ul, .markdown-body ol { padding-left: 1.8em; margin: 0 0 1.2em; }
+        .markdown-body ul { list-style: disc; } 
+        .markdown-body ol { list-style: decimal; }
+        .markdown-body li { margin: 0.4em 0; line-height: 1.6; }
+        .markdown-body li > p { margin-bottom: 0.5em; }
+
+        .markdown-body code { background: var(--md-surface-variant); padding: 0.15em 0.4em; border-radius: 6px; font-family: ui-monospace, monospace; font-size: 0.85em; word-break: break-word; }
+        .markdown-body pre { background: var(--md-surface-variant); padding: 1.2em; border-radius: 12px; overflow-x: auto; margin: 0 0 1.2em; }
+        .markdown-body pre code { background: transparent; padding: 0; font-size: 0.85em; white-space: pre; word-break: normal; }
+        
+        .markdown-body blockquote { 
+            border-left: 4px solid var(--md-primary); 
+            padding: 1em 1.2em; 
+            margin: 0 0 1.2em; 
+            color: var(--md-outline); 
+            font-style: italic; 
+            background: rgba(103, 80, 164, 0.05); 
+            border-radius: 0 12px 12px 0;
+        }
+        
+        .markdown-body a { color: var(--md-primary); text-decoration: underline; text-underline-offset: 3px; word-break: break-all; }
+        .markdown-body hr { border: none; border-top: 2px solid var(--md-outline); opacity: 0.2; margin: 2em 0; }
+        .markdown-body input[type="checkbox"] { transform: scale(1.2); margin-right: 0.6em; cursor: pointer; vertical-align: middle; }
+        .markdown-body li:has(input[type="checkbox"]) { list-style: none; margin-left: -1.8em; }
 
         .prompt-chip { display: inline-flex; align-items: center; gap: 0.25em; background: var(--md-surface-variant); color: var(--md-primary); border-radius: 999px; padding: 0.15em 0.6em; font-size: 0.9em; line-height: 1.4; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.15s; vertical-align: middle; }
         .prompt-chip-broken { text-decoration: line-through; color: var(--md-outline); opacity: 0.7; }
@@ -112,7 +138,6 @@
             background: rgba(231, 224, 236, 0.8); backdrop-filter: blur(4px); border-radius: 50%; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: opacity 0.3s;
         }
 
-        /* Убираем залипание hover на мобильных */
         .folder-item { transition: background-color 0.15s; border-radius: 8px; }
         @media (hover: hover) {
             .folder-item:hover { background: rgba(0,0,0,0.03); }
@@ -153,7 +178,6 @@
         }
         .bottom-sheet.open { bottom: calc(var(--kb-height, 0px)); opacity: 1; visibility: visible; pointer-events: auto; }
         
-        /* Формат-панель показывается ТОЛЬКО если есть .active и открыта клавиатура (.kb-open) */
         #format-toolbar { transition: transform 0.2s, opacity 0.2s; transform: translateY(100%); opacity: 0; pointer-events: none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom) + var(--kb-height, 0px)); }
         #format-toolbar.active.kb-open { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
@@ -332,7 +356,7 @@
                 </div>
                 
                 <div class="flex items-center gap-1">
-                    <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1" aria-label="Статус сохранения">
+                    <div id="save-status" class="w-8 h-8 flex items-center justify-center mr-1 transition-opacity duration-300" aria-label="Статус сохранения">
                         <i data-lucide="cloud-check" class="w-5 h-5 text-outline"></i>
                     </div>
 
@@ -344,7 +368,7 @@
                 </div>
             </header>
             
-            <div class="flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
+            <div id="main-scroll-container" class="main-scroll-container flex-1 overflow-y-auto p-4 md:p-10 max-w-4xl mx-auto w-full relative pb-32">
                 <div id="breadcrumbs" class="flex items-center justify-between mb-6 text-xs opacity-75 text-outline min-h-[32px]">
                     <div class="flex items-center gap-2 truncate min-w-0">
                         <button id="crumb-folder-btn" class="flex items-center gap-1.5 bg-[var(--md-surface-variant)] px-3 py-1 rounded-full hover:opacity-80 transition-opacity">
@@ -356,7 +380,7 @@
                     </div>
                 </div>
 
-                <div id="view-editor" class="hidden"> <!-- Убран pb-32 -->
+                <div id="view-editor" class="hidden">
                     <div class="flex items-center gap-3 mb-4">
                         <span id="prompt-badge" class="hidden bg-[var(--md-primary)] text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">PROMPT</span>
                         <button id="btn-prompt-settings" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-[var(--md-surface-variant)] hover:bg-black/10 text-outline" aria-label="Настройки промпта"><i data-lucide="settings" class="w-4 h-4"></i></button>
@@ -490,7 +514,6 @@
     <div id="action-sheet" class="bottom-sheet fixed inset-x-0 z-[60] bg-[var(--md-surface)] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh]">
         <div class="w-12 h-1.5 bg-[var(--md-outline)] opacity-30 rounded-full mx-auto my-3 shrink-0"></div>
         <div id="action-sheet-main" class="flex flex-col p-2 pb-6">
-            <!-- Изменен truncate на line-clamp-2 -->
             <div class="px-4 py-2 font-bold text-lg line-clamp-2 break-words border-b border-[var(--md-outline)]/20 mb-2" id="action-sheet-title">Заметка</div>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="pin"><i data-lucide="pin" class="w-5 h-5 text-outline"></i><span id="pin-label">Закрепить</span></button>
             <button class="action-btn flex items-center gap-4 p-4 hover:bg-black/5 rounded-xl" data-action="rename"><i data-lucide="pencil" class="w-5 h-5 text-outline"></i> Переименовать</button>
@@ -607,7 +630,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.17</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.18</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

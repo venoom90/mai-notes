@@ -1,6 +1,6 @@
-// js/app.js — MAi Notes V1.11.17
+// js/app.js — MAi Notes V1.11.18
 // История изменений:
-//  V1.11.17 (23.10.2026): visualViewport теперь добавляет класс .kb-open для управления панелью форматирования.
+//  V1.11.18 (23.10.2026): Добавлены focus/blur обработчики для надежной работы панели форматирования.
 import { state, els } from './state.js';
 import { autoResizeTextarea, autoResizeTitle, syncNoteTags, getNoteById, genId } from './utils.js';
 import { loadFolders, persistFolders, loadNotes, persistNotes, loadFilters, validateFolderRefs, loadSettings, seedDefaultPrompts, loadTombstones } from './storage.js';
@@ -442,7 +442,6 @@ function attachListeners() {
             const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
             document.documentElement.style.setProperty('--kb-height', `${kbHeight}px`);
             
-            // v1.11.17: Управление видимостью панели форматирования
             if (kbHeight > 100) {
                 document.body.classList.add('kb-open');
             } else {
@@ -450,6 +449,18 @@ function attachListeners() {
             }
         });
     }
+
+    // v1.11.18: Надежное управление панелью форматирования
+    els.contentInput.addEventListener('focus', () => {
+        document.body.classList.add('kb-open');
+    });
+    els.contentInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (window.visualViewport && (window.innerHeight - window.visualViewport.height) < 100) {
+                document.body.classList.remove('kb-open');
+            }
+        }, 100);
+    });
 
     window.addEventListener('popstate', (e) => {
         if (els.promptSettingsModal.classList.contains('open')) { closePromptSettings(); history.pushState({ state: 'settings' }, ''); return; }

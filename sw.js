@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.17
+// sw.js — MAi Notes V1.11.18
 // История изменений:
-//  V1.11.17 (23.10.2026): Кэш v60. Обновление из-за фикса "Экселя", панели форматирования и пустот.
-const CACHE_NAME = 'mai-cache-v60';
+//  V1.11.18 (23.10.2026): Кэш v61. Обновление из-за типографики Markdown и фиксов клавиатуры.
+const CACHE_NAME = 'mai-cache-v61';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

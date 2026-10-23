@@ -1,6 +1,6 @@
-// js/utils.js — MAi Notes V1.11.17
+// js/utils.js — MAi Notes V1.11.18
 // История изменений:
-//  V1.11.17 (23.10.2026): autoResizeTextarea больше не ограничивает высоту (фикс "Экселя").
+//  V1.11.18 (23.10.2026): autoResizeTextarea без ограничений высоты (фикс улетания текста).
 import { state } from './state.js';
 
 export function genId() {
@@ -58,11 +58,9 @@ export function notesInFolder(folderId) {
     });
 }
 
-// v1.11.17: Растягиваем textarea на всю высоту контента, убирая внутренний скролл
 export function autoResizeTextarea() {
     const ta = document.getElementById('note-content');
     if (!ta || ta.classList.contains('hidden')) return;
-    
     ta.style.height = 'auto';
     ta.style.height = ta.scrollHeight + 'px';
 }

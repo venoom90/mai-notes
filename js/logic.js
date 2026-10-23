@@ -1,6 +1,6 @@
-// js/logic.js — MAi Notes V1.11.16
+// js/logic.js — MAi Notes V1.11.18
 // История изменений:
-//  V1.11.16 (23.10.2026): toggleFocusMode обновлен для нового CSS. openActionMenu скрывает фокус для промптов.
+//  V1.11.18 (23.10.2026): Добавлен вызов renderSaveStatus при синхронизации для скрытия облака.
 import { state, els, FILTERS_KEY, SYSTEM_PROMPTS_FOLDER_ID } from './state.js';
 import { genId, getNoteById, hasNoteTag, notesInFolder, syncNoteTags, getFolderById, folderNotesCount, autoResizeTitle, collectAllTags, collectAllContexts, generateMarkdown, parseMarkdown, noteTitle, sanitizeFileName, getNoteCreatedAt, formatDateYYYYMMDD, getWeekDates, getPromptByName, getAllPrompts, sortedFolders } from './utils.js';
 import { persistNotes, persistFolders, persistFilters, persistSettings, loadSettings, addTombstone, removeTombstone, isTombstoned } from './storage.js';
@@ -79,6 +79,7 @@ export async function connectVault() {
             await syncVault(true);
             closeSettings();
             renderAll();
+            showSnackbar('Папка подключена и синхронизирована', 'info');
         }
     } catch (e) {
         if (e.name !== 'AbortError') handleFsError(e, 'connectVault');
@@ -182,6 +183,7 @@ export async function syncVault(isNewConnection = false) {
         state.saveStatus = 'saved';
         state.isSyncing = false;
         renderAll();
+        renderSaveStatus(); // Обновляем статус облака
     } catch (e) {
         state.saveStatus = 'error';
         state.isSyncing = false;
@@ -503,7 +505,6 @@ export function openActionMenu(noteId) {
     els.actionSheetTitle.textContent = note.title || 'Без названия';
     els.pinLabel.textContent = note.isPinned ? 'Открепить' : 'Закрепить';
     
-    // Скрываем опции для промптов
     if (note.isPrompt) {
         if (els.btnActionFocus) els.btnActionFocus.style.display = 'none';
     } else {
