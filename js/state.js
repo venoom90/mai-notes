@@ -1,5 +1,6 @@
-// js/state.js — MAi Notes V1.11.5
+// js/state.js — MAi Notes V1.11.15
 // История изменений:
+//  V1.11.15 (23.10.2026): Добавлен els.aiTruncationWarning (фикс P1). Удалены orphaned-ключи btnNavBack/btnNavForward (P2-аудит).
 //  V1.11.5 (22.10.2026): Добавлен state.aiTypewriter для контроля анимации печати.
 //  V1.11.4 (22.10.2026): Добавлены els для M3-диалогов (app-dialog-alert, -confirm, -prompt).
 //  V1.11.3 (22.10.2026): Добавлены tombstones, lastVisibilitySync, TOMBS_KEY.
@@ -134,6 +135,7 @@ export const els = {
     aiLoading: document.getElementById('ai-loading'),
     aiError: document.getElementById('ai-error'),
     aiErrorMsg: document.getElementById('ai-error-msg'),
+    aiTruncationWarning: document.getElementById('ai-truncation-warning'), // v1.11.15
     btnAiRetry: document.getElementById('btn-ai-retry'),
     aiOutputWrapper: document.getElementById('ai-output-wrapper'),
     aiOutput: document.getElementById('ai-output'),
@@ -200,8 +202,7 @@ export const els = {
     btnExportAll: document.getElementById('btn-export-all'),
     btnImportData: document.getElementById('btn-import-data'),
     importFileInput: document.getElementById('import-file-input'),
-    btnNavBack: document.getElementById('btn-nav-back'),
-    btnNavForward: document.getElementById('btn-nav-forward'),
+    // v1.11.15: btnNavBack / btnNavForward удалены (orphaned после V1.11.13)
     btnFocusMode: document.getElementById('btn-focus-mode'),
     btnCloseFocus: document.getElementById('btn-close-focus'),
     outlineContainer: document.getElementById('outline-container'),

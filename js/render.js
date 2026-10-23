@@ -1,5 +1,6 @@
-// js/render.js — MAi Notes V1.11.14
+// js/render.js — MAi Notes V1.11.15
 // История изменений:
+//  V1.11.15 (23.10.2026): Defensive check для aiTruncationWarning. aria-label для кнопок папок/фильтров (A11y).
 //  V1.11.14 (23.10.2026): Исправлен баг с inline-стилями для кнопок хедера (btnPreview, btnDeleteNote).
 //  V1.11.13 (23.10.2026): Добавлена кнопка сброса фильтра в renderFolderView.
 import { state, els, PROMPT_ICON_CHOICES } from './state.js';
@@ -13,7 +14,7 @@ export function renderSidebar() {
         const activeCls = isActive ? 'folder-item-active' : '';
         let actions = '';
         if (!isInbox && isActive) {
-            actions = `<button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="edit"><i data-lucide="pencil" class="w-3.5 h-3.5 text-outline"></i></button><button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="delete"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-outline"></i></button>`;
+            actions = `<button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="edit" aria-label="Редактировать папку"><i data-lucide="pencil" class="w-3.5 h-3.5 text-outline"></i></button><button type="button" class="folder-action-btn w-8 h-8 items-center justify-center rounded-full hover:bg-black/10" data-folder-action="delete" aria-label="Удалить папку"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-outline"></i></button>`;
         }
         return `<div class="folder-item ${activeCls} flex items-center gap-1" data-folder-id="${escapeHtml(folder.id)}"><button type="button" class="folder-select-btn flex-1 flex items-center gap-2 p-2.5 min-h-[44px] text-left" data-folder-select="${escapeHtml(folder.id)}"><i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0 text-outline"></i><span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(folder.name)}</span><span class="folder-count text-xs opacity-60 text-outline">${folderNotesCount(folder.id)}</span></button>${actions}</div>`;
     }).join('');
@@ -45,7 +46,7 @@ export function renderSidebar() {
                     <i data-lucide="filter" class="w-4 h-4 text-outline"></i>
                     <span class="folder-name flex-1 truncate text-sm text-outline">${escapeHtml(f.name)}</span>
                 </button>
-                <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${escapeHtml(f.id)}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-red-500" data-filter-delete="${escapeHtml(f.id)}" aria-label="Удалить фильтр"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>`;
         }).join('');
     }
@@ -665,9 +666,12 @@ export function renderAiPanel() {
         </button>
     `).join('');
 
-    els.aiTruncationWarning.classList.add('hidden');
-    if (state.aiTruncated) {
-        els.aiTruncationWarning.classList.remove('hidden');
+    // v1.11.15: Defensive check — не роняем весь рендер, если элемент отсутствует/переименован
+    if (els.aiTruncationWarning) {
+        els.aiTruncationWarning.classList.add('hidden');
+        if (state.aiTruncated) {
+            els.aiTruncationWarning.classList.remove('hidden');
+        }
     }
 
     els.aiEmpty.classList.add('hidden');
