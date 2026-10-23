@@ -1,8 +1,8 @@
-// js/logger.js — MAi Notes V1.0.1
+// js/logger.js — MAi Notes V1.0.2
 // История изменений:
-//  V1.0.1 (23.10.2026): Добавлено логирование innerText для кнопок без ID.
+//  V1.0.2 (23.10.2026): Увеличен лимит логов до 20000 (по запросу для длинных сессий).
 export const logs = [];
-const MAX_LOGS = 1000;
+const MAX_LOGS = 20000;
 let isEnabled = true;
 
 export function logEvent(type, message, data = {}) {
@@ -47,4 +47,9 @@ export function getLogsString() {
 export function clearLogs() {
     logs.length = 0;
     logEvent('SYS', 'Logs cleared');
+}
+
+export function toggleLogging() {
+    isEnabled = !isEnabled;
+    return isEnabled;
 }

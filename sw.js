@@ -1,7 +1,7 @@
-// sw.js — MAi Notes V1.11.21
+// sw.js — MAi Notes V1.11.22
 // История изменений:
-//  V1.11.21 (23.10.2026): Кэш v64. Обновление из-за фикса клавиатуры Android WebView.
-const CACHE_NAME = 'mai-cache-v64';
+//  V1.11.22 (23.10.2026): Кэш v65. Фикс "эффекта Экселя" (padding/margin) и увеличение лимита логов.
+const CACHE_NAME = 'mai-cache-v65';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon.svg',
   './js/state.js', './js/utils.js', './js/storage.js',

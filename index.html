@@ -42,7 +42,6 @@
         
         .main-scroll-container { overflow-anchor: none; }
 
-        /* Фикс выравнивания: 100% на мобилках, 75ch на десктопе */
         textarea#note-content, .markdown-body {
             width: 100%;
             max-width: 100%;
@@ -56,9 +55,17 @@
             textarea#note-content, .markdown-body { max-width: 75ch; margin-left: auto; margin-right: auto; }
         }
 
+        /* v1.11.22: Фикс эффекта "Экселя". Убираем padding изнутри, переносим наружу */
         textarea#note-content { 
-            resize: none; min-height: 200px; overflow-y: hidden; overflow-x: hidden;
-            word-wrap: break-word; white-space: pre-wrap; line-height: 1.6; font-size: 1rem; padding-bottom: 100px; 
+            resize: none; 
+            overflow-y: hidden; 
+            overflow-x: hidden;
+            word-wrap: break-word; 
+            white-space: pre-wrap; 
+            line-height: 1.6; 
+            font-size: 1rem; 
+            padding: 0; 
+            margin-bottom: 60vh; 
         }
         
         textarea#note-title { resize: none; overflow-y: auto; line-height: 1.2; font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; max-height: 120px; }
@@ -151,7 +158,6 @@
         .bottom-sheet { transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s, visibility 0.3s; bottom: -100%; opacity: 0; visibility: hidden; pointer-events: none; padding-bottom: calc(env(safe-area-inset-bottom) + var(--kb-height, 0px)); will-change: bottom, opacity; }
         .bottom-sheet.open { bottom: calc(var(--kb-height, 0px)); opacity: 1; visibility: visible; pointer-events: auto; }
         
-        /* Панель форматирования привязана к низу экрана (Android WebView сам сжимает окно) */
         #format-toolbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; background: var(--md-surface-variant); border-top: 1px solid var(--md-outline); padding: 8px; display: flex; align-items: center; overflow-x: auto; flex-wrap: nowrap; transition: transform 0.3s, opacity 0.3s; transform: translateY(100%); opacity: 0; pointer-events: none; }
         body.kb-open #format-toolbar.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
         #format-toolbar::-webkit-scrollbar { display: none; }
@@ -619,7 +625,7 @@
             </div>
 
             <div class="text-center mt-2 border-t border-[var(--md-outline)]/20 pt-4">
-                <div class="text-sm font-bold text-primary">MAi Notes V1.11.21</div>
+                <div class="text-sm font-bold text-primary">MAi Notes V1.11.22</div>
                 <div class="text-xs text-outline mt-1">Local-First PWA + Gemini</div>
             </div>
         </div>

@@ -1,6 +1,6 @@
-// js/utils.js — MAi Notes V1.11.19
+// js/utils.js — MAi Notes V1.11.22
 // История изменений:
-//  V1.11.19 (23.10.2026): autoResizeTextarea без ограничений высоты (фикс улетания текста).
+//  V1.11.22 (23.10.2026): Проверка autoResizeTextarea. Строгое выставление высоты без ограничений.
 import { state } from './state.js';
 
 export function genId() {
